@@ -18,7 +18,7 @@ public:
     void setToolRadius(float r) { toolR = (r < 0) ? -r : r; }
     void setComp(CompSide s)
     {
-        comp = s;
+        comp_state = s;
         resetState();
     }
     void setCornerRolling(bool en) { cornerRolling = en; }
@@ -29,7 +29,7 @@ public:
     {
         if (inCount >= IN_CAP)
             return false;
-        in[(inHead + inCount) % IN_CAP] = m;
+        input_buffer[(inHead + inCount) % IN_CAP] = m;
         inCount++;
         return true;
     }
@@ -38,7 +38,7 @@ public:
     void process(bool forceRoll = false)
     {
         // If comp is OFF, just pass through immediately (no delay needed)
-        if (comp == COMP_OFF || toolR < C2D_EPS)
+        if (comp_state == COMP_OFF || toolR < TOL)
         {
             while (inCount > 0)
             {
@@ -61,55 +61,14 @@ public:
                 continue;
 
             Move2D curOff;
-            if (!offsetMove(raw, curOff))
-            {
-                // fallback
-                if (!havePrev)
-                {
-                    prevOff = raw;
-                    havePrev = true;
-                }
-                else
-                {
-                    pushOut(prevOff);
-                    prevOff = raw;
-                }
-                continue;
-            }
+            offsetMove(raw, curOff);
+            pushOut(prevOff);
 
             // Stash "InitialEndPt"
-            curOff.originalEndPt = raw.p1;
-            curOff.originalStartPt = raw.p0;
+            curOff.initialEndPt = raw.p1;
+            curOff.initialStartPt = raw.p0;
 
-            update_dirs(curOff);
-
-            // ---- Special case: absorb tiny line between real features ----
-            if (havePrev && isTinyLine(curOff))
-            {
-                Serial.println("Tiny line detected, applying special handling");
-                // If previous is an ARC, just extend its end to the tiny line end and drop the line.
-                if (prevOff.type == MOT_ARC)
-                {
-                    prevOff.p1 = curOff.p1; // carry endpoint forward (Y0.90 -> Y0.91)
-                    // Keep the roll center semantics consistent: offset endpoint before trim
-                    prevOff.originalEndPt = prevOff.p1;
-                    prevOff.originalStartPt = prevOff.p0;
-                    update_dirs(prevOff);
-                    continue; // DO NOT set prevOff = curOff
-                }
-
-                // If previous is a LINE, same idea (helps LINE -> tiny LINE -> ARC cases too)
-                if (prevOff.type == MOT_LINE)
-                {
-                    prevOff.p1 = curOff.p1;
-                    prevOff.originalEndPt = prevOff.p1;
-                    prevOff.originalStartPt = prevOff.p0;
-                    continue;
-                }
-
-                // Otherwise: drop it
-                continue;
-            }
+            update_vectors(curOff);
 
             if (!havePrev)
             {
@@ -121,8 +80,12 @@ public:
             Move2D inserts[2];
             int insertCount = 0;
 
+            bool canRoll = forceRoll; // no rolling when compong.
+            if (prevOff.compMode == COMP_MODE_IN || curOff.compMode == COMP_MODE_OUT)
+                canRoll = false;
+
             // Apply decision tree between prevOff and curOff
-            applyLogic(prevOff, curOff, forceRoll, inserts, insertCount);
+            applyLogic(prevOff, curOff, canRoll, inserts, insertCount);
 
             // Emit previous + inserts; hold curOff as new prev
             pushOut(prevOff);
@@ -137,13 +100,10 @@ public:
     void flush()
     {
         process(cornerRolling);
-        // if (toolR >= C2D_EPS)
+        if (havePrev && outHasSpace(1))
         {
-            if (havePrev && outHasSpace(1))
-            {
-                pushOut(prevOff);
-                havePrev = false;
-            }
+            pushOut(prevOff);
+            havePrev = false;
         }
     }
 
@@ -151,7 +111,7 @@ public:
     {
         if (outCount == 0)
             return false;
-        m = out[outHead];
+        m = output_buffer[outHead];
         outHead = (outHead + 1) % OUT_CAP;
         outCount--;
         return true;
@@ -159,15 +119,15 @@ public:
 
 private:
     // Ring buffers
-    Move2D in[IN_CAP];
+    Move2D input_buffer[IN_CAP];
     int inHead = 0, inCount = 0;
 
-    Move2D out[OUT_CAP];
+    Move2D output_buffer[OUT_CAP];
     int outHead = 0, outCount = 0;
 
     // Settings
     float toolR = 0.0f;
-    CompSide comp = COMP_OFF;
+    CompSide comp_state = COMP_OFF;
 
     // Delayed output state
     bool havePrev = false;
@@ -179,7 +139,7 @@ private:
 
     Move2D popIn()
     {
-        Move2D m = in[inHead];
+        Move2D m = input_buffer[inHead];
         inHead = (inHead + 1) % IN_CAP;
         inCount--;
         return m;
@@ -187,7 +147,7 @@ private:
 
     void pushOut(const Move2D &m)
     {
-        out[(outHead + outCount) % OUT_CAP] = m;
+        output_buffer[(outHead + outCount) % OUT_CAP] = m;
         outCount++;
     }
 
@@ -205,16 +165,16 @@ private:
     }
     Move2D makeBevel(const Move2D &a, const Move2D &b) const
     {
-        Serial.println("Bevel needed");
+        DBG_PRINTLN("Bevel needed");
         Move2D m;
         m.type = MOT_LINE;
         m.rapid = false;
         m.feed = (a.feed > 0) ? a.feed : b.feed;
         m.p0 = a.p1;
         m.p1 = b.p0;
-        m.originalEndPt = m.p1;
-        m.originalStartPt = m.p0;
-        update_dirs(m);
+        m.initialEndPt = m.p1;
+        m.initialStartPt = m.p0;
+        update_vectors(m);
         return m;
     }
 
@@ -267,7 +227,7 @@ private:
         if (cw == 0)
             return false;
 
-        if (comp == COMP_LEFT)
+        if (comp_state == COMP_LEFT)
         {
             return !(cw > 0);
         }
@@ -291,19 +251,19 @@ private:
     {
         Vec2 v = src.p1 - src.p0;
         float l = len(v);
-        if (l < C2D_EPS)
+        if (l < TOL)
             return false;
         Vec2 u = v * (1.0f / l);
 
-        Vec2 n = (comp == COMP_LEFT) ? leftNormal(u) : rightNormal(u);
+        Vec2 n = (comp_state == COMP_LEFT) ? leftNormal(u) : rightNormal(u);
         Vec2 off = n * toolR;
 
         dst = src;
         dst.type = MOT_LINE;
         dst.p0 = src.p0 + off;
         dst.p1 = src.p1 + off;
-        dst.originalStartPt = dst.p0;
-        dst.originalEndPt = dst.p1;
+        dst.initialStartPt = dst.p0;
+        dst.initialEndPt = dst.p1;
         return true;
     }
 
@@ -311,14 +271,14 @@ private:
     bool offsetArc(const Move2D &src, Move2D &dst)
     {
         float r0 = src.radius;
-        if (r0 < C2D_EPS)
+        if (r0 < TOL)
             r0 = len(src.p0 - src.center);
-        if (r0 < C2D_EPS)
+        if (r0 < TOL)
             return false;
 
         float dr = toolR;
         bool ccw = (src.arcDir == ARC_CCW);
-        bool left = (comp == COMP_LEFT);
+        bool left = (comp_state == COMP_LEFT);
 
         float r1;
         if (ccw)
@@ -326,13 +286,16 @@ private:
         else
             r1 = r0 + (left ? +dr : -dr);
 
-        if (r1 < C2D_EPS)
-            return false;
+        // Keep the rad regardless. If it's negative, the offset will flip to the other side of the center,
+        // which is a valid geometry (though maybe not what you want for a real cutter comp).
+        // The logic later should be able to handle it as long as we keep the direction semantics consistent.
+        // if (r1 < TOL)
+        //     return false; NO, allow negative radius for now and let logic handle it.
 
         Vec2 v0 = src.p0 - src.center;
         Vec2 v1 = src.p1 - src.center;
         float lv0 = len(v0), lv1 = len(v1);
-        if (lv0 < C2D_EPS || lv1 < C2D_EPS)
+        if (lv0 < TOL || lv1 < TOL)
             return false;
 
         dst = src;
@@ -341,14 +304,13 @@ private:
         dst.radius = r1;
         dst.p0 = src.center + v0 * (r1 / lv0);
         dst.p1 = src.center + v1 * (r1 / lv1);
-        dst.originalStartPt = dst.p0;
-        dst.originalEndPt = dst.p1;
+        dst.initialStartPt = dst.p0;
+        dst.initialEndPt = dst.p1;
         return true;
     }
 
-    // ---------- direction/tangent calculation (like VB StartDirection / EndDirection) ----------
     // This function expects you added startDir/endDir fields in Move2D.
-    static inline void update_dirs(Move2D &m)
+    static inline void update_vectors(Move2D &m)
     {
         if (m.type == MOT_LINE)
         {
@@ -523,8 +485,8 @@ private:
             return;
         a.p1 = tip;
         b.p0 = tip;
-        update_dirs(a);
-        update_dirs(b);
+        update_vectors(a);
+        update_vectors(b);
     }
 
     bool extendToFIP(Move2D &a, Move2D &b, Vec2 fip)
@@ -537,8 +499,8 @@ private:
         {
             a.p1 = fip;
             b.p0 = fip;
-            update_dirs(a);
-            update_dirs(b);
+            update_vectors(a);
+            update_vectors(b);
             return true;
         }
         return false;
@@ -552,10 +514,10 @@ private:
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
         roll.p0 = a.p1;
         roll.p1 = b.p0;
-        roll.center = a.originalEndPt;
+        roll.center = a.initialEndPt;
         roll.radius = len(roll.p0 - roll.center);
-        roll.arcDir = (comp == COMP_LEFT) ? ARC_CW : ARC_CCW;
-        update_dirs(roll);
+        roll.arcDir = (comp_state == COMP_LEFT) ? ARC_CW : ARC_CCW;
+        update_vectors(roll);
         return roll;
     }
 
@@ -589,7 +551,7 @@ private:
 
             // Extend/trim:
             a.p1 = ip;
-            update_dirs(a);
+            update_vectors(a);
 
             // Insert extension line from intersection to arc start
             extOut.type = MOT_LINE;
@@ -597,7 +559,7 @@ private:
             extOut.feed = (a.feed > 0) ? a.feed : b.feed;
             extOut.p0 = ip;
             extOut.p1 = b.p0;
-            update_dirs(extOut);
+            update_vectors(extOut);
 
             return true;
         }
@@ -630,7 +592,7 @@ private:
 
             // Trim/extend:
             b.p0 = ip;
-            update_dirs(b);
+            update_vectors(b);
 
             // Insert extension line from arc end to intersection
             extOut.type = MOT_LINE;
@@ -638,7 +600,7 @@ private:
             extOut.feed = (a.feed > 0) ? a.feed : b.feed;
             extOut.p0 = a.p1;
             extOut.p1 = ip;
-            update_dirs(extOut);
+            update_vectors(extOut);
 
             return true;
         }
@@ -649,15 +611,15 @@ private:
     void applyLogic(Move2D &a, Move2D &b, bool forceRoll, Move2D inserts[2], int &insertCount)
     {
         insertCount = 0;
-        update_dirs(a);
-        update_dirs(b);
+        update_vectors(a);
+        update_vectors(b);
 
         // Determine if corner is acute (used in multiple branches, and forces roll if true)
         bool acute = false;
         if (!forceRoll && includedAngleDeg(a.endDir, b.startDir) < cornerAngleToleranceDeg)
             acute = true;
 
-        bool comping = (a.compMode == CM_IN || a.compMode == CM_OUT || b.compMode == CM_IN || b.compMode == CM_OUT);
+        bool comping = (a.compMode == COMP_MODE_IN || a.compMode == COMP_MODE_OUT || b.compMode == COMP_MODE_IN || b.compMode == COMP_MODE_OUT);
 
         if (a.type == MOT_LINE && b.type == MOT_LINE)
         {
@@ -678,8 +640,8 @@ private:
                         Move2D inserts[2], int &insertCount)
     {
         // Keep directions up to date
-        update_dirs(a);
-        update_dirs(b);
+        update_vectors(a);
+        update_vectors(b);
 
         Vec2 ip;
         bool tip = false;
@@ -698,7 +660,7 @@ private:
         float la = len(a.p1 - a.p0);
         float lb = len(b.p1 - b.p0);
 
-        // if (la < C2D_EPS || lb < C2D_EPS)
+        // if (la < TOL || lb < TOL)
         // {
         //     inserts[insertCount++] = makeBevel(a, b);
         //     return;
@@ -727,9 +689,6 @@ private:
                 return;
             }
 
-            // VB: ElseIf TIP then Trim (already handled above)
-
-            // VB: ElseIf comping AndAlso FIP then Extend
             // With transitions comping=true only for CM_IN/CM_OUT. Otherwise do NOT extend.
             if (comping && !far && dirOK)
             {
@@ -758,11 +717,11 @@ private:
         inserts[insertCount++] = makeBevel(a, b);
     }
 
-    void handleArcArc(Move2D &a, Move2D &b, bool acute, bool forceRoll,Move2D inserts[2], int &insertCount)
+    void handleArcArc(Move2D &a, Move2D &b, bool acute, bool forceRoll, Move2D inserts[2], int &insertCount)
     {
-        if (len(a.p1 - b.p0) < TOL || len(a.center - b.center) < TOL)
+        if (nearPt2(a.p1, b.p0) || nearPt2(a.center, b.center))
         {
-            return;
+            return; // connected and concentric arcs are already tangent. No need to roll or trim.
         }
 
         Vec2 p1{}, p2{};
@@ -771,8 +730,7 @@ private:
         if (it == IT_NONE)
         {
             // MUST roll to close gap
-            if (cornerRolling)
-                inserts[insertCount++] = makeRollArc(a, b);
+            inserts[insertCount++] = makeRollArc(a, b);
             return;
         }
 
@@ -836,10 +794,7 @@ private:
 
         if (it == IT_NONE)
         {
-            if (cornerRolling && convex(a, b))
-            {
-                inserts[insertCount++] = makeRollArc(a, b);
-            }
+            inserts[insertCount++] = makeRollArc(a, b);
             return;
         }
 
@@ -859,13 +814,13 @@ private:
                 {
                     // a is arc: extend start of b to a end
                     b.p0 = a.p1;
-                    update_dirs(b);
+                    update_vectors(b);
                 }
                 else
                 {
                     // a is line: extend end of a to b start
                     a.p1 = b.p0;
-                    update_dirs(a);
+                    update_vectors(a);
                 }
             }
             else
@@ -961,9 +916,8 @@ private:
         // ARC-ARC
         if (A.type == MOT_ARC && B.type == MOT_ARC)
         {
-            // VB early-out for chained or concentric arcs (important)
-
-            if (len(A.p1 - B.p0) < TOL || len(A.center - B.center) < TOL)
+            // early-out for chained or concentric arcs (important)
+            if (nearPt2(A.p1, B.p0) || nearPt2(A.center, B.center))
                 return 0;
 
             Vec2 p1{}, p2{};
@@ -997,14 +951,6 @@ private:
         float dist = 0;
     };
 
-    static inline void invalidateRange(Move2D *moves, int i, int j)
-    {
-        for (int k = i + 1; k < j; ++k)
-        {
-            moves[k].valid = false;
-        }
-    }
-
     static CrossingHit lookAheadForCrossing(Move2D *moves, int count,
                                             int srcIdx, int startTargetIdx,
                                             int maxLookahead)
@@ -1037,7 +983,7 @@ private:
             if (n <= 0)
                 continue;
 
-            // VB picks the nearest crossing along src from its start.
+            // picks the nearest crossing along src from its start.
             Vec2 pick = t1;
             float d = distFromStart_along(src, t1);
             if (n == 2)
@@ -1119,16 +1065,14 @@ public:
 
             Move2D &a = moves[i];
             Move2D &b = moves[i + 1];
-
-            if (a.compMode == CM_IN && b.compMode == CM_STEADY)
+   
+            if (a.compMode == COMP_MODE_IN)
             {
-                // Serial.println("Fixing comp IN at seq " + String(a.seqNum));
                 compIn = &a;
                 changed = true;
             }
-            else if (a.compMode == CM_STEADY && b.compMode == CM_OUT)
+            else if (a.compMode == CM_STEADY && b.compMode == COMP_MODE_OUT)
             {
-                // Serial.println("Fixing comp OUT at seq " + String(b.seqNum));
                 compOut = &b;
                 changed = true;
             }
@@ -1137,15 +1081,113 @@ public:
         if (compIn)
         {
             DBG_PRINTLN("Fixing comp IN at seq");
-            compIn->p0 = compIn->originalStartPt;
+            compIn->p0 = compIn->initialStartPt;
         }
 
         if (compOut)
         {
             DBG_PRINTLN("Fixing comp OUT at seq");
-            compOut->p1 = compOut->originalEndPt;
+            compOut->p1 = compOut->initialEndPt;
         }
 
         return changed;
+    }
+
+    static inline bool isMotionValid(const Move2D &m)
+    {
+        return m.valid && m.type != MOT_EMPTY;
+    }
+
+    // colinear test: lines parallel + b.p0 lies on a's infinite line
+    static inline bool lines_colinear(const Move2D &a, const Move2D &b,
+                                      float angleTolDeg, float distTol)
+    {
+        if (a.type != MOT_LINE || b.type != MOT_LINE)
+            return false;
+
+        Vec2 da = a.p1 - a.p0;
+        Vec2 db = b.p1 - b.p0;
+
+        float la = len(da);
+        float lb = len(db);
+        if (la < TOL || lb < TOL)
+            return false;
+
+        Vec2 ua = da * (1.0f / la);
+        Vec2 ub = db * (1.0f / lb);
+
+        // parallel (ignore direction sign)
+        float c = c2d_clamp(dot(ua, ub), -1.0f, 1.0f);
+        float ang = rad2deg(acosf(fabsf(c)));
+        if (ang > angleTolDeg)
+            return false;
+
+        // point-to-line distance: |(p - a0) x ua|
+        float d = fabsf(cross(b.p0 - a.p0, ua));
+        return d <= distTol;
+    }
+
+    static int next_valid_index(const Move2D *moves, int count, int i)
+    {
+        for (int k = i + 1; k < count; ++k)
+        {
+            if (isMotionValid(moves[k]))
+                return k;
+        }
+        return -1;
+    }
+
+    static int first_valid_index(const Move2D *moves, int count)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            if (isMotionValid(moves[i]))
+                return i;
+        }
+        return -1;
+    }
+
+    // Merges adjacent colinear LINE segments in-place by extending the first and invalidating the second.
+    // Returns number of merges performed.
+    int merge_all_colinear(Move2D *moves, int count)
+    {
+        if (count < 2)
+            return 0;
+
+        int merges = 0;
+
+        int ia = first_valid_index(moves, count);
+        if (ia < 0)
+            return 0;
+
+        while (true)
+        {
+            int ib = next_valid_index(moves, count, ia);
+            if (ib < 0)
+                break;
+
+            Move2D &a = moves[ia];
+            Move2D &b = moves[ib];
+
+            // we know they are connected because all invalid motions are skipped,
+            // so just check colinearity and merge if so.
+            if (isColinearWith(a, b))
+            {
+                // Extend a to b end and invalidate b
+                a.p1 = b.p1;
+                a.initialEndPt = a.p1;
+                update_vectors(a);
+
+                b.valid = false;
+                merges++;
+
+                // Stay at same 'a' and try to merge with the next valid again
+                continue;
+            }
+            // Advance
+            ia = ib;
+        }
+
+        return merges;
     }
 };

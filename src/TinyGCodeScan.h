@@ -6,7 +6,7 @@
 struct ScanLine
 {
     //copy of codeline for testing only
-    char raw[160] = {0};
+    //char raw[160] = {0};
     bool hasN = false;
     int32_t N = 0;
 
@@ -147,8 +147,8 @@ static inline void scan_line(const char *line, ScanLine &s)
     const char *p = line;
     
     // Copy raw line for testing only
-    strncpy(s.raw, line, sizeof(s.raw) - 1);
-    s.raw[sizeof(s.raw) - 1] = '\0';
+    //strncpy(s.raw, line, sizeof(s.raw) - 1);
+    //s.raw[sizeof(s.raw) - 1] = '\0';
 
     while (*p)
     {
@@ -231,7 +231,7 @@ static inline bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, Ar
     float r = fabsf(R);
     Vec2 chord = p1 - p0;
     float d = len(chord);
-    if (d < C2D_EPS)
+    if (d < TOL)
         return false;
     if (d > 2.0f * r + 1e-5f)
         return false;
@@ -312,15 +312,16 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &m)
     Move2D out;
     if (s.hasN)
         out.seqNum = s.N;
+
     out.p0 = p0;
     out.p1 = p1;
     out.feed = m.feed;
     out.rapid = (m.motionG == 0);
 
     if (s.sawG41 || s.sawG42)
-        out.compMode = CM_IN;
+        out.compMode = COMP_MODE_IN;
     else if (s.sawG40)
-        out.compMode = CM_OUT;
+        out.compMode = COMP_MODE_OUT;
 
     if (m.motionG == 1)
     {

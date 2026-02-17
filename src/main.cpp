@@ -1,19 +1,19 @@
 #ifdef ARDUINO
-  #include <Arduino.h>
+#include <Arduino.h>
 #else
-  #include "ArduinoCompat.h"
+#include "ArduinoCompat.h"
 #endif
 
 #ifdef ARDUINO
-  #include <Arduino.h>
-  #define DBG_PRINTLN(x) Serial.println(x)
-  #define DBG_PRINT(x) Serial.print(x)
-  #define DBG_PRINT(x, ...) Serial.print(x, ##__VA_ARGS__)
+#include <Arduino.h>
+#define DBG_PRINTLN(x) Serial.println(x)
+#define DBG_PRINT(x) Serial.print(x)
+#define DBG_PRINT(x, ...) Serial.print(x, ##__VA_ARGS__)
 #else
-  #include <cstdio>
-  #define DBG_PRINTLN(x) std::puts(x)
-  #define DBG_PRINT(x) std::printf("%s", x)
-  #define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
+#include <cstdio>
+#define DBG_PRINTLN(x) std::puts(x)
+#define DBG_PRINT(x) std::printf("%s", x)
+#define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
 #endif
 
 #include "TinyGCodeScan.h"
@@ -25,12 +25,9 @@ static constexpr uint32_t BAUD = 115200;
 
 // IMPORTANT: Tool radius must match the units of your G-code.
 static constexpr float TOOL_RADIUS = 0.0625f;
-
-// Toggle compensation on/off for A/B testing
-static constexpr bool ENABLE_COMP = true;
 static constexpr bool ENABLE_ROLL_AROUND = true;
-
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
+static constexpr bool ENABLE_MERGE = true;
 static constexpr int MAX_LOOKAHEAD_FOR_INTERSECTIONS = 25; // MaxLookaheadForIntersections
 static constexpr int MAX_TRIM_PASSES = 6;                  // safety cap
 // ------------------------------------------------
@@ -115,7 +112,7 @@ static void process_one_gcode_line(const char *raw)
   Move2D mv = interpret_to_move(s, modal);
 
   // If this block turns comp ON (G41/G42), enable comp BEFORE processing this move.
-  if (ENABLE_COMP && (s.sawG41 || s.sawG42))
+  if (s.sawG41 || s.sawG42)
   {
     cc.setComp(modal.comp); // modal.comp is now LEFT/RIGHT
   }
@@ -124,7 +121,7 @@ static void process_one_gcode_line(const char *raw)
   if (mv.type == MOT_EMPTY)
   {
     // If someone ever sends G40 on a non-motion line, disable comp here.
-    if (ENABLE_COMP && s.sawG40)
+    if (s.sawG40)
     {
       cc.setComp(COMP_OFF);
       cc.flush();
@@ -141,41 +138,29 @@ static void process_one_gcode_line(const char *raw)
     return;
   }
 
-  // Push either direct or through comp, but ALWAYS store into profile[] for post-pass trimming.
-  if (!ENABLE_COMP)
+  if (!cc.pushIn(mv))
   {
-    if (!profile_push(mv))
+    Serial.println("(comp input buffer full)");
+    return;
+  }
+
+  // Force rolling (VB rollAround => forceRoll). You can change to false later.
+  cc.process(ENABLE_ROLL_AROUND);
+
+  Move2D out;
+  while (cc.popOut(out))
+  {
+    if (!profile_push(out))
     {
       Serial.println("(profile buffer full)");
       return;
     }
   }
-  else
-  {
-    if (!cc.pushIn(mv))
-    {
-      Serial.println("(comp input buffer full)");
-      return;
-    }
-
-    // Force rolling (VB rollAround => forceRoll). You can change to false later.
-    cc.process(ENABLE_ROLL_AROUND);
-
-    Move2D out;
-    while (cc.popOut(out))
-    {
-      if (!profile_push(out))
-      {
-        Serial.println("(profile buffer full)");
-        return;
-      }
-    }
-  }
 
   // If this block turns comp OFF (G40), disable comp AFTER processing this move.
-  if (ENABLE_COMP && s.sawG40)
+  if (s.sawG40)
   {
-    //cc.setComp(COMP_OFF);
+    // cc.setComp(COMP_OFF);
     cc.flush();
 
     Move2D out;
@@ -192,9 +177,6 @@ static void process_one_gcode_line(const char *raw)
 
 static void flush_pipeline()
 {
-  if (!ENABLE_COMP)
-    return;
-
   cc.flush();
   Move2D out;
   while (cc.popOut(out))
@@ -208,27 +190,34 @@ static void flush_pipeline()
 }
 
 // --------------------  post pass: trim crossings --------------------
-static void post_trim_crossings()
+static void post_trim_and_merge()
 {
-  if (!ENABLE_TRIM_CROSSINGS)
-    return;
-
   bool any = false;
-  for (int pass = 0; pass < MAX_TRIM_PASSES; ++pass)
+  if (ENABLE_TRIM_CROSSINGS)
   {
-    bool changed = cc.trimCrossingElements(profile, profileCount, MAX_LOOKAHEAD_FOR_INTERSECTIONS);
-    if (!changed){
-      Serial.println("No crossings found on pass " + String(pass));
-      break;
+
+    for (int pass = 0; pass < MAX_TRIM_PASSES; ++pass)
+    {
+      bool changed = cc.trimCrossingElements(profile, profileCount, MAX_LOOKAHEAD_FOR_INTERSECTIONS);
+      if (!changed)
+      {
+        DBG_PRINTLN("No crossings found on pass " + String(pass));
+        break;
+      }
+      any = true;
     }
-    any = true;
+  }
+
+  if (ENABLE_MERGE)
+  {
+    cc.merge_all_colinear(profile, profileCount);
   }
 
   cc.fixup_comp_in_out(profile, profileCount);
 
   DBG_PRINT("(post-trim crossings: ");
   DBG_PRINT(any ? "YES" : "NO");
-  Serial.println(")");
+  DBG_PRINTLN(")");
 }
 
 // -------------------- Arduino setup/loop --------------------
@@ -241,16 +230,15 @@ void setup()
 
   Serial.println();
   Serial.println("Demo: TinyGCodeScan + CutterComp2D + PostTrimCrossings");
-  DBG_PRINT("Comp: ");
-  Serial.println(ENABLE_COMP ? "ON" : "OFF");
+  
   DBG_PRINT("Fillet: ");
-  Serial.println(ENABLE_ROLL_AROUND ? "ON" : "OFF");
+  DBG_PRINTLN(ENABLE_ROLL_AROUND ? "ON" : "OFF");
   DBG_PRINT("Crossing trim: ");
-  Serial.println(ENABLE_TRIM_CROSSINGS ? "ON" : "OFF");
+  DBG_PRINTLN(ENABLE_TRIM_CROSSINGS ? "ON" : "OFF");
   DBG_PRINT("Tool radius: ");
-  Serial.println(TOOL_RADIUS, 6);
+  DBG_PRINTLN(TOOL_RADIUS, 6);
   DBG_PRINT("Profile buffer cap: ");
-  Serial.println(MAX_PROFILE_MOVES);
+  DBG_PRINTLN(MAX_PROFILE_MOVES);
 
   // Init modal state
   modal = ModalState{};
@@ -278,7 +266,7 @@ void setup()
   flush_pipeline();
 
   // VB-style: remove offset self-crossing loops after full profile is built
-  post_trim_crossings();
+  post_trim_and_merge();
 
   // Emit final profile
   for (int i = 0; i < profileCount; ++i)
