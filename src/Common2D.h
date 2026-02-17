@@ -3,9 +3,7 @@
 #include <stdbool.h>
 #include <math.h>
 
-#ifndef C2D_EPS
-#define C2D_EPS 1e-6f
-#endif
+#define C2D_EPS 0.0001f
 #define TOL 0.0001f
 
 static inline float c2d_sqr(float x) { return x * x; }
@@ -54,8 +52,9 @@ enum CompMode : uint8_t
 enum MotionType : uint8_t
 {
     MOT_EMPTY = 0,
-    MOT_LINE = 1,
-    MOT_ARC = 2
+    MOT_RAPID = 1, // G0
+    MOT_LINE = 2,
+    MOT_ARC = 3
 };
 enum ArcDir : uint8_t
 {
@@ -72,11 +71,12 @@ enum CompSide : int8_t
 struct Move2D
 {
     MotionType type = MOT_EMPTY;
-
+    uint16_t seqNum = 0; // for debugging
     Vec2 p0{0, 0}; // start
     Vec2 p1{0, 0}; // end
     float feed = 0.0f;
     bool rapid = false;
+    bool valid = true; // for output moves, indicates if move is valid (e.g. not a tiny line we want to skip)
     CompMode compMode = CM_STEADY;
 
     // Arc only:
@@ -84,7 +84,8 @@ struct Move2D
     Vec2 center{0, 0};
     float radius = 0.0f;
     // Track original end before any trimming/extension (VB: InitialEndPt)
-    Vec2 initialEndPt{0, 0};
+    Vec2 originalStartPt{0, 0};
+    Vec2 originalEndPt{0, 0};
 
     // Tangent directions (VB: StartDirection/EndDirection)
     Vec2 startDir{0, 0};
@@ -134,5 +135,79 @@ static inline int WindingDirection(Vec2 a, Vec2 b)
     if (z >  C2D_EPS) return +1;
     if (z < -C2D_EPS) return -1;
     return 0;
+}
+
+struct AABB2 {
+  float minx, miny, maxx, maxy;
+};
+
+static inline AABB2 aabb_of(const Move2D& m)
+{
+  AABB2 b;
+  b.minx = fminf(m.p0.x, m.p1.x);
+  b.maxx = fmaxf(m.p0.x, m.p1.x);
+  b.miny = fminf(m.p0.y, m.p1.y);
+  b.maxy = fmaxf(m.p0.y, m.p1.y);
+
+  if (m.type == MOT_ARC) {
+    // conservative arc bounds: include full circle bounds (safe, a bit loose)
+    b.minx = fminf(b.minx, m.center.x - m.radius);
+    b.maxx = fmaxf(b.maxx, m.center.x + m.radius);
+    b.miny = fminf(b.miny, m.center.y - m.radius);
+    b.maxy = fmaxf(b.maxy, m.center.y + m.radius);
+  }
+  return b;
+}
+
+static inline bool aabb_intersects(const AABB2& a, const AABB2& b)
+{
+  return !(a.maxx < b.minx || a.minx > b.maxx || a.maxy < b.miny || a.miny > b.maxy);
+}
+
+static inline float angleNorm(float a)
+{
+  while (a < 0) a += 2.0f * (float)M_PI;
+  while (a >= 2.0f * (float)M_PI) a -= 2.0f * (float)M_PI;
+  return a;
+}
+
+static inline float sweepCCW(float a0, float a1)
+{
+  a0 = angleNorm(a0); a1 = angleNorm(a1);
+  float d = a1 - a0;
+  if (d < 0) d += 2.0f * (float)M_PI;
+  return d;
+}
+
+static inline float sweepCW(float a0, float a1)
+{
+  // CW from a0 to a1 is CCW from a1 to a0
+  return sweepCCW(a1, a0);
+}
+
+// param along LINE (0..1 if on segment)
+static inline float line_t(const Move2D& m, Vec2 p)
+{
+  Vec2 d = m.p1 - m.p0;
+  float L2 = dot(d,d);
+  if (L2 < 1e-12f) return 0.0f;
+  return dot(p - m.p0, d) / L2;
+}
+
+// distance-along-source used for "nearest crossing" selection
+static inline float distFromStart_along(const Move2D& m, Vec2 p)
+{
+  if (m.type == MOT_LINE) {
+    float t = line_t(m, p);
+    t = c2d_clamp(t, 0.0f, 1.0f);
+    return len(m.p1 - m.p0) * t;
+  }
+  if (m.type == MOT_ARC) {
+    float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
+    float ap = atan2f(p.y - m.center.y, p.x - m.center.x);
+    float sw = (m.arcDir == ARC_CCW) ? sweepCCW(a0, ap) : sweepCW(a0, ap);
+    return fabsf(m.radius) * sw;
+  }
+  return 0.0f;
 }
 

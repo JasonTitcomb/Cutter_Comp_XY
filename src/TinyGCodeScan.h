@@ -5,6 +5,8 @@
 // Token scan result for one line
 struct ScanLine
 {
+    //copy of codeline for testing only
+    char raw[160] = {0};
     bool hasN = false;
     int32_t N = 0;
 
@@ -143,6 +145,10 @@ static inline void scan_line(const char *line, ScanLine &s)
 {
     s = ScanLine{}; // reset
     const char *p = line;
+    
+    // Copy raw line for testing only
+    strncpy(s.raw, line, sizeof(s.raw) - 1);
+    s.raw[sizeof(s.raw) - 1] = '\0';
 
     while (*p)
     {
@@ -304,6 +310,8 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &m)
     }
 
     Move2D out;
+    if (s.hasN)
+        out.seqNum = s.N;
     out.p0 = p0;
     out.p1 = p1;
     out.feed = m.feed;
@@ -314,9 +322,16 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &m)
     else if (s.sawG40)
         out.compMode = CM_OUT;
 
-    if (m.motionG == 0 || m.motionG == 1)
+    if (m.motionG == 1)
     {
         out.type = MOT_LINE;
+        m.pos = p1;
+        return out;
+    }
+
+    if (m.motionG == 0)
+    {
+        out.type = MOT_RAPID;
         m.pos = p1;
         return out;
     }

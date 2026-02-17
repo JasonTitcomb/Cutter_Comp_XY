@@ -7,7 +7,7 @@
 const char* const demo_program[] = {
   "O1000",
   "N1 G17 G0 G90 Y0.5 X1.5",
-  "N2 G41 G1 X1.4 Y0.1",
+  "N2 G42 G1 X1.4 Y0.1",
   "N3 X0.75",
   "N4 X0.1",
   "N5 Y0.2",
@@ -40,7 +40,7 @@ const char* const demo_program[] = {
   "N32 X-2.0 Y3.6",
   "N33 Y4.0",
   "N34 G40 X-1.5 Y4.1",
-  "N35 G0 X1.5",
+  "N35 G0X1.5",
   "N36 Y0.5",
   "N37 M30",
 };
