@@ -100,29 +100,37 @@
 <circle cx="-2" cy="0.2" r="0.0044" fill="#1f77b4" />
 <circle cx="-1.5" cy="0.0999999" r="0.0044" fill="#1f77b4" />
 <circle cx="1.5" cy="3.7" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.47024" cy="3.7675" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.44048" cy="3.835" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.41072" cy="3.9025" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.38096" cy="3.97" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.3512" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.3512" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.28767" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.22415" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.16062" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.09709" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.03356" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.970032" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.906504" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.842976" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.779448" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.715919" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.652391" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.588863" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.525335" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.461807" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.398279" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.33475" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.271222" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.48333" cy="3.76667" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.46667" cy="3.83333" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.45" cy="3.9" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.43333" cy="3.96667" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.41667" cy="4.03333" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.4" cy="4.1" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.5" cy="3.7" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.48" cy="3.7675" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.46" cy="3.835" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.44" cy="3.9025" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.42" cy="3.97" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.4" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.4" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.33725" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.27449" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.21174" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.14899" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.08624" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.02348" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.960729" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.897976" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.835223" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.77247" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.709718" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.646965" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.584212" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.521459" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.458706" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.395953" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.3332" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.270447" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
 <circle cx="0.207694" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
 <circle cx="0.207694" cy="4.0375" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
 <circle cx="0.315158" cy="4.01063" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
@@ -561,23 +569,26 @@
 <circle cx="-1.85536" cy="0.474828" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
 <circle cx="-1.9375" cy="0.507685" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
 <circle cx="-1.9375" cy="0.507685" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.9375" cy="0.443573" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.9375" cy="0.379461" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.9375" cy="0.315349" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.9375" cy="0.251237" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.9375" cy="0.251237" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.875" cy="0.229632" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.8125" cy="0.208027" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.75" cy="0.186421" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.6875" cy="0.164816" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.625" cy="0.143211" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="-1.5625" cy="0.121605" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.9375" cy="0.430764" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.9375" cy="0.353842" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.9375" cy="0.276921" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.9375" cy="0.2" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.9375" cy="0.2" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.875" cy="0.185714" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8125" cy="0.171428" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.75" cy="0.157143" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.6875" cy="0.142857" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.625" cy="0.128571" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.5625" cy="0.114286" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
 <circle cx="-1.5" cy="0.0999999" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5,3.7 1.3512,4.0375 " />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5,3.7 1.4,4.1 " />
 <circle cx="1.5" cy="3.7" r="0.0044" fill="#d62728" />
-<circle cx="1.3512" cy="4.0375" r="0.0044" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.3512,4.0375 0.207694,4.0375 " />
-<circle cx="1.3512" cy="4.0375" r="0.0044" fill="#d62728" />
+<circle cx="1.4" cy="4.1" r="0.0044" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5,3.7 1.4,4.0375 " />
+<circle cx="1.5" cy="3.7" r="0.0044" fill="#d62728" />
+<circle cx="1.4" cy="4.0375" r="0.0044" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.4,4.0375 0.207694,4.0375 " />
+<circle cx="1.4" cy="4.0375" r="0.0044" fill="#d62728" />
 <circle cx="0.207694" cy="4.0375" r="0.0044" fill="#d62728" />
 <polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.207694,4.0375 0.315158,4.01063 " />
 <circle cx="0.207694" cy="4.0375" r="0.0044" fill="#d62728" />
@@ -681,10 +692,10 @@
 <polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.77321,0.44197 -1.9375,0.507685 " />
 <circle cx="-1.77321" cy="0.44197" r="0.0044" fill="#d62728" />
 <circle cx="-1.9375" cy="0.507685" r="0.0044" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.9375,0.507685 -1.9375,0.251237 " />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.9375,0.507685 -1.9375,0.2 " />
 <circle cx="-1.9375" cy="0.507685" r="0.0044" fill="#d62728" />
-<circle cx="-1.9375" cy="0.251237" r="0.0044" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.9375,0.251237 -1.5,0.0999999 " />
-<circle cx="-1.9375" cy="0.251237" r="0.0044" fill="#d62728" />
+<circle cx="-1.9375" cy="0.2" r="0.0044" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.9375,0.2 -1.5,0.0999999 " />
+<circle cx="-1.9375" cy="0.2" r="0.0044" fill="#d62728" />
 <circle cx="-1.5" cy="0.0999999" r="0.0044" fill="#d62728" />
 </svg>

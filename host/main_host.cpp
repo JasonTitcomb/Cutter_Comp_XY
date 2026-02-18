@@ -5,8 +5,9 @@
 #include <sstream>
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 
-#define DBG_PRINTLN(x) std::puts(x)
+#define DBG_PRINTLN(x) do { std::cout << (x) << std::endl; } while(0)
 #define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
 
 // If any of your headers include <Arduino.h>, include the compat first and
@@ -67,6 +68,7 @@ static void process_one_gcode_line(const char *raw)
   scan_line(clean, s);
 
   Move2D mv = interpret_to_move(s, modal);
+  
   // copy raw line for testing only
   strncpy(mv.gcode_line, raw, sizeof(mv.gcode_line) - 1);
   mv.gcode_line[sizeof(mv.gcode_line) - 1] = '\0';
@@ -181,8 +183,8 @@ int main()
 
   cc.merge_all_colinear(profile.data(), (int)profile.size());
 
-  // (Optional) later fixup for CM_IN/CM_OUT
-  cc.fixup_comp_in_out(profile.data(), (int)profile.size());
+ // (Optional) later fixup for CM_IN/CM_OUT
+ //cc.fixup_comp_in_out(profile.data(), (int)profile.size());
 
   // Write outputs for testing/visualization
   auto orig = build_original_moves();

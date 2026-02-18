@@ -5,8 +5,6 @@
 // Token scan result for one line
 struct ScanLine
 {
-    //copy of codeline for testing only
-    //char raw[160] = {0};
     bool hasN = false;
     int32_t N = 0;
 
@@ -41,7 +39,6 @@ struct ModalState
     int motionG = 0;     // 0/1/2/3 modal
     CompSide comp = COMP_OFF;
     float feed = 0.0f;
-
     Vec2 pos{0, 0}; // current XY
 };
 
@@ -319,9 +316,9 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &m)
     out.rapid = (m.motionG == 0);
 
     if (s.sawG41 || s.sawG42)
-        out.compMode = COMP_MODE_IN;
+        out.compMode = CM_IN;
     else if (s.sawG40)
-        out.compMode = COMP_MODE_OUT;
+        out.compMode = CM_OUT;
 
     if (m.motionG == 1)
     {

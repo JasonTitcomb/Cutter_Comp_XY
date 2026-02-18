@@ -15,10 +15,13 @@ public:
     static constexpr int IN_CAP = 16;
     static constexpr int OUT_CAP = 32;
 
-    void setToolRadius(float r) { toolR = (r < 0) ? -r : r; }
+    void setToolRadius(float r) { toolR = (r < 0) ? -r : r; toolSign = (r < 0) ? -1 : 1; }
     void setComp(CompSide s)
     {
         comp_state = s;
+        //if the tool dia is given in a negative value, then the sign of the offset is reversed, 
+        //but the comp mode is still IN/OUT. 
+        //So we don't change comp_state here, just track the sign in toolSign and apply it in offsetMove.
         resetState();
     }
     void setCornerRolling(bool en) { cornerRolling = en; }
@@ -37,6 +40,7 @@ public:
     // Main pump
     void process(bool forceRoll = false)
     {
+        //DBG_PRINTLN(inCount);
         // If comp is OFF, just pass through immediately (no delay needed)
         if (comp_state == COMP_OFF || toolR < TOL)
         {
@@ -61,7 +65,8 @@ public:
                 continue;
 
             Move2D curOff;
-            offsetMove(raw, curOff);
+            // if in or out then no offsetting, just pass through with comp mode set for downstream logic and rolling decisions.
+            bool isOffset = offsetMove(raw, curOff);
             pushOut(prevOff);
 
             // Stash "InitialEndPt"
@@ -80,9 +85,19 @@ public:
             Move2D inserts[2];
             int insertCount = 0;
 
+
             bool canRoll = forceRoll; // no rolling when compong.
-            if (prevOff.compMode == COMP_MODE_IN || curOff.compMode == COMP_MODE_OUT)
+            if (prevOff.compMode == CM_IN){
+                //modify the previous move so that the end is the start of the current move,
+                prevOff.p1 = curOff.p0;
                 canRoll = false;
+            }
+
+            if (curOff.compMode == CM_OUT){
+                //modify the G40 start is the end of the previous move,
+                curOff.p0 = prevOff.p1;
+                canRoll = false;
+            }
 
             // Apply decision tree between prevOff and curOff
             applyLogic(prevOff, curOff, canRoll, inserts, insertCount);
@@ -127,6 +142,7 @@ private:
 
     // Settings
     float toolR = 0.0f;
+    int8_t toolSign = 0;
     CompSide comp_state = COMP_OFF;
 
     // Delayed output state
@@ -153,19 +169,9 @@ private:
 
     void resetState() { havePrev = false; }
 
-    static inline float rad2deg(float r) { return r * (180.0f / (float)M_PI); }
-
-    static inline float angleNorm(float a)
+     Move2D makeBevel(const Move2D &a, const Move2D &b) const
     {
-        while (a < 0)
-            a += 2.0f * (float)M_PI;
-        while (a >= 2.0f * (float)M_PI)
-            a -= 2.0f * (float)M_PI;
-        return a;
-    }
-    Move2D makeBevel(const Move2D &a, const Move2D &b) const
-    {
-        DBG_PRINTLN("Bevel needed");
+        //DBG_PRINTLN("Bevel needed");
         Move2D m;
         m.type = MOT_LINE;
         m.rapid = false;
@@ -244,6 +250,7 @@ private:
             return offsetLine(src, dst);
         if (src.type == MOT_ARC)
             return offsetArc(src, dst);
+        
         return false;
     }
 
@@ -255,6 +262,16 @@ private:
             return false;
         Vec2 u = v * (1.0f / l);
 
+        // if comping in or out then offset should be zero.
+        if (src.compMode == CM_IN || src.compMode == CM_OUT)
+        {
+            dst = src;
+            dst.type = MOT_LINE;
+            dst.initialStartPt = dst.p0;
+            dst.initialEndPt = dst.p1;
+            return false;
+        }
+        
         Vec2 n = (comp_state == COMP_LEFT) ? leftNormal(u) : rightNormal(u);
         Vec2 off = n * toolR;
 
@@ -619,7 +636,7 @@ private:
         if (!forceRoll && includedAngleDeg(a.endDir, b.startDir) < cornerAngleToleranceDeg)
             acute = true;
 
-        bool comping = (a.compMode == COMP_MODE_IN || a.compMode == COMP_MODE_OUT || b.compMode == COMP_MODE_IN || b.compMode == COMP_MODE_OUT);
+        bool comping = (a.compMode == CM_IN || a.compMode == CM_OUT || b.compMode == CM_IN || b.compMode == CM_OUT);
 
         if (a.type == MOT_LINE && b.type == MOT_LINE)
         {
@@ -1052,100 +1069,6 @@ public:
         return trimmedAny;
     }
 
-    bool fixup_comp_in_out(Move2D *moves, int count)
-    {
-        bool changed = false;
-        Move2D *compIn = nullptr;
-        Move2D *compOut = nullptr;
-
-        for (int i = 0; i < count - 1; ++i)
-        {
-            if (!moves[i].valid)
-                continue;
-
-            Move2D &a = moves[i];
-            Move2D &b = moves[i + 1];
-   
-            if (a.compMode == COMP_MODE_IN)
-            {
-                compIn = &a;
-                changed = true;
-            }
-            else if (a.compMode == CM_STEADY && b.compMode == COMP_MODE_OUT)
-            {
-                compOut = &b;
-                changed = true;
-            }
-        }
-
-        if (compIn)
-        {
-            DBG_PRINTLN("Fixing comp IN at seq");
-            compIn->p0 = compIn->initialStartPt;
-        }
-
-        if (compOut)
-        {
-            DBG_PRINTLN("Fixing comp OUT at seq");
-            compOut->p1 = compOut->initialEndPt;
-        }
-
-        return changed;
-    }
-
-    static inline bool isMotionValid(const Move2D &m)
-    {
-        return m.valid && m.type != MOT_EMPTY;
-    }
-
-    // colinear test: lines parallel + b.p0 lies on a's infinite line
-    static inline bool lines_colinear(const Move2D &a, const Move2D &b,
-                                      float angleTolDeg, float distTol)
-    {
-        if (a.type != MOT_LINE || b.type != MOT_LINE)
-            return false;
-
-        Vec2 da = a.p1 - a.p0;
-        Vec2 db = b.p1 - b.p0;
-
-        float la = len(da);
-        float lb = len(db);
-        if (la < TOL || lb < TOL)
-            return false;
-
-        Vec2 ua = da * (1.0f / la);
-        Vec2 ub = db * (1.0f / lb);
-
-        // parallel (ignore direction sign)
-        float c = c2d_clamp(dot(ua, ub), -1.0f, 1.0f);
-        float ang = rad2deg(acosf(fabsf(c)));
-        if (ang > angleTolDeg)
-            return false;
-
-        // point-to-line distance: |(p - a0) x ua|
-        float d = fabsf(cross(b.p0 - a.p0, ua));
-        return d <= distTol;
-    }
-
-    static int next_valid_index(const Move2D *moves, int count, int i)
-    {
-        for (int k = i + 1; k < count; ++k)
-        {
-            if (isMotionValid(moves[k]))
-                return k;
-        }
-        return -1;
-    }
-
-    static int first_valid_index(const Move2D *moves, int count)
-    {
-        for (int i = 0; i < count; ++i)
-        {
-            if (isMotionValid(moves[i]))
-                return i;
-        }
-        return -1;
-    }
 
     // Merges adjacent colinear LINE segments in-place by extending the first and invalidating the second.
     // Returns number of merges performed.

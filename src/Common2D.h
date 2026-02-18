@@ -44,8 +44,8 @@ static inline Vec2 rightNormal(const Vec2 &v) { return {v.y, -v.x}; }
 enum CompMode : uint8_t
 {
   CM_STEADY = 0,
-  COMP_MODE_IN = 1, 
-  COMP_MODE_OUT = 2 
+  CM_IN = 1, 
+  CM_OUT = 2 
 };
 
 enum MotionType : uint8_t
@@ -280,6 +280,11 @@ static inline bool isColinearWith(const Move2D &a, const Move2D &b)
   return false;
 }
 
+
+   static inline float rad2deg(float r) { return r * (180.0f / (float)M_PI); }
+
+ 
+
 static int next_valid_index(const Move2D* moves, int count, int i)
 {
     for (int k = i + 1; k < count; ++k) {
@@ -295,4 +300,37 @@ static int first_valid_index(const Move2D* moves, int count)
     }
     return -1;
 }
+
+
+     // colinear test: lines parallel + b.p0 lies on a's infinite line
+    static inline bool lines_colinear(const Move2D &a, const Move2D &b,
+                                      float angleTolDeg, float distTol)
+    {
+        if (a.type != MOT_LINE || b.type != MOT_LINE)
+            return false;
+
+        Vec2 da = a.p1 - a.p0;
+        Vec2 db = b.p1 - b.p0;
+
+        float la = len(da);
+        float lb = len(db);
+        if (la < TOL || lb < TOL)
+            return false;
+
+        Vec2 ua = da * (1.0f / la);
+        Vec2 ub = db * (1.0f / lb);
+
+        // parallel (ignore direction sign)
+        float c = c2d_clamp(dot(ua, ub), -1.0f, 1.0f);
+        float ang = rad2deg(acosf(fabsf(c)));
+        if (ang > angleTolDeg)
+            return false;
+
+        // point-to-line distance: |(p - a0) x ua|
+        float d = fabsf(cross(b.p0 - a.p0, ua));
+        return d <= distTol;
+    }
+
+
+
 
