@@ -29,6 +29,12 @@ struct ScanLine
     bool sawG41 = false;
     bool sawG42 = false;
     bool sawG40 = false;
+    
+    // Motion mode tracking
+    bool sawG0 = false;
+    bool sawG1 = false;
+    bool sawG2 = false;
+    bool sawG3 = false;
 };
 
 // Minimal modal state
@@ -143,10 +149,6 @@ static inline void scan_line(const char *line, ScanLine &s)
     s = ScanLine{}; // reset
     const char *p = line;
     
-    // Copy raw line for testing only
-    //strncpy(s.raw, line, sizeof(s.raw) - 1);
-    //s.raw[sizeof(s.raw) - 1] = '\0';
-
     while (*p)
     {
         p = skip_ws(p);
@@ -166,6 +168,14 @@ static inline void scan_line(const char *line, ScanLine &s)
             {
                 s.hasG = true;
                 p = parse_int(p, s.G);
+                if (s.G == 0)
+                    s.sawG0 = true;
+                if (s.G == 1)
+                    s.sawG1 = true;
+                if (s.G == 2)
+                    s.sawG2 = true;
+                if (s.G == 3)
+                    s.sawG3 = true;
                 if (s.G == 17)
                     s.sawG17 = true;
                 if (s.G == 90)
@@ -279,11 +289,14 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &m)
         m.feed = s.F;
 
     // Update motion mode if explicitly provided
-    if (s.hasG)
-    {
-        if (s.G == 0 || s.G == 1 || s.G == 2 || s.G == 3)
-            m.motionG = s.G;
-    }
+    if (s.sawG0)
+        m.motionG = 0;
+    else if (s.sawG1)
+        m.motionG = 1;
+    else if (s.sawG2)
+        m.motionG = 2;
+    else if (s.sawG3)
+        m.motionG = 3;
 
     // Absolute XY only (tiny subset)
     Vec2 p0 = m.pos;

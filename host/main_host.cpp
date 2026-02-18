@@ -7,7 +7,11 @@
 #include <cmath>
 #include <iostream>
 
-#define DBG_PRINTLN(x) do { std::cout << (x) << std::endl; } while(0)
+#define DBG_PRINTLN(x)             \
+  do                               \
+  {                                \
+    std::cout << (x) << std::endl; \
+  } while (0)
 #define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
 
 // If any of your headers include <Arduino.h>, include the compat first and
@@ -42,14 +46,19 @@ static CutterComp2D cc;
 
 // -------------------- Profile buffer --------------------
 static std::vector<Move2D> profile;
-
-static void profile_reset() { profile.clear(); }
+static int profileCount = 0;
+static void profile_reset()
+{
+  profile.clear();
+  profileCount = 0;
+}
 
 static void profile_push(const Move2D &m)
 {
   Move2D t = m;
   t.valid = true;
   profile.push_back(t);
+  profileCount++;
 }
 
 // -------------------- Pipeline --------------------
@@ -68,14 +77,14 @@ static void process_one_gcode_line(const char *raw)
   scan_line(clean, s);
 
   Move2D mv = interpret_to_move(s, modal);
-  
+
   // copy raw line for testing only
   strncpy(mv.gcode_line, raw, sizeof(mv.gcode_line) - 1);
   mv.gcode_line[sizeof(mv.gcode_line) - 1] = '\0';
 
   if (mv.type == MOT_RAPID)
   {
-    return; // should never have rapid moves in the input.
+    // return; // should never have rapid moves in the input.
   }
 
   if ((s.sawG41 || s.sawG42))
@@ -114,9 +123,36 @@ static void flush_pipeline()
   while (cc.popOut(out))
     profile_push(out);
 }
+static std::vector<std::string> load_program_from_file(const char *path)
+{
+  std::ifstream in(path);
+  if (!in)
+  {
+    std::fprintf(stderr, "Failed to open input file: %s\n", path);
+    return {};
+  }
 
-// Build a simple "original moves" list (no comp) for overlay.
-static std::vector<Move2D> build_original_moves()
+  std::vector<std::string> lines;
+  std::string line;
+  while (std::getline(in, line))
+  {
+    if (!line.empty() && line.back() == '\r')
+      line.pop_back();
+    lines.push_back(line);
+  }
+  return lines;
+}
+
+static std::vector<std::string> load_program_from_demo()
+{
+  std::vector<std::string> lines;
+  const int count = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
+  lines.reserve(count);
+  for (int i = 0; i < count; ++i)
+    lines.emplace_back(demo_program[i]);
+  return lines;
+}
+static std::vector<Move2D> build_original_moves(const std::vector<std::string> &program)
 {
   std::vector<Move2D> orig;
   ModalState m{};
@@ -127,11 +163,10 @@ static std::vector<Move2D> build_original_moves()
   m.feed = 0;
   m.pos = v2(0, 0);
 
-  const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
-  for (int i = 0; i < lines; ++i)
+  for (const auto &line : program)
   {
     char clean[160];
-    strip_comments(demo_program[i], clean, sizeof(clean));
+    strip_comments(line.c_str(), clean, sizeof(clean));
     ScanLine s;
     scan_line(clean, s);
     Move2D mv = interpret_to_move(s, m);
@@ -146,6 +181,14 @@ static std::vector<Move2D> build_original_moves()
 
 int main()
 {
+  const char *default_file = "../../data/RapidComp.nc";
+  // const char *default_file = "../../data/G41_1.nc";
+  std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
+  // std::vector<std::string> program = load_program_from_demo();
+
+  if (program.empty())
+    return 1;
+
   // Init modal
   modal = ModalState{};
   modal.planeXY = true;
@@ -162,10 +205,10 @@ int main()
 
   profile_reset();
 
-  const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
+  const int lines = (int)program.size();
   for (int i = 0; i < lines; ++i)
   {
-    process_one_gcode_line(demo_program[i]);
+    process_one_gcode_line(program[i].c_str());
   }
   flush_pipeline();
 
@@ -174,8 +217,7 @@ int main()
   {
     for (int pass = 0; pass < MAX_TRIM_PASSES; ++pass)
     {
-      bool changed = cc.trimCrossingElements(profile.data(), (int)profile.size(),
-                                             MAX_LOOKAHEAD_FOR_INTERSECTIONS);
+      bool changed = cc.trimCrossingElements(profile.data(), (int)profile.size(),MAX_LOOKAHEAD_FOR_INTERSECTIONS);
       if (!changed)
         break;
     }
@@ -183,11 +225,9 @@ int main()
 
   cc.merge_all_colinear(profile.data(), (int)profile.size());
 
- // (Optional) later fixup for CM_IN/CM_OUT
- //cc.fixup_comp_in_out(profile.data(), (int)profile.size());
-
   // Write outputs for testing/visualization
-  auto orig = build_original_moves();
+  auto orig = build_original_moves(program);
+
   write_svg("out.svg", profile, &orig, false, true, TOOL_RADIUS * 2.0f); // mirror for better visualization
   write_gcode("out.ngc", profile);
 

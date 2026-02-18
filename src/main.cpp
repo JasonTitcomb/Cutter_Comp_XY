@@ -213,8 +213,7 @@ static void post_trim_and_merge()
     cc.merge_all_colinear(profile, profileCount);
   }
 
-  cc.fixup_comp_in_out(profile, profileCount);
-
+  
   DBG_PRINT("(post-trim crossings: ");
   DBG_PRINT(any ? "YES" : "NO");
   DBG_PRINTLN(")");
@@ -236,7 +235,7 @@ void setup()
   DBG_PRINT("Crossing trim: ");
   DBG_PRINTLN(ENABLE_TRIM_CROSSINGS ? "ON" : "OFF");
   DBG_PRINT("Tool radius: ");
-  DBG_PRINTLN(TOOL_RADIUS, 6);
+  DBG_PRINTLN(TOOL_RADIUS);
   DBG_PRINT("Profile buffer cap: ");
   DBG_PRINTLN(MAX_PROFILE_MOVES);
 

@@ -15,13 +15,17 @@ public:
     static constexpr int IN_CAP = 16;
     static constexpr int OUT_CAP = 32;
 
-    void setToolRadius(float r) { toolR = (r < 0) ? -r : r; toolSign = (r < 0) ? -1 : 1; }
+    void setToolRadius(float r)
+    {
+        toolR = (r < 0) ? -r : r;
+        toolSign = (r < 0) ? -1 : 1;
+    }
     void setComp(CompSide s)
     {
         comp_state = s;
-        //if the tool dia is given in a negative value, then the sign of the offset is reversed, 
-        //but the comp mode is still IN/OUT. 
-        //So we don't change comp_state here, just track the sign in toolSign and apply it in offsetMove.
+        // if the tool dia is given in a negative value, then the sign of the offset is reversed,
+        // but the comp mode is still IN/OUT.
+        // So we don't change comp_state here, just track the sign in toolSign and apply it in offsetMove.
         resetState();
     }
     void setCornerRolling(bool en) { cornerRolling = en; }
@@ -40,8 +44,8 @@ public:
     // Main pump
     void process(bool forceRoll = false)
     {
-        //DBG_PRINTLN(inCount);
-        // If comp is OFF, just pass through immediately (no delay needed)
+        // DBG_PRINTLN(inCount);
+        //  If comp is OFF, just pass through immediately (no delay needed)
         if (comp_state == COMP_OFF || toolR < TOL)
         {
             while (inCount > 0)
@@ -67,7 +71,7 @@ public:
             Move2D curOff;
             // if in or out then no offsetting, just pass through with comp mode set for downstream logic and rolling decisions.
             bool isOffset = offsetMove(raw, curOff);
-            pushOut(prevOff);
+            // REMOVED: pushOut(prevOff);  // DON'T PUSH HERE!
 
             // Stash "InitialEndPt"
             curOff.initialEndPt = raw.p1;
@@ -85,16 +89,17 @@ public:
             Move2D inserts[2];
             int insertCount = 0;
 
-
             bool canRoll = forceRoll; // no rolling when compong.
-            if (prevOff.compMode == CM_IN){
-                //modify the previous move so that the end is the start of the current move,
+            if (prevOff.compMode == CM_IN)
+            {
+                // modify the previous move so that the end is the start of the current move,
                 prevOff.p1 = curOff.p0;
                 canRoll = false;
             }
 
-            if (curOff.compMode == CM_OUT){
-                //modify the G40 start is the end of the previous move,
+            if (curOff.compMode == CM_OUT)
+            {
+                // modify the G40 start is the end of the previous move,
                 curOff.p0 = prevOff.p1;
                 canRoll = false;
             }
@@ -169,9 +174,9 @@ private:
 
     void resetState() { havePrev = false; }
 
-     Move2D makeBevel(const Move2D &a, const Move2D &b) const
+    Move2D makeBevel(const Move2D &a, const Move2D &b) const
     {
-        //DBG_PRINTLN("Bevel needed");
+        // DBG_PRINTLN("Bevel needed");
         Move2D m;
         m.type = MOT_LINE;
         m.rapid = false;
@@ -233,7 +238,12 @@ private:
         if (cw == 0)
             return false;
 
-        if (comp_state == COMP_LEFT)
+        // Apply toolSign flip
+        bool isLeft = (comp_state == COMP_LEFT);
+        if (toolSign < 0)
+            isLeft = !isLeft;
+
+        if (isLeft)
         {
             return !(cw > 0);
         }
@@ -246,11 +256,11 @@ private:
     // ---------- offset primitives ----------
     bool offsetMove(const Move2D &src, Move2D &dst)
     {
-        if (src.type == MOT_LINE)
+        if (src.type == MOT_LINE || src.type == MOT_RAPID)
             return offsetLine(src, dst);
         if (src.type == MOT_ARC)
             return offsetArc(src, dst);
-        
+
         return false;
     }
 
@@ -271,12 +281,17 @@ private:
             dst.initialEndPt = dst.p1;
             return false;
         }
-        
-        Vec2 n = (comp_state == COMP_LEFT) ? leftNormal(u) : rightNormal(u);
+ 
+        // Apply toolSign to flip the offset direction if negative tool radius
+        bool useLeft = (comp_state == COMP_LEFT);
+        if (toolSign < 0)
+            useLeft = !useLeft;
+
+        Vec2 n = useLeft ? leftNormal(u) : rightNormal(u);
         Vec2 off = n * toolR;
 
         dst = src;
-        dst.type = MOT_LINE;
+        dst.type = src.type; // keep rapid vs feed
         dst.p0 = src.p0 + off;
         dst.p1 = src.p1 + off;
         dst.initialStartPt = dst.p0;
@@ -295,7 +310,10 @@ private:
 
         float dr = toolR;
         bool ccw = (src.arcDir == ARC_CCW);
+        // Apply toolSign to flip the offset side if negative tool radius
         bool left = (comp_state == COMP_LEFT);
+        if (toolSign < 0)
+            left = !left;
 
         float r1;
         if (ccw)
@@ -455,37 +473,48 @@ private:
         return IT_INTERSECT;
     }
 
-    static IntersectType intersectLineCircle(Vec2 a, Vec2 b, Vec2 c, float r, Vec2 &p1, Vec2 &p2, int &count)
+    static IntersectType intersectLineCircle(Vec2 a, Vec2 b, Vec2 c, float r,
+                                             Vec2 &p1, Vec2 &p2, int &count)
     {
-        // Infinite line through a->b
         Vec2 d = b - a;
-        float L2 = dot(d, d);
+        float dd = dot(d, d);
         count = 0;
-        if (L2 < TOL)
-            return IT_NONE;
+        if (dd < 1e-20f)
+            return IT_NONE; // degenerate
 
+        // Closest point from center to the infinite line
         Vec2 f = a - c;
+        float t0 = -dot(f, d) / dd;
+        Vec2 q = a + d * t0;
 
-        float A = dot(d, d);
-        float B = 2.0f * dot(f, d);
-        float C = dot(f, f) - r * r;
+        // distance^2 from center to line
+        Vec2 qc = q - c;
+        float dist2 = dot(qc, qc);
 
-        float disc = B * B - 4 * A * C;
-        if (disc < -TOL)
+        float r2 = r * r;
+
+        // tolerance in inches:
+        const float eps = 1e-5f; // 0.00001"
+        const float eps2 = eps * eps;
+
+        float h2 = r2 - dist2;
+
+        if (h2 < -eps2)
             return IT_NONE;
-        if (fabsf(disc) < TOL)
+
+        if (fabsf(h2) <= eps2)
         {
-            float t = -B / (2 * A);
-            p1 = a + d * t;
+            p1 = q;
             count = 1;
             return IT_TANGENT;
         }
 
-        float sdisc = sqrtf(fmaxf(0.0f, disc));
-        float t1 = (-B + sdisc) / (2 * A);
-        float t2 = (-B - sdisc) / (2 * A);
-        p1 = a + d * t1;
-        p2 = a + d * t2;
+        float h = sqrtf(h2);
+        float invLen = 1.0f / sqrtf(dd);
+        Vec2 u = d * invLen;
+
+        p1 = q - u * h;
+        p2 = q + u * h;
         count = 2;
         return IT_INTERSECT;
     }
@@ -528,12 +557,22 @@ private:
         Move2D roll;
         roll.type = MOT_ARC;
         roll.rapid = false;
+        roll.compMode = CM_STEADY;
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
         roll.p0 = a.p1;
         roll.p1 = b.p0;
         roll.center = a.initialEndPt;
         roll.radius = len(roll.p0 - roll.center);
-        roll.arcDir = (comp_state == COMP_LEFT) ? ARC_CW : ARC_CCW;
+
+        // Apply toolSign flip to arc direction
+        bool useLeft = (comp_state == COMP_LEFT);
+        if (toolSign < 0)
+            useLeft = !useLeft;
+
+        roll.arcDir = useLeft ? ARC_CW : ARC_CCW;
+        roll.initialStartPt = roll.p0; // Add this
+        roll.initialEndPt = roll.p1;   // Add this
+        roll.valid = true;
         update_vectors(roll);
         return roll;
     }
@@ -674,8 +713,8 @@ private:
         }
 
         // Compute "far FIP" metrics (used in multiple branches)
-        float la = len(a.p1 - a.p0);
-        float lb = len(b.p1 - b.p0);
+        // float la = len(a.p1 - a.p0);
+        // float lb = len(b.p1 - b.p0);
 
         // if (la < TOL || lb < TOL)
         // {
@@ -683,14 +722,14 @@ private:
         //     return;
         // }
 
-        float da = len(ip - a.p1);
-        float db = len(ip - b.p0);
+        // float da = len(ip - a.p1);
+        // float db = len(ip - b.p0);
 
         // Reject far intersections (prevents diagonal spikes across sawteeth)
-        const float FAR = 1.35f; // tune 1.1..2.0
-        bool far = (da > FAR * la) || (db > FAR * lb);
+        // const float FAR = 1.35f; // tune 1.1..2.0
+        // bool far = false;//(da > FAR * la) || (db > FAR * lb);
 
-        // VB-style direction gate (same condition used inside ExtendToCommonFIP)
+        // direction gate (same condition used inside ExtendToCommonFIP)
         float fipDir1 = dot(ip - a.p1, a.endDir);
         float fipDir2 = dot(ip - b.p0, b.startDir);
         bool dirOK = (fipDir1 > 0 && fipDir2 < 0);
@@ -698,8 +737,7 @@ private:
         // 2) Roll path: (acute OR forceRoll)
         if (acute || forceRoll)
         {
-
-            // VB: If Convex then InsertArcBetweenElements
+            // If Convex then InsertArcBetweenElements
             if (convex(a, b))
             {
                 inserts[insertCount++] = makeRollArc(a, b);
@@ -707,7 +745,7 @@ private:
             }
 
             // With transitions comping=true only for CM_IN/CM_OUT. Otherwise do NOT extend.
-            if (comping && !far && dirOK)
+            if (comping && dirOK)
             {
                 if (extendToFIP(a, b, ip))
                 {
@@ -720,9 +758,8 @@ private:
             return;
         }
 
-        // 3) Non-roll path (normal VB behavior):
-        // We still apply far/dir gating to avoid ugly diagonals in C++.
-        if (!far && dirOK)
+        // 3) Non-roll path:
+        if (dirOK)
         {
             if (extendToFIP(a, b, ip))
             {
@@ -968,9 +1005,7 @@ private:
         float dist = 0;
     };
 
-    static CrossingHit lookAheadForCrossing(Move2D *moves, int count,
-                                            int srcIdx, int startTargetIdx,
-                                            int maxLookahead)
+    static CrossingHit lookAheadForCrossing(Move2D *moves, int numMoves, int srcIdx, int startTargetIdx, int maxLookahead)
     {
         CrossingHit best;
         best.hit = false;
@@ -978,25 +1013,27 @@ private:
 
         if (!moves[srcIdx].valid)
             return best;
-        const Move2D &src = moves[srcIdx];
+
+        Move2D &src = moves[srcIdx];
         AABB2 srcBox = aabb_of(src);
 
-        int j = startTargetIdx;
-        for (int r = 0; r <= maxLookahead && j < count; ++r, ++j)
+        int j = startTargetIdx + 1; // start looking from the element after the immediate neighbor
+        for (int r = 0; r <= maxLookahead && j < numMoves; ++r, ++j)
         {
-            if (!moves[j].valid)
+            Move2D &target = moves[j];
+            if (!target.valid)
                 continue;
 
             // Skip immediate neighbor to avoid trimming the normal shared endpoint
-            if (j == srcIdx + 1)
+            if (j < srcIdx + 2)
                 continue;
 
-            AABB2 tgtBox = aabb_of(moves[j]);
+            AABB2 tgtBox = aabb_of(target);
             if (!aabb_intersects(srcBox, tgtBox))
                 continue;
 
             Vec2 t1, t2;
-            int n = commonTIP_any(src, moves[j], t1, t2);
+            int n = commonTIP_any(src, target, t1, t2);
             if (n <= 0)
                 continue;
 
@@ -1026,49 +1063,85 @@ private:
     }
 
 public:
-    bool trimCrossingElements(Move2D *moves, int count, int maxLookahead)
+    bool trimCrossingElements(Move2D *moves, int numMoves, int maxLookahead)
     {
+        int src = 1; // skip the first element since it has no previous neighbor to cross with
+
+        int firstIdx = first_cutting_move(moves, numMoves);
+        if (firstIdx < 0)
+            return false;
+
+        int lastIdx = last_cutting_move(moves, numMoves);
+        if (lastIdx < 0 || lastIdx <= firstIdx)
+            return false;
+
+        // if the first cutting move and the last cutting move cross
+        // we have a bowtie shape that cannot be resolved by trimming,
+        Vec2 tip1, tip2;
+        // test for crossing between first and last cutting moves, but only if they are not adjacent (to avoid trivial shared endpoint case)
+        if (lastIdx > firstIdx + 1)
+        {
+            if (commonTIP_any(moves[firstIdx], moves[lastIdx], tip1, tip2) > 0)
+            {
+                // found a crossing between first and last cutting moves.
+                // This is a known edge case (bowtie shape) that can occur in complex toolpaths.
+
+                if (lastIdx - firstIdx > 2)
+                {
+                    // If there are more elements beyond the crossing, we can skip trimming the first crossing and start processing from the element after the first cutting move.
+                    // This allows us to still trim any other crossings that may exist in the middle of the path, while avoiding the unresolvable bowtie crossing at the end.
+                    // Note: this means we will leave the bowtie crossing untrimmed, but at least we can clean up any other crossings in the middle of the path.
+                    src = firstIdx + 1; // start src from the element after the first cutting move to continue processing any other crossings that may exist in the middle of the path.
+                    numMoves--;         // effectively exclude the last element from processing since we know it crosses with the first and we are skipping trimming in this case.
+                }
+                else
+                {
+                    return false; // no other crossings to trim and we can just return.
+                }
+            }
+        }
+
         bool trimmedAny = false;
 
-        int src = 1; // skip the first element since it has no previous neighbor to cross with
-        while (src < count)
+        while (src < numMoves)
         {
 
-            while (src < count && !moves[src].valid)
+            // do not trim comp in elements since they are already "offset" and thus less likely to have true crossings that need trimming.
+            while (src < numMoves && (!moves[src].valid || moves[src].compMode == CM_IN))
                 src++;
-            if (src >= count)
+
+            if (src >= numMoves)
                 break;
 
             int target = src + 1;
-            while (target < count && !moves[target].valid)
+            while (target < numMoves && !moves[target].valid)
                 target++;
-            if (target >= count)
+            if (target >= numMoves)
                 break;
 
-            CrossingHit hit = lookAheadForCrossing(moves, count, src, target, maxLookahead);
-            if (!hit.hit)
+            CrossingHit crossing = lookAheadForCrossing(moves, numMoves, src, target, maxLookahead);
+            if (!crossing.hit)
             {
                 src++;
                 continue;
             }
 
-            int j = hit.j;
+            int j = crossing.j;
 
             // Re-calc is not needed here because our geometry isn't mutating intersection cache like VB;
             // but if you later add caching, this is where you'd "recalc".
 
-            trimToTIP(moves[src], moves[j], hit.tip);
+            trimToTIP(moves[src], moves[j], crossing.tip);
             invalidateRange(moves, src, j);
 
             trimmedAny = true;
 
-            // VB: trimmedTo becomes new srcElement
+            // trimmedTo becomes new srcElement
             src = j;
         }
 
         return trimmedAny;
     }
-
 
     // Merges adjacent colinear LINE segments in-place by extending the first and invalidating the second.
     // Returns number of merges performed.
