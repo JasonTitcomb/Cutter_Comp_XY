@@ -62,7 +62,7 @@ static void emit_move_as_gcode(const Move2D &m)
   {
     DBG_PRINT("N");
     DBG_PRINT(m.seqNum);
-    DBG_PRINT(m.rapid ? " G0" : " G1");
+    DBG_PRINT(m.type == MOT_RAPID ? " G0" : " G1");
     DBG_PRINT(" X");
     DBG_PRINT(m.p1.x, 4);
     DBG_PRINT(" Y");

@@ -33,7 +33,7 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr float TOOL_RADIUS = 0.05f;
 static constexpr bool ENABLE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
 
@@ -82,16 +82,17 @@ static void process_one_gcode_line(const char *raw)
   strncpy(mv.gcode_line, raw, sizeof(mv.gcode_line) - 1);
   mv.gcode_line[sizeof(mv.gcode_line) - 1] = '\0';
 
-  if (mv.type == MOT_RAPID)
-  {
-    // return; // should never have rapid moves in the input.
-  }
-
   if ((s.sawG41 || s.sawG42))
   {
     // comp mode is now LEFT/RIGHT; set in cutter comp BEFORE processing this move.
     cc.setComp(modal.comp);
   }
+
+  if (mv.compMode == CM_STEADY && mv.type == MOT_RAPID)
+  {
+    return; // should never have rapid moves in the cutter compensation steady mode.
+  }
+
 
   if (!cc.pushIn(mv))
   {
@@ -143,15 +144,7 @@ static std::vector<std::string> load_program_from_file(const char *path)
   return lines;
 }
 
-static std::vector<std::string> load_program_from_demo()
-{
-  std::vector<std::string> lines;
-  const int count = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
-  lines.reserve(count);
-  for (int i = 0; i < count; ++i)
-    lines.emplace_back(demo_program[i]);
-  return lines;
-}
+
 static std::vector<Move2D> build_original_moves(const std::vector<std::string> &program)
 {
   std::vector<Move2D> orig;
@@ -181,8 +174,8 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
 
 int main()
 {
-  const char *default_file = "../../data/RapidComp.nc";
-  // const char *default_file = "../../data/G41_1.nc";
+  //const char *default_file = "../../data/RapidComp.nc";
+  const char *default_file = "../../data/G41_2.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 
@@ -222,6 +215,25 @@ int main()
         break;
     }
   }
+
+
+
+// Debug: show all moves in profile
+for (size_t i = 0; i < profile.size(); i++) {
+    const auto& m = profile[i];
+    if (!m.valid) continue;
+    const char* typeStr = (m.type == MOT_LINE) ? "LINE" : 
+                          (m.type == MOT_ARC) ? "ARC" : 
+                          (m.type == MOT_RAPID) ? "RAPID" : "EMPTY";
+    std::printf("%2d: %s type=%d compMode=%d\n", (int)i, typeStr, m.type, (int)m.compMode);
+}
+
+
+
+
+
+
+
 
   cc.merge_all_colinear(profile.data(), (int)profile.size());
 

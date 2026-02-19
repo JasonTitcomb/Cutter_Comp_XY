@@ -1,8 +1,8 @@
 ================================================================================
 Linker Errors
-Generated: 2026-02-18T13:05:54.469Z
+Generated: 2026-02-19T01:49:40.544Z
 Total Errors: 1
 ================================================================================
 
-[LNK1168] (MSVC)
-cannot open D:\Repos\Cutter_Comp_XY\build\Debug\cuttercomp_host.exe for writing [D:\Repos\Cutter_Comp_XY\build\cuttercomp_host.vcxproj]
+[LNK1105] (MSVC)
+cannot close file 'D:\Repos\Cutter_Comp_XY\build\Debug\cuttercomp_host.exe'; error code 1224 [D:\Repos\Cutter_Comp_XY\build\cuttercomp_host.vcxproj]

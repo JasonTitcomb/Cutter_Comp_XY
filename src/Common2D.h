@@ -43,11 +43,17 @@ static inline Vec2 rightNormal(const Vec2 &v) { return {v.y, -v.x}; }
 
 enum CompMode : uint8_t
 {
-  CM_STEADY = 0,
+  CM_NONE = 0,   // not in comp block
   CM_IN = 1,
-  CM_OUT = 2
+  CM_STEADY = 2,
+  CM_OUT = 3
 };
-
+enum MachineType : uint8_t
+{
+  MAC_MILL = 0,
+  MAC_LATHE_DIA = 1,
+  MAC_LATHE_RAD = 2
+};
 enum MotionType : uint8_t
 {
   MOT_EMPTY = 0,
@@ -67,6 +73,11 @@ enum CompSide : int8_t
   COMP_RIGHT = -1
 };
 
+struct AABB2
+{
+  float minx, miny, maxx, maxy;
+};
+
 struct Move2D
 {
   // copy of codeline for testing only
@@ -75,10 +86,10 @@ struct Move2D
   uint32_t seqNum = 0; // for debugging
   Vec2 p0{0, 0};       // start
   Vec2 p1{0, 0};       // end
+  AABB2 bounds;        // precomputed bounding box for this move
   float feed = 0.0f;
-  bool rapid = false;
-  bool valid = true; // for output moves, indicates if move is valid (e.g. not a tiny line we want to skip)
-  CompMode compMode = CM_STEADY;
+  bool valid = true; // for output moves, indicates if move is valid
+  CompMode compMode = CM_NONE;
 
   // Arc only:
   ArcDir arcDir = ARC_CW;
@@ -139,35 +150,6 @@ static inline int WindingDirection(Vec2 a, Vec2 b)
   return 0;
 }
 
-struct AABB2
-{
-  float minx, miny, maxx, maxy;
-};
-
-static inline AABB2 aabb_of(const Move2D &m)
-{
-  AABB2 b;
-  b.minx = fminf(m.p0.x, m.p1.x);
-  b.maxx = fmaxf(m.p0.x, m.p1.x);
-  b.miny = fminf(m.p0.y, m.p1.y);
-  b.maxy = fmaxf(m.p0.y, m.p1.y);
-
-  if (m.type == MOT_ARC)
-  {
-    // conservative arc bounds: include full circle bounds (safe, a bit loose)
-    b.minx = fminf(b.minx, m.center.x - m.radius);
-    b.maxx = fmaxf(b.maxx, m.center.x + m.radius);
-    b.miny = fminf(b.miny, m.center.y - m.radius);
-    b.maxy = fmaxf(b.maxy, m.center.y + m.radius);
-  }
-  return b;
-}
-
-static inline bool aabb_intersects(const AABB2 &a, const AABB2 &b)
-{
-  return !(a.maxx < b.minx || a.minx > b.maxx || a.maxy < b.miny || a.miny > b.maxy);
-}
-
 static inline float angleNorm(float a)
 {
   while (a < 0)
@@ -192,6 +174,108 @@ static inline float sweepCW(float a0, float a1)
   // CW from a0 to a1 is CCW from a1 to a0
   return sweepCCW(a1, a0);
 }
+
+
+static inline AABB2 aabb_of(const Move2D &m)
+{
+  AABB2 b;
+  b.minx = fminf(m.p0.x, m.p1.x);
+  b.maxx = fmaxf(m.p0.x, m.p1.x);
+  b.miny = fminf(m.p0.y, m.p1.y);
+  b.maxy = fmaxf(m.p0.y, m.p1.y);
+
+  if (m.type == MOT_ARC)
+  {
+    // Check silhouette points to get tighter bounds
+    // Left point (180 degrees, -X direction)
+    Vec2 silhouettePoint = v2(m.center.x - m.radius, m.center.y);
+    if (len(silhouettePoint - m.center) > TOL) // ensure valid point
+    {
+      float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
+      float a1 = atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x);
+      float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
+      
+      bool onArc = (m.arcDir == ARC_CCW) 
+        ? (angleNorm(ap) >= angleNorm(a0) - 1e-7f && angleNorm(ap) <= angleNorm(a1) + 1e-7f) ||
+          (angleNorm(a0) > angleNorm(a1) && (angleNorm(ap) >= angleNorm(a0) - 1e-7f || angleNorm(ap) <= angleNorm(a1) + 1e-7f))
+        : (angleNorm(ap) >= angleNorm(a1) - 1e-7f && angleNorm(ap) <= angleNorm(a0) + 1e-7f) ||
+          (angleNorm(a1) > angleNorm(a0) && (angleNorm(ap) >= angleNorm(a1) - 1e-7f || angleNorm(ap) <= angleNorm(a0) + 1e-7f));
+      
+      if (onArc)
+        b.minx = silhouettePoint.x;
+    }
+    
+    // Right point (0 degrees, +X direction)
+    silhouettePoint = v2(m.center.x + m.radius, m.center.y);
+    if (len(silhouettePoint - m.center) > TOL)
+    {
+      float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
+      float a1 = atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x);
+      float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
+      
+      bool onArc = (m.arcDir == ARC_CCW)
+        ? (angleNorm(ap) >= angleNorm(a0) - 1e-7f && angleNorm(ap) <= angleNorm(a1) + 1e-7f) ||
+          (angleNorm(a0) > angleNorm(a1) && (angleNorm(ap) >= angleNorm(a0) - 1e-7f || angleNorm(ap) <= angleNorm(a1) + 1e-7f))
+        : (angleNorm(ap) >= angleNorm(a1) - 1e-7f && angleNorm(ap) <= angleNorm(a0) + 1e-7f) ||
+          (angleNorm(a1) > angleNorm(a0) && (angleNorm(ap) >= angleNorm(a1) - 1e-7f || angleNorm(ap) <= angleNorm(a0) + 1e-7f));
+      
+      if (onArc)
+        b.maxx = silhouettePoint.x;
+    }
+    
+    // Top point (90 degrees, +Y direction)
+    silhouettePoint = v2(m.center.x, m.center.y + m.radius);
+    if (len(silhouettePoint - m.center) > TOL)
+    {
+      float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
+      float a1 = atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x);
+      float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
+      
+      bool onArc = (m.arcDir == ARC_CCW)
+        ? (angleNorm(ap) >= angleNorm(a0) - 1e-7f && angleNorm(ap) <= angleNorm(a1) + 1e-7f) ||
+          (angleNorm(a0) > angleNorm(a1) && (angleNorm(ap) >= angleNorm(a0) - 1e-7f || angleNorm(ap) <= angleNorm(a1) + 1e-7f))
+        : (angleNorm(ap) >= angleNorm(a1) - 1e-7f && angleNorm(ap) <= angleNorm(a0) + 1e-7f) ||
+          (angleNorm(a1) > angleNorm(a0) && (angleNorm(ap) >= angleNorm(a1) - 1e-7f || angleNorm(ap) <= angleNorm(a0) + 1e-7f));
+      
+      if (onArc)
+        b.maxy = silhouettePoint.y;
+    }
+    
+    // Bottom point (270 degrees, -Y direction)
+    silhouettePoint = v2(m.center.x, m.center.y - m.radius);
+    if (len(silhouettePoint - m.center) > TOL)
+    {
+      float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
+      float a1 = atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x);
+      float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
+      
+      bool onArc = (m.arcDir == ARC_CCW)
+        ? (angleNorm(ap) >= angleNorm(a0) - 1e-7f && angleNorm(ap) <= angleNorm(a1) + 1e-7f) ||
+          (angleNorm(a0) > angleNorm(a1) && (angleNorm(ap) >= angleNorm(a0) - 1e-7f || angleNorm(ap) <= angleNorm(a1) + 1e-7f))
+        : (angleNorm(ap) >= angleNorm(a1) - 1e-7f && angleNorm(ap) <= angleNorm(a0) + 1e-7f) ||
+          (angleNorm(a1) > angleNorm(a0) && (angleNorm(ap) >= angleNorm(a1) - 1e-7f || angleNorm(ap) <= angleNorm(a0) + 1e-7f));
+      
+      if (onArc)
+        b.miny = silhouettePoint.y;
+    }
+  }
+  return b;
+}
+
+static void init_all_aabb(Move2D *moves, int count)
+{
+  for (int i = 0; i < count; ++i)
+  {
+    if(moves[i].type != MOT_EMPTY && moves[i].valid) // Only compute bounds for valid moves
+      moves[i].bounds = aabb_of(moves[i]);
+  }
+}
+
+static inline bool aabb_intersects(const AABB2 &a, const AABB2 &b)
+{
+  return !(a.maxx < b.minx || a.minx > b.maxx || a.maxy < b.miny || a.miny > b.maxy);
+}
+
 
 // param along LINE (0..1 if on segment)
 static inline float line_t(const Move2D &m, Vec2 p)

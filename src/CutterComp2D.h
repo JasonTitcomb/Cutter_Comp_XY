@@ -10,7 +10,7 @@ public:
     float cornerAngleToleranceDeg = 30.0f; // CornerAngleTolerance
     bool cornerRolling = true;             // rollAround flag
     bool performTrim = true;               // performTrim flag
-
+    MachineType machineType = MAC_MILL;    // machine type
     // Buffers
     static constexpr int IN_CAP = 16;
     static constexpr int OUT_CAP = 32;
@@ -23,11 +23,9 @@ public:
     void setComp(CompSide s)
     {
         comp_state = s;
-        // if the tool dia is given in a negative value, then the sign of the offset is reversed,
-        // but the comp mode is still IN/OUT.
-        // So we don't change comp_state here, just track the sign in toolSign and apply it in offsetMove.
         resetState();
     }
+    void setMachineType(MachineType mt) { machineType = mt; }
     void setCornerRolling(bool en) { cornerRolling = en; }
     void setCornerAngleTolerance(float deg) { cornerAngleToleranceDeg = deg; }
     void setPerformTrim(bool en) { performTrim = en; }
@@ -70,7 +68,7 @@ public:
 
             Move2D curOff;
             // if in or out then no offsetting, just pass through with comp mode set for downstream logic and rolling decisions.
-            bool isOffset = offsetMove(raw, curOff);
+            offsetMove(raw, curOff);
             // REMOVED: pushOut(prevOff);  // DON'T PUSH HERE!
 
             // Stash "InitialEndPt"
@@ -179,7 +177,6 @@ private:
         // DBG_PRINTLN("Bevel needed");
         Move2D m;
         m.type = MOT_LINE;
-        m.rapid = false;
         m.feed = (a.feed > 0) ? a.feed : b.feed;
         m.p0 = a.p1;
         m.p1 = b.p0;
@@ -281,7 +278,7 @@ private:
             dst.initialEndPt = dst.p1;
             return false;
         }
- 
+
         // Apply toolSign to flip the offset direction if negative tool radius
         bool useLeft = (comp_state == COMP_LEFT);
         if (toolSign < 0)
@@ -556,7 +553,6 @@ private:
     {
         Move2D roll;
         roll.type = MOT_ARC;
-        roll.rapid = false;
         roll.compMode = CM_STEADY;
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
         roll.p0 = a.p1;
@@ -611,8 +607,7 @@ private:
 
             // Insert extension line from intersection to arc start
             extOut.type = MOT_LINE;
-            extOut.rapid = false;
-            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
+             extOut.feed = (a.feed > 0) ? a.feed : b.feed;
             extOut.p0 = ip;
             extOut.p1 = b.p0;
             update_vectors(extOut);
@@ -652,7 +647,6 @@ private:
 
             // Insert extension line from arc end to intersection
             extOut.type = MOT_LINE;
-            extOut.rapid = false;
             extOut.feed = (a.feed > 0) ? a.feed : b.feed;
             extOut.p0 = a.p1;
             extOut.p1 = ip;
@@ -895,17 +889,6 @@ private:
             return;
         }
 
-        // No TIP: either InsertArcExtension (comping) or extend/roll
-        if (comping)
-        {
-            Move2D ext;
-            if (makeArcExtension(a, b, ext))
-            {
-                inserts[insertCount++] = ext;
-            }
-            return;
-        }
-
         if (acute || forceRoll)
         {
             if (cornerRolling && convex(a, b))
@@ -1015,7 +998,6 @@ private:
             return best;
 
         Move2D &src = moves[srcIdx];
-        AABB2 srcBox = aabb_of(src);
 
         int j = startTargetIdx + 1; // start looking from the element after the immediate neighbor
         for (int r = 0; r <= maxLookahead && j < numMoves; ++r, ++j)
@@ -1028,9 +1010,10 @@ private:
             if (j < srcIdx + 2)
                 continue;
 
-            AABB2 tgtBox = aabb_of(target);
-            if (!aabb_intersects(srcBox, tgtBox))
+            if (!aabb_intersects(src.bounds, target.bounds))
+            {
                 continue;
+            }
 
             Vec2 t1, t2;
             int n = commonTIP_any(src, target, t1, t2);
@@ -1065,6 +1048,9 @@ private:
 public:
     bool trimCrossingElements(Move2D *moves, int numMoves, int maxLookahead)
     {
+        //calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
+        init_all_aabb(moves, numMoves);
+
         int src = 1; // skip the first element since it has no previous neighbor to cross with
 
         int firstIdx = first_cutting_move(moves, numMoves);

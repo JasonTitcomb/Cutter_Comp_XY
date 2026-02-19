@@ -44,6 +44,7 @@ struct ModalState
     bool absXY = true;   // G90 (only mode supported here)
     int motionG = 0;     // 0/1/2/3 modal
     CompSide comp = COMP_OFF;
+    CompMode compMode = CM_NONE;
     float feed = 0.0f;
     Vec2 pos{0, 0}; // current XY
 };
@@ -272,34 +273,34 @@ static inline bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, Ar
 
 // Turn a scanned line into a Move2D (or MOT_EMPTY if no XY motion).
 // Updates modal state (pos, motion mode, comp, feed).
-static inline Move2D interpret_to_move(const ScanLine &s, ModalState &m)
+static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
 {
     // Update modal toggles first
     if (s.sawG17)
-        m.planeXY = true;
+        modeState.planeXY = true;
     if (s.sawG90)
-        m.absXY = true;
+        modeState.absXY = true;
     if (s.sawG40)
-        m.comp = COMP_OFF;
+        modeState.comp = COMP_OFF;
     if (s.sawG41)
-        m.comp = COMP_LEFT;
+        modeState.comp = COMP_LEFT;
     if (s.sawG42)
-        m.comp = COMP_RIGHT;
+        modeState.comp = COMP_RIGHT;
     if (s.hasF)
-        m.feed = s.F;
+        modeState.feed = s.F;
 
     // Update motion mode if explicitly provided
     if (s.sawG0)
-        m.motionG = 0;
+        modeState.motionG = 0;
     else if (s.sawG1)
-        m.motionG = 1;
+        modeState.motionG = 1;
     else if (s.sawG2)
-        m.motionG = 2;
+        modeState.motionG = 2;
     else if (s.sawG3)
-        m.motionG = 3;
+        modeState.motionG = 3;
 
     // Absolute XY only (tiny subset)
-    Vec2 p0 = m.pos;
+    Vec2 p0 = modeState.pos;
     Vec2 p1 = p0;
 
     bool anyXY = false;
@@ -325,32 +326,47 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &m)
 
     out.p0 = p0;
     out.p1 = p1;
-    out.feed = m.feed;
-    out.rapid = (m.motionG == 0);
+    out.feed = modeState.feed;
 
-    if (s.sawG41 || s.sawG42)
-        out.compMode = CM_IN;
-    else if (s.sawG40)
-        out.compMode = CM_OUT;
 
-    if (m.motionG == 1)
+    if(modeState.compMode == CM_IN || modeState.compMode == CM_OUT)
     {
-        out.type = MOT_LINE;
-        m.pos = p1;
-        return out;
+        out.compMode = CM_STEADY; // in a comp block but no change from previous move, so steady comp mode.
+    }
+    else
+    {
+        out.compMode = CM_NONE;
     }
 
-    if (m.motionG == 0)
+    if (s.sawG41 || s.sawG42){
+        out.compMode = CM_IN;
+        modeState.compMode = CM_IN;
+    }
+    else if (s.sawG40)
+    {
+        out.compMode = CM_OUT;
+        modeState.compMode = CM_OUT;
+    }
+
+
+    if (modeState.motionG == 0)
     {
         out.type = MOT_RAPID;
-        m.pos = p1;
+        modeState.pos = p1;
+        return out;
+    }
+        
+    if (modeState.motionG == 1)
+    {
+        out.type = MOT_LINE;
+        modeState.pos = p1;
         return out;
     }
 
-    if (m.motionG == 2 || m.motionG == 3)
+    if (modeState.motionG == 2 || modeState.motionG == 3)
     {
         out.type = MOT_ARC;
-        out.arcDir = (m.motionG == 2) ? ARC_CW : ARC_CCW;
+        out.arcDir = (modeState.motionG == 2) ? ARC_CW : ARC_CCW;
 
         // Resolve center either from I/J or from R
         if (s.hasI || s.hasJ)
@@ -377,13 +393,13 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &m)
             out.type = MOT_LINE; // fallback
         }
 
-        m.pos = p1;
+        modeState.pos = p1;
         return out;
     }
 
     // Unknown motion: treat as line
     out.type = MOT_LINE;
-    m.pos = p1;
+    modeState.pos = p1;
 
     return out;
 }

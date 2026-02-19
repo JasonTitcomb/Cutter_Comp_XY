@@ -1,305 +1,872 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.065625 -0.065625 1.34375 1.44375">
-<rect x="-0.065625" y="-0.065625" width="1.34375" height="1.44375" fill="white" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0,1.3125 0,1.3125 " />
-<circle cx="0" cy="1.3125" r="0.00144375" fill="#1f77b4" />
-<circle cx="0" cy="1.3125" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0,1.3125 0.25,0.7625 " />
-<circle cx="0" cy="1.3125" r="0.00144375" fill="#1f77b4" />
-<circle cx="0.25" cy="0.7625" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.25,0.7625 0.25,0.4125 " />
-<circle cx="0.25" cy="0.7625" r="0.00144375" fill="#1f77b4" />
-<circle cx="0.25" cy="0.4125" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.25,0.4125 0.45,0.4125 " />
-<circle cx="0.25" cy="0.4125" r="0.00144375" fill="#1f77b4" />
-<circle cx="0.45" cy="0.4125" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.45,0.4125 0.454031,0.402597 0.457899,0.392629 0.461602,0.382598 0.465139,0.372508 0.468511,0.362361 0.471714,0.352161 0.47475,0.341908 0.477616,0.331608 0.480313,0.321261 0.482839,0.310872 0.485194,0.300442 0.487377,0.289976 0.489388,0.279474 0.491226,0.268941 0.49289,0.258379 0.49438,0.247791 0.495696,0.237181 0.496837,0.226549 0.497803,0.215901 0.498593,0.205238 0.499209,0.194564 0.499648,0.183881 0.499912,0.173192 0.5,0.1625 " />
-<circle cx="0.45" cy="0.4125" r="0.00144375" fill="#1f77b4" />
-<circle cx="0.5" cy="0.1625" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.5,0.1625 0.512177,0.147508 0.525474,0.133501 0.539813,0.120562 0.555108,0.108769 0.571268,0.0981915 0.588197,0.0888932 0.605792,0.0809295 0.62395,0.074348 0.642562,0.0691878 0.661516,0.0654798 0.680701,0.063246 0.7,0.0625 0.719299,0.063246 0.738484,0.0654798 0.757438,0.0691878 0.77605,0.074348 0.794208,0.0809295 0.811803,0.0888932 0.828732,0.0981914 0.844892,0.108769 0.860187,0.120562 0.874526,0.133501 0.887824,0.147508 0.9,0.1625 " />
-<circle cx="0.5" cy="0.1625" r="0.00144375" fill="#1f77b4" />
-<circle cx="0.9" cy="0.1625" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.9,0.1625 0.900088,0.173192 0.900352,0.183881 0.900791,0.194564 0.901407,0.205238 0.902197,0.215901 0.903163,0.22655 0.904304,0.237181 0.90562,0.247792 0.90711,0.258379 0.908774,0.268941 0.910612,0.279474 0.912623,0.289976 0.914806,0.300442 0.917161,0.310872 0.919687,0.321262 0.922383,0.331608 0.92525,0.341909 0.928286,0.352161 0.93149,0.362362 0.934861,0.372508 0.938398,0.382598 0.942101,0.392629 0.945969,0.402597 0.95,0.4125 " />
-<circle cx="0.9" cy="0.1625" r="0.00144375" fill="#1f77b4" />
-<circle cx="0.95" cy="0.4125" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.95,0.4125 1.15,0.4125 " />
-<circle cx="0.95" cy="0.4125" r="0.00144375" fill="#1f77b4" />
-<circle cx="1.15" cy="0.4125" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="1.15,0.4125 1.15,0.7625 " />
-<circle cx="1.15" cy="0.4125" r="0.00144375" fill="#1f77b4" />
-<circle cx="1.15" cy="0.7625" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="1.15,0.7625 0.7,0.6625 " />
-<circle cx="1.15" cy="0.7625" r="0.00144375" fill="#1f77b4" />
-<circle cx="0.7" cy="0.6625" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.7,0.6625 0.25,0.7625 " />
-<circle cx="0.7" cy="0.6625" r="0.00144375" fill="#1f77b4" />
-<circle cx="0.25" cy="0.7625" r="0.00144375" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.25,0.7625 0,1.3125 " />
-<circle cx="0.25" cy="0.7625" r="0.00144375" fill="#1f77b4" />
-<circle cx="0" cy="1.3125" r="0.00144375" fill="#1f77b4" />
-<circle cx="0" cy="1.3125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0" cy="1.3125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0" cy="1.3125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.0208333" cy="1.25139" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.0416667" cy="1.19028" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.0625" cy="1.12917" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.0833333" cy="1.06806" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.104167" cy="1.00694" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.125" cy="0.945833" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.145833" cy="0.884722" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.166667" cy="0.823611" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.1875" cy="0.7625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.1875" cy="0.7625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.1875" cy="0.6925" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.1875" cy="0.6225" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.1875" cy="0.5525" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.1875" cy="0.4825" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.1875" cy="0.4125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.1875" cy="0.4125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.188269" cy="0.402723" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.188269" cy="0.402723" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.190559" cy="0.393186" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.190559" cy="0.393186" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.194312" cy="0.384126" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.194312" cy="0.384126" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.199436" cy="0.375763" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.199436" cy="0.375763" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.205806" cy="0.368306" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.205806" cy="0.368306" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.213263" cy="0.361936" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.213263" cy="0.361936" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.221626" cy="0.356812" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.221626" cy="0.356812" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.230686" cy="0.353059" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.230686" cy="0.353059" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.240223" cy="0.350769" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.240223" cy="0.350769" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.25" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.25" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.328388" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.406776" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.406776" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.412572" cy="0.331818" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.412572" cy="0.331818" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.417774" cy="0.313458" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.417774" cy="0.313458" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.422378" cy="0.294939" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.422378" cy="0.294939" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.426377" cy="0.276279" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.426377" cy="0.276279" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.429768" cy="0.2575" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.429768" cy="0.2575" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.432548" cy="0.238621" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.432548" cy="0.238621" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.434713" cy="0.219661" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.434713" cy="0.219661" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.436261" cy="0.200641" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.436261" cy="0.200641" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.43719" cy="0.18158" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.43719" cy="0.18158" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.4375" cy="0.1625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.4375" cy="0.1625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.437629" cy="0.158481" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.437629" cy="0.158481" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.438017" cy="0.154478" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.438017" cy="0.154478" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.438661" cy="0.150509" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.438661" cy="0.150509" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.439559" cy="0.14659" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.439559" cy="0.14659" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.440707" cy="0.142736" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.440707" cy="0.142736" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.442101" cy="0.138964" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.442101" cy="0.138964" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.443734" cy="0.135289" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.443734" cy="0.135289" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.445601" cy="0.131727" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.445601" cy="0.131727" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.447692" cy="0.128293" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.447692" cy="0.128293" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.45" cy="0.125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.45" cy="0.125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.488862" cy="0.0821159" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.488862" cy="0.0821159" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.534965" cy="0.0471332" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.534965" cy="0.0471332" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.586728" cy="0.0212516" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.586728" cy="0.0212516" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.642376" cy="0.00535882" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.642376" cy="0.00535882" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.7" cy="0" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.7" cy="0" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.757624" cy="0.00535882" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.757624" cy="0.00535882" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.813272" cy="0.0212516" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.813272" cy="0.0212516" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.865035" cy="0.0471331" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.865035" cy="0.0471331" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.911138" cy="0.0821159" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.911138" cy="0.0821159" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.95" cy="0.125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.95" cy="0.125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.952308" cy="0.128293" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.952308" cy="0.128293" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.954399" cy="0.131727" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.954399" cy="0.131727" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.956266" cy="0.135289" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.956266" cy="0.135289" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.957899" cy="0.138964" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.957899" cy="0.138964" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.959293" cy="0.142736" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.959293" cy="0.142736" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.960441" cy="0.14659" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.960441" cy="0.14659" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.961339" cy="0.150509" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.961339" cy="0.150509" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.961983" cy="0.154478" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.961983" cy="0.154478" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.962371" cy="0.158481" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.962371" cy="0.158481" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.9625" cy="0.1625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.9625" cy="0.1625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.96281" cy="0.181581" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.96281" cy="0.181581" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.963739" cy="0.200641" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.963739" cy="0.200641" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.965287" cy="0.219661" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.965287" cy="0.219661" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.967452" cy="0.238621" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.967452" cy="0.238621" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.970232" cy="0.2575" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.970232" cy="0.2575" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.973623" cy="0.27628" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.973623" cy="0.27628" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.977622" cy="0.294939" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.977622" cy="0.294939" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.982226" cy="0.313458" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.982226" cy="0.313458" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.987428" cy="0.331819" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.987428" cy="0.331819" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.993224" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.993224" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.07161" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.15" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.15" cy="0.35" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.15978" cy="0.350769" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.15978" cy="0.350769" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.16931" cy="0.353059" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.16931" cy="0.353059" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.17837" cy="0.356812" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.17837" cy="0.356812" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.18674" cy="0.361936" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.18674" cy="0.361936" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.19419" cy="0.368306" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.19419" cy="0.368306" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20056" cy="0.375763" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20056" cy="0.375763" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20569" cy="0.384126" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20569" cy="0.384126" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20944" cy="0.393186" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20944" cy="0.393186" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.21173" cy="0.402723" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.21173" cy="0.402723" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2125" cy="0.4125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2125" cy="0.4125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2125" cy="0.4825" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2125" cy="0.5525" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2125" cy="0.6225" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2125" cy="0.6925" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2125" cy="0.7625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2125" cy="0.7625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2115" cy="0.773625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.2115" cy="0.773625" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20854" cy="0.784394" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20854" cy="0.784394" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20371" cy="0.794464" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.20371" cy="0.794464" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.19716" cy="0.803513" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.19716" cy="0.803513" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.18911" cy="0.811253" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.18911" cy="0.811253" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.17981" cy="0.817435" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.17981" cy="0.817435" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.16955" cy="0.821863" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.16955" cy="0.821863" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.15867" cy="0.824395" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.15867" cy="0.824395" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.14752" cy="0.824951" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.14752" cy="0.824951" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.13644" cy="0.823512" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.13644" cy="0.823512" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.07409" cy="0.809656" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="1.01174" cy="0.795801" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.949395" cy="0.781946" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.887046" cy="0.76809" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.824698" cy="0.754235" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.762349" cy="0.74038" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.7" cy="0.726525" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.7" cy="0.726525" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.637651" cy="0.74038" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.575302" cy="0.754235" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.512954" cy="0.76809" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.450605" cy="0.781946" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.388256" cy="0.795801" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.325907" cy="0.809656" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.263558" cy="0.823512" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.263558" cy="0.823512" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.230613" cy="0.884635" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.197669" cy="0.945759" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.164724" cy="1.00688" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.131779" cy="1.06801" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.0988343" cy="1.12913" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.0658895" cy="1.19025" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0.0329448" cy="1.25138" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<circle cx="0" cy="1.3125" r="0.0625" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
-<polyline fill="none" stroke="#888888" stroke-width="0.002" stroke-dasharray="0.01,0.01" points="0,1.3125 0,1.3125 " />
-<circle cx="0" cy="1.3125" r="0.00144375" fill="#d62728" />
-<circle cx="0" cy="1.3125" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#888888" stroke-width="0.002" stroke-dasharray="0.01,0.01" points="0,1.3125 0.1875,0.7625 " />
-<circle cx="0" cy="1.3125" r="0.00144375" fill="#d62728" />
-<circle cx="0.1875" cy="0.7625" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.1875,0.7625 0.1875,0.4125 " />
-<circle cx="0.1875" cy="0.7625" r="0.00144375" fill="#d62728" />
-<circle cx="0.1875" cy="0.4125" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.1875,0.4125 0.187634,0.408412 0.188035,0.404342 0.188701,0.400307 0.18963,0.396324 0.190817,0.39241 0.192258,0.388582 0.193945,0.384857 0.195873,0.38125 0.198033,0.377777 0.200415,0.374452 0.20301,0.371291 0.205806,0.368306 0.208791,0.36551 0.211952,0.362915 0.215277,0.360533 0.21875,0.358373 0.222357,0.356445 0.226082,0.354757 0.22991,0.353317 0.233824,0.35213 0.237807,0.351201 0.241842,0.350535 0.245912,0.350134 0.25,0.35 " />
-<circle cx="0.1875" cy="0.4125" r="0.00144375" fill="#d62728" />
-<circle cx="0.25" cy="0.35" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.25,0.35 0.406776,0.35 " />
-<circle cx="0.25" cy="0.35" r="0.00144375" fill="#d62728" />
-<circle cx="0.406776" cy="0.35" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.406776,0.35 0.409263,0.342447 0.411647,0.334861 0.413929,0.327244 0.416107,0.319597 0.418181,0.311921 0.420151,0.304217 0.422017,0.296487 0.423778,0.288733 0.425434,0.280956 0.426985,0.273157 0.428429,0.265338 0.429768,0.2575 0.431001,0.249645 0.432127,0.241773 0.433147,0.233887 0.434059,0.225988 0.434865,0.218078 0.435564,0.210157 0.436155,0.202228 0.436639,0.194291 0.437016,0.186348 0.437285,0.178401 0.437446,0.170451 0.4375,0.1625 " />
-<circle cx="0.406776" cy="0.35" r="0.00144375" fill="#d62728" />
-<circle cx="0.4375" cy="0.1625" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.4375,0.1625 0.437522,0.160824 0.43759,0.15915 0.437702,0.157478 0.437859,0.15581 0.438061,0.154146 0.438307,0.152489 0.438598,0.150838 0.438932,0.149196 0.439311,0.147564 0.439733,0.145942 0.440199,0.144333 0.440707,0.142736 0.441258,0.141153 0.441852,0.139586 0.442487,0.138035 0.443164,0.136502 0.443881,0.134988 0.444639,0.133493 0.445436,0.13202 0.446273,0.130568 0.447148,0.129139 0.448062,0.127734 0.449013,0.126354 0.45,0.125 " />
-<circle cx="0.4375" cy="0.1625" r="0.00144375" fill="#d62728" />
-<circle cx="0.45" cy="0.125" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.45,0.125 0.465221,0.10626 0.481842,0.0887512 0.499766,0.0725776 0.518885,0.0578361 0.539085,0.0446143 0.560246,0.0329915 0.58224,0.023037 0.604938,0.0148098 0.628202,0.00835967 0.651895,0.00372458 0.675876,0.000932574 0.7,0 0.724124,0.000932574 0.748105,0.00372458 0.771798,0.00835967 0.795063,0.0148098 0.81776,0.0230368 0.839754,0.0329914 0.860915,0.0446143 0.881115,0.0578359 0.900234,0.0725776 0.918158,0.0887511 0.934779,0.10626 0.95,0.125 " />
-<circle cx="0.45" cy="0.125" r="0.00144375" fill="#d62728" />
-<circle cx="0.95" cy="0.125" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.95,0.125 0.950987,0.126354 0.951938,0.127734 0.952852,0.129139 0.953727,0.130568 0.954564,0.13202 0.955361,0.133493 0.956119,0.134988 0.956836,0.136502 0.957513,0.138035 0.958148,0.139586 0.958742,0.141153 0.959293,0.142736 0.959801,0.144333 0.960267,0.145942 0.960689,0.147564 0.961068,0.149196 0.961402,0.150838 0.961693,0.152489 0.961939,0.154146 0.962141,0.15581 0.962298,0.157478 0.96241,0.15915 0.962478,0.160824 0.9625,0.1625 " />
-<circle cx="0.95" cy="0.125" r="0.00144375" fill="#d62728" />
-<circle cx="0.9625" cy="0.1625" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.9625,0.1625 0.962554,0.170451 0.962715,0.178401 0.962984,0.186348 0.963361,0.194291 0.963845,0.202228 0.964436,0.210157 0.965135,0.218078 0.965941,0.225989 0.966853,0.233888 0.967873,0.241774 0.968999,0.249645 0.970232,0.2575 0.971571,0.265338 0.973015,0.273157 0.974566,0.280957 0.976222,0.288734 0.977983,0.296488 0.979849,0.304217 0.981819,0.311921 0.983893,0.319597 0.986071,0.327244 0.988353,0.334862 0.990737,0.342447 0.993224,0.35 " />
-<circle cx="0.9625" cy="0.1625" r="0.00144375" fill="#d62728" />
-<circle cx="0.993224" cy="0.35" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.993224,0.35 1.15,0.35 " />
-<circle cx="0.993224" cy="0.35" r="0.00144375" fill="#d62728" />
-<circle cx="1.15" cy="0.35" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.15,0.35 1.15409,0.350134 1.15816,0.350535 1.16219,0.351201 1.16618,0.35213 1.17009,0.353317 1.17392,0.354757 1.17764,0.356445 1.18125,0.358373 1.18472,0.360533 1.18805,0.362915 1.19121,0.36551 1.19419,0.368306 1.19699,0.371291 1.19958,0.374452 1.20197,0.377777 1.20413,0.38125 1.20605,0.384857 1.20774,0.388582 1.20918,0.39241 1.21037,0.396324 1.2113,0.400307 1.21197,0.404342 1.21237,0.408412 1.2125,0.4125 " />
-<circle cx="1.15" cy="0.35" r="0.00144375" fill="#d62728" />
-<circle cx="1.2125" cy="0.4125" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.2125,0.4125 1.2125,0.7625 " />
-<circle cx="1.2125" cy="0.4125" r="0.00144375" fill="#d62728" />
-<circle cx="1.2125" cy="0.7625" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.2125,0.7625 1.21233,0.767156 1.21181,0.771786 1.21094,0.776364 1.20974,0.780865 1.20821,0.785264 1.20635,0.789537 1.20418,0.79366 1.20171,0.797609 1.19895,0.801363 1.19592,0.804901 1.19263,0.808204 1.18911,0.811253 1.18537,0.81403 1.18143,0.816522 1.17732,0.818713 1.17306,0.820592 1.16866,0.822148 1.16417,0.823373 1.1596,0.824259 1.15497,0.824802 1.15031,0.824999 1.14566,0.824849 1.14102,0.824352 1.13644,0.823512 " />
-<circle cx="1.2125" cy="0.7625" r="0.00144375" fill="#d62728" />
-<circle cx="1.13644" cy="0.823512" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.13644,0.823512 0.7,0.726525 " />
-<circle cx="1.13644" cy="0.823512" r="0.00144375" fill="#d62728" />
-<circle cx="0.7" cy="0.726525" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.7,0.726525 0.263558,0.823512 " />
-<circle cx="0.7" cy="0.726525" r="0.00144375" fill="#d62728" />
-<circle cx="0.263558" cy="0.823512" r="0.00144375" fill="#d62728" />
-<polyline fill="none" stroke="#888888" stroke-width="0.002" stroke-dasharray="0.01,0.01" points="0.263558,0.823512 0,1.3125 " />
-<circle cx="0.263558" cy="0.823512" r="0.00144375" fill="#d62728" />
-<circle cx="0" cy="1.3125" r="0.00144375" fill="#d62728" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-2.26496 -0.205 3.96996 4.51">
+<rect x="-2.26496" y="-0.205" width="3.96996" height="4.51" fill="white" />
+<polyline fill="none" stroke="#888888" stroke-width="0.002" stroke-dasharray="0.01,0.01" points="0,4.1 1.5,3.6 " />
+<circle cx="0" cy="4.1" r="0.00451" fill="#1f77b4" />
+<circle cx="1.5" cy="3.6" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="1.5,3.6 1.4,4 " />
+<circle cx="1.5" cy="3.6" r="0.00451" fill="#1f77b4" />
+<circle cx="1.4" cy="4" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="1.4,4 1,4 " />
+<circle cx="1.4" cy="4" r="0.00451" fill="#1f77b4" />
+<circle cx="1" cy="4" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="1,4 0.99,3.6 " />
+<circle cx="1" cy="4" r="0.00451" fill="#1f77b4" />
+<circle cx="0.99" cy="3.6" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.99,3.6 0.9,3.6 " />
+<circle cx="0.99" cy="3.6" r="0.00451" fill="#1f77b4" />
+<circle cx="0.9" cy="3.6" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.9,3.6 0.89,4 " />
+<circle cx="0.9" cy="3.6" r="0.00451" fill="#1f77b4" />
+<circle cx="0.89" cy="4" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.89,4 0.75,4 " />
+<circle cx="0.89" cy="4" r="0.00451" fill="#1f77b4" />
+<circle cx="0.75" cy="4" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.75,4 0.1,4 " />
+<circle cx="0.75" cy="4" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="4" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,4 0.1,3.9 " />
+<circle cx="0.1" cy="4" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.9" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.9 0.3,3.85 " />
+<circle cx="0.1" cy="3.9" r="0.00451" fill="#1f77b4" />
+<circle cx="0.3" cy="3.85" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.3,3.85 0.1,3.8 " />
+<circle cx="0.3" cy="3.85" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.8" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.8 0.3,3.75 " />
+<circle cx="0.1" cy="3.8" r="0.00451" fill="#1f77b4" />
+<circle cx="0.3" cy="3.75" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.3,3.75 0.05,3.7 " />
+<circle cx="0.3" cy="3.75" r="0.00451" fill="#1f77b4" />
+<circle cx="0.05" cy="3.7" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.05,3.7 0.3,3.65 " />
+<circle cx="0.05" cy="3.7" r="0.00451" fill="#1f77b4" />
+<circle cx="0.3" cy="3.65" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.3,3.65 0.1,3.6 " />
+<circle cx="0.3" cy="3.65" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.6" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.6 0.1,3.5 " />
+<circle cx="0.1" cy="3.6" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.5" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.5 0.0916415,3.50258 0.0829759,3.50377 0.0742318,3.50354 0.0656398,3.5019 0.0574267,3.49889 0.0498092,3.49459 0.0429882,3.48912 0.0371437,3.48261 0.0324299,3.47524 0.0289712,3.46721 0.0268587,3.45872 0.0261483,3.45 0.0268587,3.44128 0.0289712,3.43279 0.0324299,3.42476 0.0371437,3.41739 0.0429882,3.41088 0.0498092,3.40541 0.0574267,3.40111 0.0656398,3.3981 0.0742318,3.39646 0.0829759,3.39623 0.0916415,3.39742 0.1,3.4 " />
+<circle cx="0.1" cy="3.5" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.4" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.4 0.0934737,3.39957 0.0870591,3.3983 0.0808658,3.39619 0.075,3.3933 0.0695619,3.38967 0.0646447,3.38536 0.0603323,3.38044 0.0566987,3.375 0.053806,3.36913 0.0517037,3.36294 0.0504277,3.35653 0.05,3.35 0.0504277,3.34347 0.0517037,3.33706 0.053806,3.33087 0.0566987,3.325 0.0603323,3.31956 0.0646446,3.31464 0.0695619,3.31033 0.075,3.3067 0.0808658,3.30381 0.087059,3.3017 0.0934737,3.30043 0.1,3.3 " />
+<circle cx="0.1" cy="3.4" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.3" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.3 0.0934737,3.29957 0.0870591,3.2983 0.0808658,3.29619 0.075,3.2933 0.0695619,3.28967 0.0646447,3.28536 0.0603323,3.28044 0.0566987,3.275 0.053806,3.26913 0.0517037,3.26294 0.0504277,3.25653 0.05,3.25 0.0504277,3.24347 0.0517037,3.23706 0.053806,3.23087 0.0566987,3.225 0.0603323,3.21956 0.0646446,3.21464 0.0695619,3.21033 0.075,3.2067 0.0808658,3.20381 0.087059,3.2017 0.0934737,3.20043 0.1,3.2 " />
+<circle cx="0.1" cy="3.3" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.2" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.2 0.1,3.19 " />
+<circle cx="0.1" cy="3.2" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.19" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.19 0.0905368,3.18938 0.0812356,3.18753 0.0722554,3.18448 0.06375,3.18029 0.0558648,3.17502 0.0487348,3.16877 0.0424819,3.16164 0.0372132,3.15375 0.0330187,3.14524 0.0299704,3.13626 0.0281203,3.12696 0.0275,3.1175 0.0281203,3.10804 0.0299704,3.09874 0.0330187,3.08976 0.0372132,3.08125 0.0424819,3.07336 0.0487348,3.06623 0.0558648,3.05998 0.06375,3.05471 0.0722554,3.05052 0.0812356,3.04747 0.0905368,3.04562 0.1,3.045 " />
+<circle cx="0.1" cy="3.19" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="3.045" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,3.045 0.1,2.95 " />
+<circle cx="0.1" cy="3.045" r="0.00451" fill="#1f77b4" />
+<circle cx="0.1" cy="2.95" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.1,2.95 0.25,2.9 " />
+<circle cx="0.1" cy="2.95" r="0.00451" fill="#1f77b4" />
+<circle cx="0.25" cy="2.9" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.25,2.9 0.35,2.8 " />
+<circle cx="0.25" cy="2.9" r="0.00451" fill="#1f77b4" />
+<circle cx="0.35" cy="2.8" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.35,2.8 0.05,2.7 " />
+<circle cx="0.35" cy="2.8" r="0.00451" fill="#1f77b4" />
+<circle cx="0.05" cy="2.7" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0.05,2.7 0,2.6 " />
+<circle cx="0.05" cy="2.7" r="0.00451" fill="#1f77b4" />
+<circle cx="0" cy="2.6" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="0,2.6 -0.000535846,2.56728 -0.00214195,2.5346 -0.00481659,2.50198 -0.00855684,2.46947 -0.0133588,2.43711 -0.0192172,2.40491 -0.0261258,2.37293 -0.0340774,2.34118 -0.0430632,2.30972 -0.0530738,2.27856 -0.0640982,2.24775 -0.076125,2.21732 -0.089141,2.1873 -0.103132,2.15771 -0.118084,2.12861 -0.13398,2.1 -0.150804,2.07194 -0.168536,2.04443 -0.187159,2.01753 -0.206653,1.99124 -0.226996,1.96561 -0.248167,1.94066 -0.270143,1.91641 -0.2929,1.8929 " />
+<circle cx="0" cy="2.6" r="0.00451" fill="#1f77b4" />
+<circle cx="-0.2929" cy="1.8929" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-0.2929,1.8929 -0.316414,1.87014 -0.34066,1.84817 -0.365613,1.827 -0.391244,1.80665 -0.417527,1.78716 -0.444435,1.76854 -0.471937,1.7508 -0.500004,1.73398 -0.528607,1.71808 -0.557715,1.70313 -0.587296,1.68914 -0.617319,1.67612 -0.647753,1.6641 -0.678563,1.65307 -0.709717,1.64306 -0.741183,1.63408 -0.772925,1.62613 -0.804911,1.61922 -0.837106,1.61336 -0.869475,1.60856 -0.901983,1.60482 -0.934597,1.60214 -0.967281,1.60054 -1,1.6 " />
+<circle cx="-0.2929" cy="1.8929" r="0.00451" fill="#1f77b4" />
+<circle cx="-1" cy="1.6" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-1,1.6 -1,1.35 " />
+<circle cx="-1" cy="1.6" r="0.00451" fill="#1f77b4" />
+<circle cx="-1" cy="1.35" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-1,1.35 -1.00054,1.33365 -1.00214,1.31737 -1.0048,1.30123 -1.00852,1.2853 -1.01327,1.26964 -1.01903,1.25433 -1.02578,1.23943 -1.03349,1.225 -1.04213,1.21111 -1.05166,1.19781 -1.06204,1.18516 -1.07322,1.17322 -1.08516,1.16204 -1.09781,1.15166 -1.11111,1.14213 -1.125,1.13349 -1.13943,1.12578 -1.15433,1.11903 -1.16964,1.11327 -1.1853,1.10852 -1.20123,1.1048 -1.21737,1.10214 -1.23365,1.10054 -1.25,1.1 " />
+<circle cx="-1" cy="1.35" r="0.00451" fill="#1f77b4" />
+<circle cx="-1.25" cy="1.1" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-1.25,1.1 -1.27009,1.10785 -1.29079,1.11393 -1.31193,1.11821 -1.33336,1.12065 -1.35493,1.12124 -1.37646,1.11996 -1.3978,1.11683 -1.41879,1.11187 -1.43928,1.10513 -1.45911,1.09664 -1.47814,1.08647 -1.49622,1.0747 -1.51321,1.06142 -1.529,1.04672 -1.54346,1.03071 -1.55649,1.01352 -1.56799,0.995271 -1.57787,0.976096 -1.58606,0.956141 -1.5925,0.935554 -1.59714,0.914489 -1.59995,0.893101 -1.60091,0.871552 -1.6,0.85 " />
+<circle cx="-1.25" cy="1.1" r="0.00451" fill="#1f77b4" />
+<circle cx="-1.6" cy="0.85" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-1.6,0.85 -2,0.85 " />
+<circle cx="-1.6" cy="0.85" r="0.00451" fill="#1f77b4" />
+<circle cx="-2" cy="0.85" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-2,0.85 -2.01,0.6 " />
+<circle cx="-2" cy="0.85" r="0.00451" fill="#1f77b4" />
+<circle cx="-2.01" cy="0.6" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-2.01,0.6 -1.75,0.7 " />
+<circle cx="-2.01" cy="0.6" r="0.00451" fill="#1f77b4" />
+<circle cx="-1.75" cy="0.7" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-1.75,0.7 -1.75,0.4 " />
+<circle cx="-1.75" cy="0.7" r="0.00451" fill="#1f77b4" />
+<circle cx="-1.75" cy="0.4" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-1.75,0.4 -2,0.5 " />
+<circle cx="-1.75" cy="0.4" r="0.00451" fill="#1f77b4" />
+<circle cx="-2" cy="0.5" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-2,0.5 -2,0.0999999 " />
+<circle cx="-2" cy="0.5" r="0.00451" fill="#1f77b4" />
+<circle cx="-2" cy="0.0999999" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.002" points="-2,0.0999999 -1.5,0 " />
+<circle cx="-2" cy="0.0999999" r="0.00451" fill="#1f77b4" />
+<circle cx="-1.5" cy="0" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#888888" stroke-width="0.002" stroke-dasharray="0.01,0.01" points="-1.5,0 1.5,0 " />
+<circle cx="-1.5" cy="0" r="0.00451" fill="#1f77b4" />
+<circle cx="1.5" cy="0" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#888888" stroke-width="0.002" stroke-dasharray="0.01,0.01" points="1.5,0 1.5,3.6 " />
+<circle cx="1.5" cy="0" r="0.00451" fill="#1f77b4" />
+<circle cx="1.5" cy="3.6" r="0.00451" fill="#1f77b4" />
+<circle cx="0" cy="4.1" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0483871" cy="4.08387" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0967742" cy="4.06774" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.145161" cy="4.05161" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.193548" cy="4.03548" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.241935" cy="4.01935" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.290323" cy="4.00323" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.33871" cy="3.9871" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.387097" cy="3.97097" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.435484" cy="3.95484" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.483871" cy="3.93871" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.532258" cy="3.92258" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.580645" cy="3.90645" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.629032" cy="3.89032" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.677419" cy="3.87419" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.725806" cy="3.85806" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.774194" cy="3.84194" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.822581" cy="3.82581" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.870968" cy="3.80968" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.919355" cy="3.79355" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.967742" cy="3.77742" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.01613" cy="3.76129" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.06452" cy="3.74516" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.1129" cy="3.72903" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.16129" cy="3.7129" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.20968" cy="3.69677" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.25806" cy="3.68064" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.30645" cy="3.66452" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.35484" cy="3.64839" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.40323" cy="3.63226" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.45161" cy="3.61613" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.5" cy="3.6" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.5" cy="3.6" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.48889" cy="3.65" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.47778" cy="3.7" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.46667" cy="3.75" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.45556" cy="3.8" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.44444" cy="3.85" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.43333" cy="3.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.42222" cy="3.95" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.41111" cy="4" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.4" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.4" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.34286" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.28571" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.22857" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.17143" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.11429" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.05714" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.992302" cy="4.0494" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.992302" cy="4.0494" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.984787" cy="4.04763" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.984787" cy="4.04763" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.977635" cy="4.04472" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.977635" cy="4.04472" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.971017" cy="4.04074" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.971017" cy="4.04074" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.965089" cy="4.03579" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.965089" cy="4.03579" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.959994" cy="4.02999" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.959994" cy="4.02999" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.955854" cy="4.02348" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.955854" cy="4.02348" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.952766" cy="4.0164" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.952766" cy="4.0164" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.950804" cy="4.00893" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.950804" cy="4.00893" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.950016" cy="4.00125" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.950016" cy="4.00125" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.948762" cy="3.95109" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.947508" cy="3.90094" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.946254" cy="3.85078" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.945" cy="3.80063" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.945" cy="3.80063" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.943746" cy="3.85078" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.942492" cy="3.90094" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.941238" cy="3.95109" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.939984" cy="4.00125" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.939984" cy="4.00125" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.939196" cy="4.00893" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.939196" cy="4.00893" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.937234" cy="4.0164" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.937234" cy="4.0164" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.934146" cy="4.02348" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.934146" cy="4.02348" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.930006" cy="4.02999" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.930006" cy="4.02999" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.924911" cy="4.03579" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.924911" cy="4.03579" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.918983" cy="4.04074" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.918983" cy="4.04074" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.912365" cy="4.04472" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.912365" cy="4.04472" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.905213" cy="4.04763" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.905213" cy="4.04763" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.897698" cy="4.0494" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.897698" cy="4.0494" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.89" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.89" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.837333" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.784667" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.732" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.679333" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.626667" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.574" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.521333" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.468667" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.416" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.363333" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.310667" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.258" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.205333" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.152667" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.1" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.1" cy="4.05" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0921783" cy="4.04938" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0921783" cy="4.04938" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0845491" cy="4.04755" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0845491" cy="4.04755" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0773005" cy="4.04455" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0773005" cy="4.04455" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0706107" cy="4.04045" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0706107" cy="4.04045" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0646447" cy="4.03536" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0646447" cy="4.03536" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0595492" cy="4.02939" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0595492" cy="4.02939" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0554497" cy="4.0227" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0554497" cy="4.0227" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0524472" cy="4.01545" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0524472" cy="4.01545" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0506156" cy="4.00782" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0506156" cy="4.00782" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="4" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="4" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.95" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0504388" cy="3.89339" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0504388" cy="3.89339" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0517475" cy="3.8869" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0517475" cy="3.8869" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0539032" cy="3.88063" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0539032" cy="3.88063" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0568679" cy="3.87471" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0568679" cy="3.87471" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0605897" cy="3.86923" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0605897" cy="3.86923" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0650033" cy="3.86429" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0650033" cy="3.86429" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0700311" cy="3.85998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0700311" cy="3.85998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0755849" cy="3.85637" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0755849" cy="3.85637" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0815673" cy="3.85352" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0815673" cy="3.85352" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0878732" cy="3.85149" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0878732" cy="3.85149" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0938447" cy="3.85" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0938447" cy="3.85" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0878732" cy="3.84851" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0878732" cy="3.84851" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0767156" cy="3.84425" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0767156" cy="3.84425" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0668865" cy="3.83746" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0668865" cy="3.83746" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0589467" cy="3.82854" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0589467" cy="3.82854" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0533491" cy="3.81799" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0533491" cy="3.81799" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0504132" cy="3.80641" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0504132" cy="3.80641" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0503065" cy="3.79447" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0503065" cy="3.79447" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.053035" cy="3.78285" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.053035" cy="3.78285" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.058443" cy="3.7722" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.058443" cy="3.7722" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0662221" cy="3.76313" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0662221" cy="3.76313" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0759283" cy="3.75618" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0759283" cy="3.75618" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0401942" cy="3.74903" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0401942" cy="3.74903" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0272632" cy="3.74453" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0272632" cy="3.74453" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.016037" cy="3.73669" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.016037" cy="3.73669" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00735708" cy="3.72611" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00735708" cy="3.72611" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00187442" cy="3.71356" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00187442" cy="3.71356" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.49012e-08" cy="3.7" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.49012e-08" cy="3.7" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00187442" cy="3.68644" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00187442" cy="3.68644" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00735708" cy="3.67389" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00735708" cy="3.67389" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0160369" cy="3.66331" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0160369" cy="3.66331" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0272632" cy="3.65547" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0272632" cy="3.65547" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0401942" cy="3.65097" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0401942" cy="3.65097" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0759284" cy="3.64382" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0759284" cy="3.64382" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0713919" cy="3.64101" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0713919" cy="3.64101" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0671818" cy="3.63772" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0671818" cy="3.63772" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0633459" cy="3.63401" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0633459" cy="3.63401" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0599282" cy="3.6299" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0599282" cy="3.6299" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0569676" cy="3.62546" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0569676" cy="3.62546" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0544977" cy="3.62073" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0544977" cy="3.62073" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0525469" cy="3.61575" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0525469" cy="3.61575" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0511374" cy="3.6106" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0511374" cy="3.6106" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0502852" cy="3.60533" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0502852" cy="3.60533" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.6" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.6" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.54942" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.54942" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.030558" cy="3.54133" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.030558" cy="3.54133" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0131493" cy="3.52947" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0131493" cy="3.52947" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.00151007" cy="3.51435" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.00151007" cy="3.51435" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0128172" cy="3.49658" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0128172" cy="3.49658" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0203071" cy="3.4769" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0203071" cy="3.4769" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0236717" cy="3.45611" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0236717" cy="3.45611" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0227727" cy="3.43507" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0227727" cy="3.43507" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.017647" cy="3.41464" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.017647" cy="3.41464" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.00850549" cy="3.39567" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.00850549" cy="3.39567" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00427597" cy="3.37893" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00427594" cy="3.37893" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00223415" cy="3.37102" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00223415" cy="3.37102" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000844724" cy="3.36297" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000844724" cy="3.36297" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000116915" cy="3.35483" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000116915" cy="3.35483" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="5.55888e-05" cy="3.34667" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="5.55888e-05" cy="3.34667" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000661142" cy="3.33852" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000661142" cy="3.33852" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00192956" cy="3.33045" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00192956" cy="3.33045" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00385235" cy="3.32251" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00385235" cy="3.32251" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00641671" cy="3.31476" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00641671" cy="3.31476" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0096055" cy="3.30724" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0096055" cy="3.30724" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0133975" cy="3.3" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0133975" cy="3.3" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00876888" cy="3.29095" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00876888" cy="3.29095" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00508299" cy="3.28148" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00508299" cy="3.28148" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00237788" cy="3.27168" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00237788" cy="3.27168" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000681527" cy="3.26165" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000681527" cy="3.26165" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.14217e-05" cy="3.25151" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="1.14217e-05" cy="3.25151" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000374518" cy="3.24135" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.000374518" cy="3.24135" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00176705" cy="3.23128" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00176705" cy="3.23128" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00417463" cy="3.22141" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00417463" cy="3.22141" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00757238" cy="3.21183" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00757238" cy="3.21183" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0119252" cy="3.20264" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0119252" cy="3.20264" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.00269544" cy="3.18428" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.00269544" cy="3.18428" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0135465" cy="3.16347" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0135465" cy="3.16347" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0202298" cy="3.14097" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0202298" cy="3.14097" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0224999" cy="3.11761" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0224999" cy="3.11761" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0202736" cy="3.09425" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0202736" cy="3.09425" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0136325" cy="3.07174" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0136325" cy="3.07174" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.00282042" cy="3.05091" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.00282042" cy="3.05091" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0117658" cy="3.03252" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0117658" cy="3.03252" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0295907" cy="3.01726" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0295907" cy="3.01726" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.00567" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="3.00567" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="2.95" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.05" cy="2.95" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0503895" cy="2.94377" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0503895" cy="2.94377" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.051552" cy="2.93764" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.051552" cy="2.93764" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0534694" cy="2.9317" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0534694" cy="2.9317" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0561117" cy="2.92605" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0561117" cy="2.92605" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0594379" cy="2.92076" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0594379" cy="2.92076" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0633961" cy="2.91594" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0633961" cy="2.91594" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0679245" cy="2.91164" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0679245" cy="2.91164" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0729528" cy="2.90795" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0729528" cy="2.90795" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0784024" cy="2.90491" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0784024" cy="2.90491" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0841886" cy="2.90257" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0841886" cy="2.90257" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.15359" cy="2.87943" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.222991" cy="2.8563" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.222991" cy="2.8563" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.257438" cy="2.82185" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.257438" cy="2.82185" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.201626" cy="2.80325" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.145814" cy="2.78464" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0900011" cy="2.76604" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0341886" cy="2.74743" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0341886" cy="2.74743" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0305157" cy="2.74605" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0305157" cy="2.74605" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0269629" cy="2.74438" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0269629" cy="2.74438" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0235522" cy="2.74243" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0235522" cy="2.74243" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0203045" cy="2.74023" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0203045" cy="2.74023" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0172399" cy="2.73777" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0172399" cy="2.73777" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0143773" cy="2.73509" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0143773" cy="2.73509" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0117343" cy="2.73218" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0117343" cy="2.73218" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0093272" cy="2.72908" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.0093272" cy="2.72908" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00717087" cy="2.7258" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00717087" cy="2.7258" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00527861" cy="2.72236" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="0.00527864" cy="2.72236" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0197214" cy="2.67236" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0447214" cy="2.62236" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0447214" cy="2.62236" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0457096" cy="2.62026" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0457096" cy="2.62026" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0465997" cy="2.61812" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0465997" cy="2.61812" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0473896" cy="2.61594" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0473896" cy="2.61594" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0480776" cy="2.61373" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0480776" cy="2.61373" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0486624" cy="2.61149" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0486624" cy="2.61149" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0491425" cy="2.60922" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0491425" cy="2.60922" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.049517" cy="2.60693" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.049517" cy="2.60693" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0497851" cy="2.60463" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0497851" cy="2.60463" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0499462" cy="2.60232" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0499462" cy="2.60232" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.05" cy="2.6" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.05" cy="2.6" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.055849" cy="2.52569" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.061698" cy="2.45139" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.061698" cy="2.45139" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0790988" cy="2.37891" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0964996" cy="2.30644" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.0964996" cy="2.30644" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.125024" cy="2.23758" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.153548" cy="2.16871" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.153548" cy="2.16871" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.192493" cy="2.10516" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.231439" cy="2.04161" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.231439" cy="2.04161" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.279846" cy="1.98493" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.328253" cy="1.92826" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.328253" cy="1.92826" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.384931" cy="1.87985" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.441609" cy="1.83144" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.441609" cy="1.83144" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.505161" cy="1.7925" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.568713" cy="1.75356" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.568713" cy="1.75356" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.637575" cy="1.72503" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.706437" cy="1.69651" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.706437" cy="1.69651" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.778913" cy="1.67911" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.851389" cy="1.66171" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.851389" cy="1.66171" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-0.925695" cy="1.65586" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1" cy="1.65001" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1" cy="1.65" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.00782" cy="1.64938" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.00782" cy="1.64938" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.01545" cy="1.64755" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.01545" cy="1.64755" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.0227" cy="1.64455" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.0227" cy="1.64455" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.02939" cy="1.64045" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.02939" cy="1.64045" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.03536" cy="1.63535" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.03536" cy="1.63535" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.04045" cy="1.62939" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.04045" cy="1.62939" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.04455" cy="1.6227" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.04455" cy="1.6227" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.04755" cy="1.61545" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.04755" cy="1.61545" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.04938" cy="1.60782" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.04938" cy="1.60782" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.6" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.6" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.55" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.5" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.45" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.4" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05" cy="1.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05232" cy="1.31965" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05232" cy="1.31965" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05921" cy="1.29" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.05921" cy="1.29" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.07053" cy="1.26174" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.07053" cy="1.26174" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.086" cy="1.23553" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.086" cy="1.23553" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.10527" cy="1.21197" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.10527" cy="1.21197" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.12789" cy="1.1916" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.12789" cy="1.1916" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.15334" cy="1.17491" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.15334" cy="1.17491" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.18103" cy="1.16227" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.18103" cy="1.16227" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.21032" cy="1.15398" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.21032" cy="1.15398" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.24053" cy="1.15022" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.24053" cy="1.15022" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.29377" cy="1.16578" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.29377" cy="1.16578" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.34897" cy="1.17126" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.34897" cy="1.17126" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.40424" cy="1.16649" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.40424" cy="1.16649" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.45768" cy="1.15163" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.45768" cy="1.15163" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.50747" cy="1.12718" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.50747" cy="1.12718" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.55191" cy="1.09398" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.55191" cy="1.09398" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.58947" cy="1.05316" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.58947" cy="1.05316" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.61888" cy="1.00613" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.61888" cy="1.00613" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.63913" cy="0.954488" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.63913" cy="0.954488" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.64953" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.64953" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.69959" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.74966" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.79973" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8498" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.89986" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.94993" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2" cy="0.9" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.00762" cy="0.899415" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.00762" cy="0.899415" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.01507" cy="0.897675" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.01507" cy="0.897675" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.02216" cy="0.894819" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.02216" cy="0.894819" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.02874" cy="0.890915" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.02874" cy="0.890915" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03464" cy="0.886055" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03464" cy="0.886055" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03973" cy="0.880351" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03973" cy="0.880351" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.0439" cy="0.873937" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.0439" cy="0.873937" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04703" cy="0.866963" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04703" cy="0.866963" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04907" cy="0.859593" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04907" cy="0.859593" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04996" cy="0.851998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04996" cy="0.851998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05196" cy="0.801998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05396" cy="0.751998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05596" cy="0.701998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05796" cy="0.651998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05996" cy="0.601998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05996" cy="0.601998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05938" cy="0.592142" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05938" cy="0.592142" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05687" cy="0.582592" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05687" cy="0.582592" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05254" cy="0.57372" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05254" cy="0.57372" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04654" cy="0.565874" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04654" cy="0.565874" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03912" cy="0.559358" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03912" cy="0.559358" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03057" cy="0.554427" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03057" cy="0.554427" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.02121" cy="0.551274" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.02121" cy="0.551274" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.01142" cy="0.55002" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.01142" cy="0.55002" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.00157" cy="0.550715" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.00157" cy="0.550715" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.99205" cy="0.553333" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.99205" cy="0.553333" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.94404" cy="0.571799" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.89603" cy="0.590265" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.84801" cy="0.608732" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8" cy="0.627198" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8" cy="0.627198" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8" cy="0.576083" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8" cy="0.524967" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8" cy="0.473852" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8" cy="0.473852" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.86048" cy="0.498042" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.92095" cy="0.522233" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.98143" cy="0.546424" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.98143" cy="0.546424" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.99078" cy="0.549144" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.99078" cy="0.549144" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.00049" cy="0.549998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.00049" cy="0.549998" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.01017" cy="0.548954" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.01017" cy="0.548954" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.01947" cy="0.546053" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.01947" cy="0.546053" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.02803" cy="0.541404" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.02803" cy="0.541404" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03553" cy="0.535182" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.03553" cy="0.535182" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04167" cy="0.527626" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04167" cy="0.527626" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04624" cy="0.519022" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04624" cy="0.519022" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04905" cy="0.509695" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.04905" cy="0.509695" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.5" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.5" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.45" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.4" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.35" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.3" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.25" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.2" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.15" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.0999999" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2.05" cy="0.0999999" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-2" cy="0.090909" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.95" cy="0.0818181" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.9" cy="0.0727272" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.85" cy="0.0636363" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.8" cy="0.0545454" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.75" cy="0.0454545" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.7" cy="0.0363636" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.65" cy="0.0272727" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.6" cy="0.0181818" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.55" cy="0.0090909" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<circle cx="-1.5" cy="0" r="0.05" stroke="#888" stroke-width="0.001" fill="none" stroke-dasharray="0.01,0.01" />
+<polyline fill="none" stroke="#888888" stroke-width="0.002" stroke-dasharray="0.01,0.01" points="0,4.1 1.5,3.6 " />
+<circle cx="0" cy="4.1" r="0.00451" fill="#d62728" />
+<circle cx="1.5" cy="3.6" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5,3.6 1.4,4.05 " />
+<circle cx="1.5" cy="3.6" r="0.00451" fill="#d62728" />
+<circle cx="1.4" cy="4.05" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.4,4.05 1,4.05 " />
+<circle cx="1.4" cy="4.05" r="0.00451" fill="#d62728" />
+<circle cx="1" cy="4.05" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1,4.05 0.996782,4.0499 0.993577,4.04959 0.990399,4.04907 0.98726,4.04835 0.984175,4.04743 0.981155,4.04631 0.978213,4.045 0.975362,4.04351 0.972612,4.04183 0.969977,4.03998 0.967466,4.03797 0.965089,4.03579 0.962858,4.03347 0.96078,4.03101 0.958866,4.02842 0.957121,4.02572 0.955555,4.0229 0.954173,4.02 0.952981,4.01701 0.951984,4.01394 0.951186,4.01082 0.95059,4.00766 0.9502,4.00446 0.950016,4.00125 " />
+<circle cx="1" cy="4.05" r="0.00451" fill="#d62728" />
+<circle cx="0.950016" cy="4.00125" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.950016,4.00125 0.945,3.80063 " />
+<circle cx="0.950016" cy="4.00125" r="0.00451" fill="#d62728" />
+<circle cx="0.945" cy="3.80063" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.945,3.80063 0.939984,4.00125 " />
+<circle cx="0.945" cy="3.80063" r="0.00451" fill="#d62728" />
+<circle cx="0.939984" cy="4.00125" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.939984,4.00125 0.9398,4.00446 0.93941,4.00766 0.938814,4.01082 0.938016,4.01394 0.937019,4.01701 0.935827,4.02 0.934445,4.0229 0.932879,4.02572 0.931134,4.02842 0.92922,4.03101 0.927142,4.03347 0.924911,4.03579 0.922534,4.03797 0.920023,4.03998 0.917388,4.04183 0.914638,4.04351 0.911787,4.045 0.908845,4.04631 0.905825,4.04743 0.90274,4.04835 0.899601,4.04907 0.896423,4.04959 0.893218,4.0499 0.89,4.05 " />
+<circle cx="0.939984" cy="4.00125" r="0.00451" fill="#d62728" />
+<circle cx="0.89" cy="4.05" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.89,4.05 0.1,4.05 " />
+<circle cx="0.89" cy="4.05" r="0.00451" fill="#d62728" />
+<circle cx="0.1" cy="4.05" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.1,4.05 0.0967299,4.04989 0.0934737,4.04957 0.0902455,4.04904 0.0870591,4.0483 0.083928,4.04735 0.0808658,4.04619 0.0778856,4.04484 0.075,4.0433 0.0722215,4.04157 0.0695619,4.03967 0.0670327,4.03759 0.0646447,4.03536 0.062408,4.03297 0.0603323,4.03044 0.0584265,4.02778 0.0566987,4.025 0.0551564,4.02211 0.053806,4.01913 0.0526535,4.01607 0.0517037,4.01294 0.0509607,4.00975 0.0504278,4.00653 0.0501071,4.00327 0.05,4 " />
+<circle cx="0.1" cy="4.05" r="0.00451" fill="#d62728" />
+<circle cx="0.05" cy="4" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.05,4 0.05,3.9 " />
+<circle cx="0.05" cy="4" r="0.00451" fill="#d62728" />
+<circle cx="0.05" cy="3.9" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.05,3.9 0.0500763,3.89724 0.0503049,3.89449 0.0506851,3.89175 0.0512157,3.88904 0.0518952,3.88636 0.0527215,3.88373 0.053692,3.88114 0.0548038,3.87862 0.0560535,3.87615 0.0574372,3.87376 0.0589509,3.87145 0.0605897,3.86923 0.0623488,3.8671 0.0642228,3.86507 0.0662059,3.86315 0.0682921,3.86134 0.0704751,3.85965 0.0727482,3.85808 0.0751043,3.85664 0.0775365,3.85533 0.0800372,3.85416 0.0825988,3.85313 0.0852134,3.85224 0.0878732,3.85149 " />
+<circle cx="0.05" cy="3.9" r="0.00451" fill="#d62728" />
+<circle cx="0.0878732" cy="3.85149" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0878732,3.85149 0.0938447,3.85 " />
+<circle cx="0.0878732" cy="3.85149" r="0.00451" fill="#d62728" />
+<circle cx="0.0938447" cy="3.85" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0938447,3.85 0.0878732,3.84851 " />
+<circle cx="0.0938447" cy="3.85" r="0.00451" fill="#d62728" />
+<circle cx="0.0878732" cy="3.84851" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0878732,3.84851 0.0831023,3.84706 0.0784994,3.84514 0.0741104,3.84278 0.0699788,3.83998 0.0661457,3.8368 0.0626493,3.83324 0.0595243,3.82936 0.0568019,3.82518 0.054509,3.82075 0.0526685,3.81612 0.0512987,3.81132 0.0504132,3.80641 0.0500209,3.80144 0.0501255,3.79646 0.0507261,3.79151 0.0518168,3.78664 0.0533866,3.78191 0.0554199,3.77736 0.0578966,3.77303 0.0607919,3.76897 0.0640772,3.76522 0.0677197,3.76182 0.0716832,3.75879 0.0759283,3.75618 " />
+<circle cx="0.0878732" cy="3.84851" r="0.00451" fill="#d62728" />
+<circle cx="0.0759283" cy="3.75618" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0759283,3.75618 0.0401942,3.74903 " />
+<circle cx="0.0759283" cy="3.75618" r="0.00451" fill="#d62728" />
+<circle cx="0.0401942" cy="3.74903" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0401942,3.74903 0.0346592,3.74759 0.029325,3.74553 0.0242612,3.74287 0.0195343,3.73965 0.015206,3.73591 0.0113329,3.7317 0.00796579,3.72708 0.00514867,3.7221 0.00291841,3.71683 0.00130419,3.71135 0.000327129,3.70571 1.49012e-08,3.7 0.000327129,3.69429 0.00130419,3.68865 0.00291841,3.68317 0.00514867,3.6779 0.00796579,3.67292 0.0113329,3.6683 0.015206,3.66409 0.0195343,3.66035 0.0242612,3.65713 0.029325,3.65447 0.0346592,3.65241 0.0401942,3.65097 " />
+<circle cx="0.0401942" cy="3.74903" r="0.00451" fill="#d62728" />
+<circle cx="0.0401942" cy="3.65097" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0401942,3.65097 0.0759284,3.64382 " />
+<circle cx="0.0401942" cy="3.65097" r="0.00451" fill="#d62728" />
+<circle cx="0.0759284" cy="3.64382" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0759284,3.64382 0.0740017,3.64271 0.0721267,3.64151 0.0703068,3.64023 0.0685458,3.63887 0.0668472,3.63743 0.0652142,3.63592 0.0636502,3.63433 0.0621582,3.63268 0.0607412,3.63096 0.0594021,3.62919 0.0581433,3.62735 0.0569676,3.62546 0.0558771,3.62352 0.054874,3.62153 0.0539604,3.6195 0.053138,3.61743 0.0524085,3.61533 0.0517733,3.6132 0.0512337,3.61104 0.0507908,3.60886 0.0504453,3.60666 0.0501981,3.60445 0.0500496,3.60223 0.05,3.6 " />
+<circle cx="0.0759284" cy="3.64382" r="0.00451" fill="#d62728" />
+<circle cx="0.05" cy="3.6" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.05,3.6 0.05,3.54942 " />
+<circle cx="0.05" cy="3.6" r="0.00451" fill="#d62728" />
+<circle cx="0.05" cy="3.54942" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.05,3.54942 0.0417018,3.54653 0.0336778,3.54295 0.0259855,3.5387 0.01868,3.53382 0.0118135,3.52833 0.0054353,3.52229 -0.000409022,3.51572 -0.0056776,3.50869 -0.0103327,3.50124 -0.014341,3.49342 -0.0176737,3.48528 -0.0203071,3.4769 -0.0222223,3.46832 -0.0234055,3.45962 -0.0238483,3.45084 -0.0235475,3.44206 -0.0225052,3.43333 -0.0207291,3.42472 -0.0182316,3.4163 -0.0150308,3.40812 -0.0111495,3.40023 -0.00661557,3.3927 -0.00146145,3.38559 0.00427597,3.37893 " />
+<circle cx="0.05" cy="3.54942" r="0.00451" fill="#d62728" />
+<circle cx="0.00427597" cy="3.37893" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.00427594,3.37893 0.00334669,3.37565 0.00252946,3.37235 0.0018252,3.36902 0.00123472,3.36567 0.000758708,3.36229 0.000397712,3.35891 0.000152148,3.35551 2.2307e-05,3.35211 8.3372e-06,3.34871 0.000110254,3.34531 0.000327945,3.34191 0.000661142,3.33852 0.00110948,3.33514 0.00167243,3.33179 0.00234933,3.32845 0.00313941,3.32514 0.00404175,3.32186 0.0050553,3.31861 0.00617889,3.31539 0.00741121,3.31222 0.00875085,3.30909 0.0101962,3.30601 0.0117457,3.30298 0.0133975,3.3 " />
+<circle cx="0.00427594" cy="3.37893" r="0.00451" fill="#d62728" />
+<circle cx="0.0133975" cy="3.3" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0133975,3.3 0.0113572,3.29629 0.00947602,3.29249 0.00775737,3.28862 0.00620431,3.28468 0.00481965,3.28067 0.00360585,3.27661 0.0025651,3.2725 0.00169928,3.26836 0.00100991,3.26418 0.00049825,3.25997 0.000165232,3.25575 1.14217e-05,3.25151 3.71262e-05,3.24727 0.000242278,3.24304 0.000626519,3.23882 0.00118916,3.23462 0.00192918,3.23045 0.00284526,3.22632 0.00393576,3.22222 0.00519871,3.21818 0.00663186,3.21419 0.00823261,3.21027 0.00999811,3.20641 0.0119252,3.20264 " />
+<circle cx="0.0133975" cy="3.3" r="0.00451" fill="#d62728" />
+<circle cx="0.0119252" cy="3.20264" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0119252,3.20264 0.00540665,3.19534 -0.000507563,3.18753 -0.00577966,3.17928 -0.010376,3.17064 -0.0142671,3.16165 -0.0174282,3.15238 -0.0198391,3.14289 -0.0214844,3.13324 -0.0223535,3.12349 -0.022441,3.1137 -0.0217462,3.10393 -0.0202736,3.09425 -0.0180326,3.08472 -0.0150375,3.0754 -0.0113075,3.06634 -0.0068664,3.05762 -0.00174253,3.04927 0.00403134,3.04137 0.0104183,3.03395 0.0173776,3.02706 0.0248648,3.02075 0.0328319,3.01506 0.0412282,3.01002 0.05,3.00567 " />
+<circle cx="0.0119252" cy="3.20264" r="0.00451" fill="#d62728" />
+<circle cx="0.05" cy="3.00567" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.05,3.00567 0.05,2.95 " />
+<circle cx="0.05" cy="3.00567" r="0.00451" fill="#d62728" />
+<circle cx="0.05" cy="2.95" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.05,2.95 0.0500677,2.9474 0.0502706,2.94481 0.0506082,2.94222 0.0510795,2.93967 0.0516833,2.93714 0.0524179,2.93464 0.0532814,2.93218 0.0542714,2.92978 0.0553852,2.92743 0.0566199,2.92514 0.057972,2.92291 0.0594379,2.92076 0.0610136,2.91869 0.062695,2.91671 0.0644773,2.91481 0.0663559,2.91301 0.0683255,2.91131 0.0703809,2.90972 0.0725165,2.90823 0.0747266,2.90686 0.0770051,2.9056 0.0793458,2.90447 0.0817425,2.90345 0.0841886,2.90257 " />
+<circle cx="0.05" cy="2.95" r="0.00451" fill="#d62728" />
+<circle cx="0.0841886" cy="2.90257" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0841886,2.90257 0.222991,2.8563 " />
+<circle cx="0.0841886" cy="2.90257" r="0.00451" fill="#d62728" />
+<circle cx="0.222991" cy="2.8563" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.222991,2.8563 0.257438,2.82185 " />
+<circle cx="0.222991" cy="2.8563" r="0.00451" fill="#d62728" />
+<circle cx="0.257438" cy="2.82185" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.257438,2.82185 0.0341886,2.74743 " />
+<circle cx="0.257438" cy="2.82185" r="0.00451" fill="#d62728" />
+<circle cx="0.0341886" cy="2.74743" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.0341886,2.74743 0.0326451,2.74689 0.0311201,2.7463 0.0296154,2.74566 0.0281325,2.74496 0.026673,2.74423 0.0252385,2.74344 0.0238305,2.7426 0.0224505,2.74173 0.0211,2.7408 0.0197805,2.73983 0.0184933,2.73882 0.0172399,2.73777 0.0160215,2.73668 0.0148396,2.73555 0.0136953,2.73438 0.0125898,2.73317 0.0115245,2.73193 0.0105003,2.73066 0.0095184,2.72935 0.00857987,2.72801 0.00768569,2.72664 0.00683683,2.72524 0.00603418,2.72381 0.00527861,2.72236 " />
+<circle cx="0.0341886" cy="2.74743" r="0.00451" fill="#d62728" />
+<circle cx="0.00527861" cy="2.72236" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.00527864,2.72236 -0.0447214,2.62236 " />
+<circle cx="0.00527864" cy="2.72236" r="0.00451" fill="#d62728" />
+<circle cx="-0.0447214" cy="2.62236" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-0.0447214,2.62236 -0.0451449,2.62149 -0.0455517,2.62062 -0.0459414,2.61973 -0.046314,2.61884 -0.0466694,2.61794 -0.0470073,2.61704 -0.0473276,2.61613 -0.0476303,2.61521 -0.0479153,2.61429 -0.0481823,2.61336 -0.0484314,2.61243 -0.0486624,2.61149 -0.0488752,2.61055 -0.0490698,2.6096 -0.0492461,2.60865 -0.049404,2.6077 -0.0495434,2.60674 -0.0496644,2.60578 -0.0497669,2.60482 -0.0498507,2.60386 -0.049916,2.6029 -0.0499627,2.60193 -0.0499907,2.60097 -0.05,2.6 " />
+<circle cx="-0.0447214" cy="2.62236" r="0.00451" fill="#d62728" />
+<circle cx="-0.05" cy="2.6" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-0.05,2.6 -0.0520349,2.53787 -0.058129,2.476 -0.0682563,2.41467 -0.0823733,2.35413 -0.10042,2.29464 -0.122318,2.23646 -0.147975,2.17983 -0.17728,2.12501 -0.210108,2.07222 -0.246319,2.02168 -0.285757,1.97363 -0.328253,1.92826 -0.373626,1.88576 -0.421681,1.84632 -0.472213,1.81011 -0.525004,1.77729 -0.57983,1.74798 -0.636454,1.72233 -0.694636,1.70043 -0.754125,1.68238 -0.814666,1.66827 -0.876002,1.65814 -0.937868,1.65205 -1,1.65001 " />
+<circle cx="-0.05" cy="2.6" r="0.00451" fill="#d62728" />
+<circle cx="-1" cy="1.65001" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1,1.65 -1.00327,1.64989 -1.00653,1.64957 -1.00976,1.64904 -1.01294,1.6483 -1.01607,1.64735 -1.01913,1.64619 -1.02211,1.64484 -1.025,1.6433 -1.02778,1.64157 -1.03044,1.63967 -1.03297,1.63759 -1.03536,1.63535 -1.03759,1.63297 -1.03967,1.63044 -1.04157,1.62778 -1.0433,1.625 -1.04484,1.62211 -1.04619,1.61913 -1.04735,1.61607 -1.0483,1.61294 -1.04904,1.60975 -1.04957,1.60653 -1.04989,1.60327 -1.05,1.6 " />
+<circle cx="-1" cy="1.65" r="0.00451" fill="#d62728" />
+<circle cx="-1.05" cy="1.6" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.05,1.6 -1.05,1.35 " />
+<circle cx="-1.05" cy="1.6" r="0.00451" fill="#d62728" />
+<circle cx="-1.05" cy="1.35" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 -1.05,1.35 " />
+<circle cx="-1.05" cy="1.35" r="0.00451" fill="#d62728" />
+<circle cx="-1.05" cy="1.35" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.05,1.35 -1.0504,1.33731 -1.05161,1.32468 -1.05362,1.31214 -1.05641,1.29976 -1.05999,1.28758 -1.06433,1.27566 -1.06942,1.26403 -1.07524,1.25275 -1.08176,1.24186 -1.08896,1.2314 -1.0968,1.22143 -1.10527,1.21197 -1.11432,1.20307 -1.12391,1.19475 -1.13401,1.18707 -1.14458,1.18004 -1.15557,1.1737 -1.16695,1.16806 -1.17865,1.16316 -1.19065,1.15901 -1.20288,1.15563 -1.21531,1.15303 -1.22787,1.15123 -1.24053,1.15022 " />
+<circle cx="-1.05" cy="1.35" r="0.00451" fill="#d62728" />
+<circle cx="-1.24053" cy="1.15022" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.24053,1.15022 -1.26236,1.1579 -1.28471,1.16387 -1.30746,1.16811 -1.33047,1.17057 -1.3536,1.17126 -1.37671,1.17016 -1.39967,1.16728 -1.42234,1.16264 -1.44459,1.15627 -1.46628,1.1482 -1.48728,1.13848 -1.50747,1.12718 -1.52673,1.11435 -1.54494,1.10007 -1.562,1.08444 -1.5778,1.06753 -1.59225,1.04946 -1.60527,1.03033 -1.61677,1.01025 -1.62669,0.989344 -1.63497,0.967736 -1.64156,0.945555 -1.64642,0.922931 -1.64953,0.9 " />
+<circle cx="-1.24053" cy="1.15022" r="0.00451" fill="#d62728" />
+<circle cx="-1.64953" cy="0.9" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.64953,0.9 -2,0.9 " />
+<circle cx="-1.64953" cy="0.9" r="0.00451" fill="#d62728" />
+<circle cx="-2" cy="0.9" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-2,0.9 -2.00319,0.899898 -2.00636,0.899594 -2.00951,0.899087 -2.01262,0.898381 -2.01568,0.897479 -2.01867,0.896383 -2.02159,0.895098 -2.02442,0.893631 -2.02715,0.891985 -2.02977,0.890169 -2.03227,0.88819 -2.03464,0.886055 -2.03687,0.883773 -2.03895,0.881355 -2.04087,0.878808 -2.04262,0.876145 -2.0442,0.873375 -2.0456,0.87051 -2.04681,0.867562 -2.04784,0.864542 -2.04867,0.861464 -2.0493,0.858338 -2.04973,0.855179 -2.04996,0.851998 " />
+<circle cx="-2" cy="0.9" r="0.00451" fill="#d62728" />
+<circle cx="-2.04996" cy="0.851998" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-2.04996,0.851998 -2.05996,0.601998 " />
+<circle cx="-2.04996" cy="0.851998" r="0.00451" fill="#d62728" />
+<circle cx="-2.05996" cy="0.601998" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-2.05996,0.601998 -2.05996,0.597879 -2.05961,0.593774 -2.05893,0.589711 -2.05792,0.585718 -2.05658,0.581821 -2.05492,0.578049 -2.05296,0.574425 -2.05071,0.570975 -2.04819,0.567722 -2.0454,0.564688 -2.04237,0.561894 -2.03912,0.559358 -2.03568,0.557099 -2.03206,0.55513 -2.02829,0.553466 -2.0244,0.552118 -2.02041,0.551095 -2.01635,0.550405 -2.01224,0.55005 -2.00812,0.550035 -2.00402,0.550359 -1.99995,0.55102 -1.99595,0.552013 -1.99205,0.553333 " />
+<circle cx="-2.05996" cy="0.601998" r="0.00451" fill="#d62728" />
+<circle cx="-1.99205" cy="0.553333" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.99205,0.553333 -1.8,0.627198 " />
+<circle cx="-1.99205" cy="0.553333" r="0.00451" fill="#d62728" />
+<circle cx="-1.8" cy="0.627198" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.8,0.627198 -1.8,0.473852 " />
+<circle cx="-1.8" cy="0.627198" r="0.00451" fill="#d62728" />
+<circle cx="-1.8" cy="0.473852" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.8,0.473852 -1.98143,0.546424 " />
+<circle cx="-1.8" cy="0.473852" r="0.00451" fill="#d62728" />
+<circle cx="-1.98143" cy="0.546424" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-1.98143,0.546424 -1.98526,0.547779 -1.98919,0.548818 -1.99319,0.549534 -1.99724,0.549924 -2.0013,0.549983 -2.00536,0.549712 -2.00938,0.549113 -2.01333,0.54819 -2.0172,0.546947 -2.02096,0.545395 -2.02458,0.543543 -2.02803,0.541404 -2.0313,0.53899 -2.03436,0.536319 -2.0372,0.533408 -2.03979,0.530277 -2.04212,0.526945 -2.04417,0.523435 -2.04593,0.519771 -2.04738,0.515976 -2.04852,0.512075 -2.04934,0.508095 -2.04983,0.504061 -2.05,0.5 " />
+<circle cx="-1.98143" cy="0.546424" r="0.00451" fill="#d62728" />
+<circle cx="-2.05" cy="0.5" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-2.05,0.5 -2.05,0.0999999 " />
+<circle cx="-2.05" cy="0.5" r="0.00451" fill="#d62728" />
+<circle cx="-2.05" cy="0.0999999" r="0.00451" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-2.05,0.0999999 -1.5,0 " />
+<circle cx="-2.05" cy="0.0999999" r="0.00451" fill="#d62728" />
+<circle cx="-1.5" cy="0" r="0.00451" fill="#d62728" />
 </svg>
