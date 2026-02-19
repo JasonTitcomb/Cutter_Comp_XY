@@ -16,7 +16,7 @@
 #define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
 #endif
 
-#include "TinyGCodeScan.h"
+#include "SimpleGCodeScan.h"
 #include "CutterComp2D.h"
 #include "TestData.h"
 
@@ -242,7 +242,7 @@ void setup()
   // Init modal state
   modal = ModalState{};
   modal.planeXY = true;
-  modal.absXY = true;
+  modal.absXYZ = true;
   modal.motionG = 0;
   modal.comp = COMP_OFF;
   modal.feed = 0;

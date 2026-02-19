@@ -9,15 +9,19 @@ struct ScanLine
     int32_t N = 0;
 
     bool hasG = false;
-    int32_t G = 0; // last G word wins (fine for our subset)
+    int32_t G = 0;
     bool hasX = false;
     float X = 0;
     bool hasY = false;
     float Y = 0;
+    bool hasZ = false;
+    float Z = 0;
     bool hasI = false;
     float I = 0;
     bool hasJ = false;
     float J = 0;
+    bool hasK = false;
+    float K = 0;
     bool hasR = false;
     float R = 0;
     bool hasF = false;
@@ -29,24 +33,25 @@ struct ScanLine
     bool sawG41 = false;
     bool sawG42 = false;
     bool sawG40 = false;
-    
+
     // Motion mode tracking
     bool sawG0 = false;
     bool sawG1 = false;
     bool sawG2 = false;
     bool sawG3 = false;
+    bool sawG91 = false;
 };
 
 // Minimal modal state
 struct ModalState
 {
     bool planeXY = true; // G17
-    bool absXY = true;   // G90 (only mode supported here)
+    bool absXYZ = true;  // G90/G91
     int motionG = 0;     // 0/1/2/3 modal
     CompSide comp = COMP_OFF;
     CompMode compMode = CM_NONE;
     float feed = 0.0f;
-    Vec2 pos{0, 0}; // current XY
+    Vec3 pos{0, 0, 0}; // current XYZ position; updated by interpret_to_move
 };
 
 // -------------------------
@@ -149,7 +154,7 @@ static inline void scan_line(const char *line, ScanLine &s)
 {
     s = ScanLine{}; // reset
     const char *p = line;
-    
+
     while (*p)
     {
         p = skip_ws(p);
@@ -181,6 +186,8 @@ static inline void scan_line(const char *line, ScanLine &s)
                     s.sawG17 = true;
                 if (s.G == 90)
                     s.sawG90 = true;
+                if (s.G == 91)
+                    s.sawG91 = true;
                 if (s.G == 41)
                     s.sawG41 = true;
                 if (s.G == 42)
@@ -198,6 +205,11 @@ static inline void scan_line(const char *line, ScanLine &s)
                 s.hasY = true;
                 p = parse_float(p, s.Y);
             }
+            else if (c == 'Z')
+            {
+                s.hasZ = true;
+                p = parse_float(p, s.Z);
+            }
             else if (c == 'I')
             {
                 s.hasI = true;
@@ -207,6 +219,11 @@ static inline void scan_line(const char *line, ScanLine &s)
             {
                 s.hasJ = true;
                 p = parse_float(p, s.J);
+            }
+            else if (c == 'K')
+            {
+                s.hasK = true;
+                p = parse_float(p, s.K);
             }
             else if (c == 'R')
             {
@@ -234,29 +251,29 @@ static inline void scan_line(const char *line, ScanLine &s)
 
 // Compute center from R for G2/G3 arc in XY.
 // Chooses the center matching CW/CCW; assumes "shorter" arc when ambiguous.
-static inline bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, ArcDir dir, Vec2 &outC)
+static inline bool arc_center_from_R(const Vec3 &p0, const Vec3 &p1, float R, ArcDir dir, Vec3 &outC)
 {
     float r = fabsf(R);
-    Vec2 chord = p1 - p0;
+    Vec3 chord = p1 - p0;
     float d = len(chord);
     if (d < TOL)
         return false;
     if (d > 2.0f * r + 1e-5f)
         return false;
 
-    Vec2 M = (p0 + p1) * 0.5f;
+    Vec3 M = (p0 + p1) * 0.5f;
     float half = 0.5f * d;
     float h = sqrtf(fmaxf(0.0f, r * r - half * half));
 
-    Vec2 u = chord * (1.0f / d);
-    Vec2 perp = leftNormal(u);
+    Vec3 u = chord * (1.0f / d);
+    Vec3 perp = leftNormal(u);
 
-    Vec2 C1 = M + perp * h;
-    Vec2 C2 = M - perp * h;
+    Vec3 C1 = M + perp * h;
+    Vec3 C2 = M - perp * h;
 
-    auto ok = [&](const Vec2 &C)
+    auto ok = [&](const Vec3 &C)
     {
-        Vec2 a = p0 - C, b = p1 - C;
+        Vec3 a = p0 - C, b = p1 - C;
         float z = cross(a, b);
         return (dir == ARC_CCW) ? (z > 0) : (z < 0);
     };
@@ -279,7 +296,9 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
     if (s.sawG17)
         modeState.planeXY = true;
     if (s.sawG90)
-        modeState.absXY = true;
+        modeState.absXYZ = true;
+    if (s.sawG91)
+        modeState.absXYZ = false;
     if (s.sawG40)
         modeState.comp = COMP_OFF;
     if (s.sawG41)
@@ -299,23 +318,55 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
     else if (s.sawG3)
         modeState.motionG = 3;
 
-    // Absolute XY only (tiny subset)
-    Vec2 p0 = modeState.pos;
-    Vec2 p1 = p0;
+    // Absolute XYZ only (tiny subset)
+    Vec3 p0 = modeState.pos;
+    Vec3 p1 = p0;
 
-    bool anyXY = false;
+    bool anyXYZ = false;
     if (s.hasX)
     {
-        p1.x = s.X;
-        anyXY = true;
+        if (modeState.absXYZ)
+        {
+            // G90: absolute coordinate
+            p1.x = s.X;
+        }
+        else
+        {
+            // G91: incremental, add to current position
+            p1.x = p0.x + s.X;
+        }
+
+        anyXYZ = true;
     }
     if (s.hasY)
     {
-        p1.y = s.Y;
-        anyXY = true;
+        if (modeState.absXYZ)        {
+            // G90: absolute coordinate
+            p1.y = s.Y;
+        }
+        else
+        {
+            // G91: incremental, add to current position
+            p1.y = p0.y + s.Y;
+        }
+        anyXYZ = true;
+    }
+    if (s.hasZ)
+    {
+        if (modeState.absXYZ)
+        {
+            // G90: absolute coordinate
+            p1.z = s.Z;
+        }
+        else
+        {
+            // G91: incremental, add to current position
+            p1.z = p0.z + s.Z;
+        }
+        anyXYZ = true;
     }
 
-    if (!anyXY)
+    if (!anyXYZ)
     {
         return Move2D{}; // MOT_EMPTY
     }
@@ -328,8 +379,7 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
     out.p1 = p1;
     out.feed = modeState.feed;
 
-
-    if(modeState.compMode == CM_IN || modeState.compMode == CM_OUT)
+    if (modeState.compMode == CM_IN || modeState.compMode == CM_OUT)
     {
         out.compMode = CM_STEADY; // in a comp block but no change from previous move, so steady comp mode.
     }
@@ -338,7 +388,8 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
         out.compMode = CM_NONE;
     }
 
-    if (s.sawG41 || s.sawG42){
+    if (s.sawG41 || s.sawG42)
+    {
         out.compMode = CM_IN;
         modeState.compMode = CM_IN;
     }
@@ -348,14 +399,13 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
         modeState.compMode = CM_OUT;
     }
 
-
     if (modeState.motionG == 0)
     {
         out.type = MOT_RAPID;
         modeState.pos = p1;
         return out;
     }
-        
+
     if (modeState.motionG == 1)
     {
         out.type = MOT_LINE;
@@ -371,13 +421,13 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
         // Resolve center either from I/J or from R
         if (s.hasI || s.hasJ)
         {
-            Vec2 ij = v2(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f);
+            Vec3 ij = v2(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f);
             out.center = p0 + ij; // I/J incremental
             out.radius = len(p0 - out.center);
         }
         else if (s.hasR)
         {
-            Vec2 C;
+            Vec3 C;
             if (!arc_center_from_R(p0, p1, s.R, out.arcDir, C))
             {
                 out.type = MOT_LINE; // fallback

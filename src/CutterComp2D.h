@@ -186,48 +186,6 @@ private:
         return m;
     }
 
-    static inline bool angleOnSweepCCW(float a0, float a1, float ap)
-    {
-        a0 = angleNorm(a0);
-        a1 = angleNorm(a1);
-        ap = angleNorm(ap);
-        if (a0 <= a1)
-            return (ap + 1e-7f >= a0) && (ap <= a1 + 1e-7f);
-        // wrap
-        return (ap >= a0 - 1e-7f) || (ap <= a1 + 1e-7f);
-    }
-
-    static inline bool angleOnSweepCW(float a0, float a1, float ap)
-    {
-        // CW sweep from a0 down to a1 is CCW from a1 to a0
-        return angleOnSweepCCW(a1, a0, ap);
-    }
-
-    static inline float includedAngleDeg(Vec2 v1, Vec2 v2)
-    {
-        // VB does: v2 = -v2
-        v1 = normalize(v1);
-        v2 = normalize(v2) * -1.0f;
-
-        float c = dot(v1, v2);
-        c = c2d_clamp(c, -1.0f, 1.0f);
-        return rad2deg(acosf(c));
-    }
-
-    static inline bool isNearDir(Vec2 a, Vec2 b)
-    {
-        a = normalize(a);
-        b = normalize(b);
-        return dot(a, b) > 0.9995f;
-    }
-
-    bool isTinyLine(const Move2D &m) const
-    {
-        if (m.type != MOT_LINE)
-            return false;
-        float L = len(m.p1 - m.p0);
-        return L < (0.50f * toolR); // start with 0.5R threshold
-    }
 
     bool convex(const Move2D &a, const Move2D &b) const
     {
@@ -263,11 +221,11 @@ private:
 
     bool offsetLine(const Move2D &src, Move2D &dst)
     {
-        Vec2 v = src.p1 - src.p0;
+        Vec3 v = src.p1 - src.p0;
         float l = len(v);
         if (l < TOL)
             return false;
-        Vec2 u = v * (1.0f / l);
+        Vec3 u = v * (1.0f / l);
 
         // if comping in or out then offset should be zero.
         if (src.compMode == CM_IN || src.compMode == CM_OUT)
@@ -284,8 +242,8 @@ private:
         if (toolSign < 0)
             useLeft = !useLeft;
 
-        Vec2 n = useLeft ? leftNormal(u) : rightNormal(u);
-        Vec2 off = n * toolR;
+        Vec3 n = useLeft ? leftNormal(u) : rightNormal(u);
+        Vec3 off = n * toolR;
 
         dst = src;
         dst.type = src.type; // keep rapid vs feed
@@ -324,8 +282,8 @@ private:
         // if (r1 < TOL)
         //     return false; NO, allow negative radius for now and let logic handle it.
 
-        Vec2 v0 = src.p0 - src.center;
-        Vec2 v1 = src.p1 - src.center;
+        Vec3 v0 = src.p0 - src.center;
+        Vec3 v1 = src.p1 - src.center;
         float lv0 = len(v0), lv1 = len(v1);
         if (lv0 < TOL || lv1 < TOL)
             return false;
@@ -346,16 +304,16 @@ private:
     {
         if (m.type == MOT_LINE)
         {
-            Vec2 d = m.p1 - m.p0;
-            Vec2 u = normalize(d);
+            Vec3 d = m.p1 - m.p0;
+            Vec3 u = normalize(d);
             m.startDir = u;
             m.endDir = u;
             return;
         }
         if (m.type == MOT_ARC)
         {
-            Vec2 rs = normalize(m.p0 - m.center);
-            Vec2 re = normalize(m.p1 - m.center);
+            Vec3 rs = normalize(m.p0 - m.center);
+            Vec3 re = normalize(m.p1 - m.center);
             if (m.arcDir == ARC_CCW)
             {
                 m.startDir = leftNormal(rs);
@@ -380,9 +338,9 @@ private:
         IT_INTERSECT = 2
     };
 
-    static inline bool pointOnSegment(Vec2 a, Vec2 b, Vec2 p)
+    static inline bool pointOnSegment(Vec3 a, Vec3 b, Vec3 p)
     {
-        Vec2 ab = b - a;
+        Vec3 ab = b - a;
         float lab2 = dot(ab, ab);
         if (lab2 < TOL)
             return (len(p - a) < TOL);
@@ -395,7 +353,7 @@ private:
         return d < TOL;
     }
 
-    static inline bool pointOnArc(const Move2D &a, Vec2 p)
+    static inline bool pointOnArc(const Move2D &a, Vec3 p)
     {
         // radius match
         float rp = len(p - a.center);
@@ -412,12 +370,12 @@ private:
             return angleOnSweepCW(a0, a1, ap);
     }
 
-    static IntersectType intersectLineLine(const Move2D &A, const Move2D &B, Vec2 &ip, bool &tip)
+    static IntersectType intersectLineLine(const Move2D &A, const Move2D &B, Vec3 &ip, bool &tip)
     {
-        Vec2 p = A.p0;
-        Vec2 r = A.p1 - A.p0;
-        Vec2 q = B.p0;
-        Vec2 s = B.p1 - B.p0;
+        Vec3 p = A.p0;
+        Vec3 r = A.p1 - A.p0;
+        Vec3 q = B.p0;
+        Vec3 s = B.p1 - B.p0;
 
         float den = cross(r, s);
         if (fabsf(den) < TOL)
@@ -434,12 +392,12 @@ private:
         return IT_INTERSECT;
     }
 
-    static IntersectType intersectCircleCircle(const Move2D &A, const Move2D &B, Vec2 &p1, Vec2 &p2, int &count)
+    static IntersectType intersectCircleCircle(const Move2D &A, const Move2D &B, Vec3 &p1, Vec3 &p2, int &count)
     {
         // circles defined by center/radius
-        Vec2 c0 = A.center, c1 = B.center;
+        Vec3 c0 = A.center, c1 = B.center;
         float r0 = A.radius, r1 = B.radius;
-        Vec2 d = c1 - c0;
+        Vec3 d = c1 - c0;
         float distc = len(d);
         count = 0;
 
@@ -452,8 +410,8 @@ private:
 
         float a = (r0 * r0 - r1 * r1 + distc * distc) / (2.0f * distc);
         float h2 = r0 * r0 - a * a;
-        Vec2 u = d * (1.0f / distc);
-        Vec2 mid = c0 + u * a;
+        Vec3 u = d * (1.0f / distc);
+        Vec3 mid = c0 + u * a;
 
         if (fabsf(h2) < TOL)
         {
@@ -463,29 +421,29 @@ private:
         }
 
         float h = sqrtf(fmaxf(0.0f, h2));
-        Vec2 perp = leftNormal(u);
+        Vec3 perp = leftNormal(u);
         p1 = mid + perp * h;
         p2 = mid - perp * h;
         count = 2;
         return IT_INTERSECT;
     }
 
-    static IntersectType intersectLineCircle(Vec2 a, Vec2 b, Vec2 c, float r,
-                                             Vec2 &p1, Vec2 &p2, int &count)
+    static IntersectType intersectLineCircle(Vec3 a, Vec3 b, Vec3 c, float r,
+                                             Vec3 &p1, Vec3 &p2, int &count)
     {
-        Vec2 d = b - a;
+        Vec3 d = b - a;
         float dd = dot(d, d);
         count = 0;
         if (dd < 1e-20f)
             return IT_NONE; // degenerate
 
         // Closest point from center to the infinite line
-        Vec2 f = a - c;
+        Vec3 f = a - c;
         float t0 = -dot(f, d) / dd;
-        Vec2 q = a + d * t0;
+        Vec3 q = a + d * t0;
 
         // distance^2 from center to line
-        Vec2 qc = q - c;
+        Vec3 qc = q - c;
         float dist2 = dot(qc, qc);
 
         float r2 = r * r;
@@ -508,7 +466,7 @@ private:
 
         float h = sqrtf(h2);
         float invLen = 1.0f / sqrtf(dd);
-        Vec2 u = d * invLen;
+        Vec3 u = d * invLen;
 
         p1 = q - u * h;
         p2 = q + u * h;
@@ -517,12 +475,12 @@ private:
     }
 
     // Choose point closer to prev end (matches VB using mTip1 first in practice)
-    static Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
+    static Vec3 pickClosest(Vec3 ref, Vec3 a, Vec3 b)
     {
         return (len(a - ref) <= len(b - ref)) ? a : b;
     }
 
-    void trimToTIP(Move2D &a, Move2D &b, Vec2 tip)
+    void trimToTIP(Move2D &a, Move2D &b, Vec3 tip)
     {
         if (!performTrim)
             return;
@@ -532,7 +490,7 @@ private:
         update_vectors(b);
     }
 
-    bool extendToFIP(Move2D &a, Move2D &b, Vec2 fip)
+    bool extendToFIP(Move2D &a, Move2D &b, Vec3 fip)
     {
         if (!performTrim)
             return false;
@@ -572,91 +530,151 @@ private:
         update_vectors(roll);
         return roll;
     }
-
-    // Creates a line segment bridging arc<->line when comping and no TIP.
-    bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
+// Creates a line segment bridging arc<->line/arc when comping and no TIP.
+bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
+{
+    auto make_line = [&](const Vec3 &p0, const Vec3 &p1)
     {
-        // Case: a is LINE, b is ARC
-        if (a.type == MOT_LINE && b.type == MOT_ARC)
-        {
+        extOut.type = MOT_LINE;
+        extOut.feed = (a.feed > 0) ? a.feed : b.feed;
+        extOut.p0 = p0;
+        extOut.p1 = p1;
+        update_vectors(extOut);
+    };
 
-            Vec2 sp = b.p0 - b.startDir; // 1 unit back along arc start tangent
+    // Case: a is LINE, b is ARC
+    if (a.type == MOT_LINE && b.type == MOT_ARC)
+    {
+        Move2D probe;
+        probe.type = MOT_LINE;
+        probe.p0 = b.p0;
+        probe.p1 = b.p0 + b.startDir;
 
-            // Probe line from sp -> b.p0 intersects line a
-            Vec2 ip;
-            bool tip = false;
-            Move2D probe;
-            probe.type = MOT_LINE;
-            probe.p0 = sp;
-            probe.p1 = b.p0;
+        Vec3 ip;
+        bool tip = false;
+        if (intersectLineLine(probe, a, ip, tip) == IT_NONE)
+            return false;
 
-            if (intersectLineLine(probe, a, ip, tip) == IT_NONE)
-                return false;
+        float da = dot(ip - a.p1, a.endDir);
+        float db = dot(ip - b.p0, b.startDir);
 
-            // - ip must be forward of a's end direction (extend end)
-            // - ip must be "behind" b's start direction (extend/trim start toward it)
-            float da = dot(ip - a.p1, a.endDir);
-            float db = dot(ip - b.p0, b.startDir);
+        if (!(da > 0 && db < 0))
+            return false;
 
-            if (!(da > 0 && db < 0))
-                return false;
+        a.p1 = ip;
+        update_vectors(a);
 
-            // Extend/trim:
-            a.p1 = ip;
-            update_vectors(a);
-
-            // Insert extension line from intersection to arc start
-            extOut.type = MOT_LINE;
-             extOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extOut.p0 = ip;
-            extOut.p1 = b.p0;
-            update_vectors(extOut);
-
-            return true;
-        }
-
-        // Case: a is ARC, b is LINE
-        if (a.type == MOT_ARC && b.type == MOT_LINE)
-        {
-
-            Vec2 sp = a.p1;
-            Vec2 ep = a.p1 + a.endDir; // 1 unit forward along arc end tangent
-
-            Move2D probe;
-            probe.type = MOT_LINE;
-            probe.p0 = sp;
-            probe.p1 = ep;
-
-            Vec2 ip;
-            bool tip = false;
-            if (intersectLineLine(probe, b, ip, tip) == IT_NONE)
-                return false;
-
-            // Direction checks:
-            // - ip must be forward of a's end direction (extend end toward ip)
-            // - ip must be behind b's start direction (move b start back to ip)
-            float da = dot(ip - a.p1, a.endDir);
-            float db = dot(ip - b.p0, b.startDir);
-
-            if (!(da > 0 && db < 0))
-                return false;
-
-            // Trim/extend:
-            b.p0 = ip;
-            update_vectors(b);
-
-            // Insert extension line from arc end to intersection
-            extOut.type = MOT_LINE;
-            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extOut.p0 = a.p1;
-            extOut.p1 = ip;
-            update_vectors(extOut);
-
-            return true;
-        }
-
-        return false;
+        make_line(ip, b.p0);
+        return true;
     }
+
+    // Case: a is ARC, b is LINE
+    if (a.type == MOT_ARC && b.type == MOT_LINE)
+    {
+        Move2D probe;
+        probe.type = MOT_LINE;
+        probe.p0 = a.p1;
+        probe.p1 = a.p1 + a.endDir;
+
+        Vec3 ip;
+        bool tip = false;
+        if (intersectLineLine(probe, b, ip, tip) == IT_NONE)
+            return false;
+
+        float da = dot(ip - a.p1, a.endDir);
+        float db = dot(ip - b.p0, b.startDir);
+
+        if (!(da > 0 && db < 0))
+            return false;
+
+        b.p0 = ip;
+        update_vectors(b);
+
+        make_line(a.p1, ip);
+        return true;
+    }
+
+    // Case: a is ARC, b is ARC (true common tangent)
+    if (a.type == MOT_ARC && b.type == MOT_ARC)
+    {
+        Vec3 c0 = a.center;
+        Vec3 c1 = b.center;
+        Vec3 d = c1 - c0;
+        float dist = len(d);
+        if (dist < TOL)
+            return false;
+
+        Vec3 u = d * (1.0f / dist);
+        Vec3 perp = leftNormal(u);
+
+        bool found = false;
+        float bestLen = 1e30f;
+        Vec3 bestP0{}, bestP1{};
+
+        auto try_tangents = [&](float r1prime)
+        {
+            float c = (a.radius - r1prime) / dist;
+            if (c < -1.0f || c > 1.0f)
+                return;
+            float h2 = 1.0f - c * c;
+            if (h2 < 0.0f)
+                return;
+            float h = sqrtf(fmaxf(0.0f, h2));
+
+            for (int s = -1; s <= 1; s += 2)
+            {
+                Vec3 n = u * c + perp * (h * (float)s);
+                Vec3 p0 = c0 + n * a.radius;
+                Vec3 p1 = c1 + n * r1prime;
+
+                if (!pointOnArc(a, p0) || !pointOnArc(b, p1))
+                    continue;
+
+                Vec3 seg = p1 - p0;
+                float segLen = len(seg);
+                if (segLen < TOL)
+                    continue;
+                Vec3 tdir = seg * (1.0f / segLen);
+
+                Vec3 ra = normalize(p0 - c0);
+                Vec3 rb = normalize(p1 - c1);
+                Vec3 tanA = (a.arcDir == ARC_CCW) ? leftNormal(ra) : rightNormal(ra);
+                Vec3 tanB = (b.arcDir == ARC_CCW) ? leftNormal(rb) : rightNormal(rb);
+
+                if (dot(tdir, tanA) <= 0.0f || dot(tdir, tanB) <= 0.0f)
+                    continue;
+
+                float da = dot(p0 - a.p1, a.endDir);
+                float db = dot(p1 - b.p0, b.startDir);
+                if (!(da > 0 && db < 0))
+                    continue;
+
+                if (segLen < bestLen)
+                {
+                    bestLen = segLen;
+                    bestP0 = p0;
+                    bestP1 = p1;
+                    found = true;
+                }
+            }
+        };
+
+        try_tangents(b.radius);
+        try_tangents(-b.radius);
+
+        if (!found)
+            return false;
+
+        a.p1 = bestP0;
+        b.p0 = bestP1;
+        update_vectors(a);
+        update_vectors(b);
+        make_line(bestP0, bestP1);
+        return true;
+    }
+
+    return false;
+}
 
     void applyLogic(Move2D &a, Move2D &b, bool forceRoll, Move2D inserts[2], int &insertCount)
     {
@@ -681,19 +699,17 @@ private:
         }
         else if ((a.type == MOT_ARC && b.type == MOT_LINE) || (a.type == MOT_LINE && b.type == MOT_ARC))
         {
-            handleArcLine(a, b, acute, forceRoll, comping, inserts, insertCount);
+            handleArcLine(a, b, acute, forceRoll, inserts, insertCount);
         }
     }
 
-    void handleLineLine(Move2D &a, Move2D &b,
-                        bool acute, bool forceRoll, bool comping,
-                        Move2D inserts[2], int &insertCount)
+    void handleLineLine(Move2D &a, Move2D &b, bool acute, bool forceRoll, bool comping, Move2D inserts[2], int &insertCount)
     {
         // Keep directions up to date
         update_vectors(a);
         update_vectors(b);
 
-        Vec2 ip;
+        Vec3 ip;
         bool tip = false;
         IntersectType it = intersectLineLine(a, b, ip, tip);
         if (it == IT_NONE)
@@ -706,24 +722,7 @@ private:
             return;
         }
 
-        // Compute "far FIP" metrics (used in multiple branches)
-        // float la = len(a.p1 - a.p0);
-        // float lb = len(b.p1 - b.p0);
-
-        // if (la < TOL || lb < TOL)
-        // {
-        //     inserts[insertCount++] = makeBevel(a, b);
-        //     return;
-        // }
-
-        // float da = len(ip - a.p1);
-        // float db = len(ip - b.p0);
-
-        // Reject far intersections (prevents diagonal spikes across sawteeth)
-        // const float FAR = 1.35f; // tune 1.1..2.0
-        // bool far = false;//(da > FAR * la) || (db > FAR * lb);
-
-        // direction gate (same condition used inside ExtendToCommonFIP)
+         // direction gate (same condition used inside ExtendToCommonFIP)
         float fipDir1 = dot(ip - a.p1, a.endDir);
         float fipDir2 = dot(ip - b.p0, b.startDir);
         bool dirOK = (fipDir1 > 0 && fipDir2 < 0);
@@ -772,7 +771,7 @@ private:
             return; // connected and concentric arcs are already tangent. No need to roll or trim.
         }
 
-        Vec2 p1{}, p2{};
+        Vec3 p1{}, p2{};
         int count = 0;
         IntersectType it = intersectCircleCircle(a, b, p1, p2, count);
         if (it == IT_NONE)
@@ -795,7 +794,7 @@ private:
 
         if (tip1 || tip2)
         {
-            Vec2 tip = tip1 ? p1 : p2;
+            Vec3 tip = tip1 ? p1 : p2;
             if (tip1 && tip2)
                 tip = pickClosest(a.p1, p1, p2);
             trimToTIP(a, b, tip);
@@ -811,13 +810,12 @@ private:
         else
         {
             // FIP(false intersection point): choose point closest to prev end, then extend test
-            Vec2 fip = (count == 2) ? pickClosest(a.p1, p1, p2) : p1;
+            Vec3 fip = (count == 2) ? pickClosest(a.p1, p1, p2) : p1;
             (void)extendToFIP(a, b, fip);
         }
     }
 
-    void handleArcLine(Move2D &a, Move2D &b, bool acute, bool forceRoll, bool comping,
-                       Move2D inserts[2], int &insertCount)
+    void handleArcLine(Move2D &a, Move2D &b, bool acute, bool forceRoll, Move2D inserts[2], int &insertCount)
     {
         // Determine which is arc/line
         Move2D *arc = nullptr;
@@ -836,7 +834,7 @@ private:
         }
 
         // Intersect infinite line with circle
-        Vec2 p1{}, p2{};
+        Vec3 p1{}, p2{};
         int count = 0;
         IntersectType it = intersectLineCircle(lin->p0, lin->p1, arc->center, arc->radius, p1, p2, count);
 
@@ -882,7 +880,7 @@ private:
         // If any TIP exists: trim
         if (tip1 || tip2)
         {
-            Vec2 tip = tip1 ? p1 : p2;
+            Vec3 tip = tip1 ? p1 : p2;
             if (tip1 && tip2)
                 tip = pickClosest(a.p1, p1, p2);
             trimToTIP(a, b, tip);
@@ -899,13 +897,13 @@ private:
         else
         {
             // FIP exists (line-circle intersection points). Pick closest and attempt extend
-            Vec2 fip = (count == 2) ? pickClosest(a.p1, p1, p2) : p1;
+            Vec3 fip = (count == 2) ? pickClosest(a.p1, p1, p2) : p1;
             (void)extendToFIP(a, b, fip);
         }
     }
 
     // Returns 0..2 TIPs that lie on BOTH finite elements
-    static int commonTIP_any(const Move2D &A, const Move2D &B, Vec2 &tip1, Vec2 &tip2)
+    static int commonTIP_any(const Move2D &A, const Move2D &B, Vec3 &tip1, Vec3 &tip2)
     {
         tip1 = {0, 0};
         tip2 = {0, 0};
@@ -913,7 +911,7 @@ private:
         // LINE-LINE
         if (A.type == MOT_LINE && B.type == MOT_LINE)
         {
-            Vec2 ip;
+            Vec3 ip;
             bool tip = false;
             IntersectType it = intersectLineLine(A, B, ip, tip);
             if (it != IT_NONE && tip)
@@ -930,7 +928,7 @@ private:
             const Move2D &L = (A.type == MOT_LINE) ? A : B;
             const Move2D &C = (A.type == MOT_ARC) ? A : B;
 
-            Vec2 p1{}, p2{};
+            Vec3 p1{}, p2{};
             int count = 0;
             IntersectType it = intersectLineCircle(L.p0, L.p1, C.center, C.radius, p1, p2, count);
             if (it == IT_NONE)
@@ -957,7 +955,7 @@ private:
             if (nearPt2(A.p1, B.p0) || nearPt2(A.center, B.center))
                 return 0;
 
-            Vec2 p1{}, p2{};
+            Vec3 p1{}, p2{};
             int count = 0;
             IntersectType it = intersectCircleCircle(A, B, p1, p2, count);
             if (it == IT_NONE)
@@ -984,7 +982,7 @@ private:
     {
         bool hit = false;
         int j = -1;
-        Vec2 tip{0, 0};
+        Vec3 tip{0, 0};
         float dist = 0;
     };
 
@@ -1015,13 +1013,13 @@ private:
                 continue;
             }
 
-            Vec2 t1, t2;
+            Vec3 t1, t2;
             int n = commonTIP_any(src, target, t1, t2);
             if (n <= 0)
                 continue;
 
             // picks the nearest crossing along src from its start.
-            Vec2 pick = t1;
+            Vec3 pick = t1;
             float d = distFromStart_along(src, t1);
             if (n == 2)
             {
@@ -1063,7 +1061,7 @@ public:
 
         // if the first cutting move and the last cutting move cross
         // we have a bowtie shape that cannot be resolved by trimming,
-        Vec2 tip1, tip2;
+        Vec3 tip1, tip2;
         // test for crossing between first and last cutting moves, but only if they are not adjacent (to avoid trivial shared endpoint case)
         if (lastIdx > firstIdx + 1)
         {

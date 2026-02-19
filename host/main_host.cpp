@@ -3,8 +3,8 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <algorithm>
-#include <cmath>
+//#include <algorithm>
+//#include <cmath>
 #include <iostream>
 
 #define DBG_PRINTLN(x)             \
@@ -18,7 +18,7 @@
 // make sure your headers include ArduinoCompat.h when not ARDUINO.
 #include "ArduinoCompat.h"
 
-#include "TinyGCodeScan.h"
+#include "SimpleGCodeScan.h"
 #include "CutterComp2D.h"
 #include "TestData.h"
 #include "writer.h"
@@ -150,7 +150,7 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
   std::vector<Move2D> orig;
   ModalState m{};
   m.planeXY = true;
-  m.absXY = true;
+  m.absXYZ = true;
   m.motionG = 0;
   m.comp = COMP_OFF;
   m.feed = 0;
@@ -175,7 +175,9 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
 int main()
 {
   //const char *default_file = "../../data/RapidComp.nc";
-  const char *default_file = "../../data/G41_2.nc";
+  //const char *default_file = "../../data/G41_2.nc";
+  // const char *default_file = "../../data/TortureTestG90.nc";
+  const char *default_file = "../../data/TortureTestG91.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 
@@ -185,7 +187,7 @@ int main()
   // Init modal
   modal = ModalState{};
   modal.planeXY = true;
-  modal.absXY = true;
+  modal.absXYZ = true;
   modal.motionG = 0;
   modal.comp = COMP_OFF;
   modal.feed = 0;
@@ -216,24 +218,15 @@ int main()
     }
   }
 
-
-
-// Debug: show all moves in profile
-for (size_t i = 0; i < profile.size(); i++) {
-    const auto& m = profile[i];
-    if (!m.valid) continue;
-    const char* typeStr = (m.type == MOT_LINE) ? "LINE" : 
-                          (m.type == MOT_ARC) ? "ARC" : 
-                          (m.type == MOT_RAPID) ? "RAPID" : "EMPTY";
-    std::printf("%2d: %s type=%d compMode=%d\n", (int)i, typeStr, m.type, (int)m.compMode);
-}
-
-
-
-
-
-
-
+// // Debug: show all moves in profile
+// for (size_t i = 0; i < profile.size(); i++) {
+//     const auto& m = profile[i];
+//     if (!m.valid) continue;
+//     const char* typeStr = (m.type == MOT_LINE) ? "LINE" : 
+//                           (m.type == MOT_ARC) ? "ARC" : 
+//                           (m.type == MOT_RAPID) ? "RAPID" : "EMPTY";
+//     std::printf("%2d: %s type=%d compMode=%d\n", (int)i, typeStr, m.type, (int)m.compMode);
+// }
 
   cc.merge_all_colinear(profile.data(), (int)profile.size());
 

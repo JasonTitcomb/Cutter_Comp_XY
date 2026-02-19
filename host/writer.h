@@ -10,7 +10,7 @@
 struct Bounds
 {
     float minx = +1e30f, miny = +1e30f, maxx = -1e30f, maxy = -1e30f;
-    void add(Vec2 p)
+    void add(Vec3 p)
     {
         minx = std::min(minx, p.x);
         miny = std::min(miny, p.y);
@@ -55,7 +55,7 @@ void write_gcode(const char *path, const std::vector<Move2D> &moves)
     }
 }
 
-static void svg_polyline(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke)
+static void svg_polyline(std::ostringstream &ss, const std::vector<Vec3> &pts, const char *stroke)
 {
     if (pts.size() < 2)
         return;
@@ -65,9 +65,9 @@ static void svg_polyline(std::ostringstream &ss, const std::vector<Vec2> &pts, c
     ss << "\" />\n";
 }
 
-static std::vector<Vec2> approx_move_points(const Move2D &m, int arcSegments = 24)
+static std::vector<Vec3> approx_move_points(const Move2D &m, int arcSegments = 24)
 {
-    std::vector<Vec2> pts;
+    std::vector<Vec3> pts;
     if (m.type == MOT_LINE || m.type == MOT_RAPID)
     {
         pts.push_back(m.p0);
@@ -108,7 +108,7 @@ static std::vector<Vec2> approx_move_points(const Move2D &m, int arcSegments = 2
         {
             float t = (float)i / (float)n;
             float a = a0 + sweep * t;
-            Vec2 p = v2(m.center.x + m.radius * std::cos(a),
+            Vec3 p = v2(m.center.x + m.radius * std::cos(a),
                         m.center.y + m.radius * std::sin(a));
             pts.push_back(p);
         }
@@ -118,7 +118,7 @@ static std::vector<Vec2> approx_move_points(const Move2D &m, int arcSegments = 2
 }
 
 // Add this helper function after svg_polyline:
-static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke)
+static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec3> &pts, const char *stroke)
 {
     if (pts.size() < 2)
         return;
@@ -203,7 +203,7 @@ static void write_svg(const char *path,
             auto pts = approx_move_points(m, 10); // finer for smoother lerp
             for (size_t i = 0; i + 1 < pts.size(); ++i)
             {
-                Vec2 p0 = pts[i], p1 = pts[i + 1];
+                Vec3 p0 = pts[i], p1 = pts[i + 1];
                 if (mirror_x)
                 {
                     p0.x = b.maxx + b.minx - p0.x;
