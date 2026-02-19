@@ -20,27 +20,48 @@ struct Bounds
 };
 
 // -------------------- Emit helpers (host files) --------------------
-static void emit_move_as_gcode(FILE *f, const Move2D &m)
+static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType)
 {
+    const bool latheMode = machine_is_lathe(machineType);
+    Vec3 p1m = internal_xy_to_machine(m.p1, machineType);
+
     if (m.type == MOT_LINE || m.type == MOT_RAPID)
     {
-        std::fprintf(f, "N%d %s X%.4f Y%.4f\n",
-                     (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1", m.p1.x, m.p1.y);
+        if (latheMode)
+        {
+            std::fprintf(f, "N%d %s X%.4f Z%.4f\n",
+                         (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1", p1m.x, p1m.z);
+        }
+        else
+        {
+            std::fprintf(f, "N%d %s X%.4f Y%.4f\n",
+                         (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1", p1m.x, p1m.y);
+        }
         return;
     }
 
     if (m.type == MOT_ARC)
     {
-        float I = m.center.x - m.p0.x;
-        float J = m.center.y - m.p0.y;
-        std::fprintf(f, "N%d %s X%.4f Y%.4f I%.4f J%.4f\n",
-                     (int)m.seqNum, (m.arcDir == ARC_CW) ? "G2" : "G3",
-                     m.p1.x, m.p1.y, I, J);
+        Vec3 dInternal = m.center - m.p0;
+        Vec3 dMachine = internal_delta_xy_to_machine(dInternal, machineType);
+
+        if (latheMode)
+        {
+            std::fprintf(f, "N%d %s X%.4f Z%.4f I%.4f K%.4f\n",
+                         (int)m.seqNum, (m.arcDir == ARC_CW) ? "G2" : "G3",
+                         p1m.x, p1m.z, dMachine.x, dMachine.z);
+        }
+        else
+        {
+            std::fprintf(f, "N%d %s X%.4f Y%.4f I%.4f J%.4f\n",
+                         (int)m.seqNum, (m.arcDir == ARC_CW) ? "G2" : "G3",
+                         p1m.x, p1m.y, dMachine.x, dMachine.y);
+        }
         return;
     }
 }
 
-void write_gcode(const char *path, const std::vector<Move2D> &moves)
+void write_gcode(const char *path, const std::vector<Move2D> &moves, MachineType machineType = MAC_MILL)
 {
     // G-code file
     if (FILE *f = std::fopen(path, "wb"))
@@ -49,7 +70,7 @@ void write_gcode(const char *path, const std::vector<Move2D> &moves)
         {
             if (!m.valid || m.type == MOT_EMPTY)
                 continue;
-            emit_move_as_gcode(f, m);
+            emit_move_as_gcode(f, m, machineType);
         }
         std::fclose(f);
     }
@@ -131,6 +152,7 @@ static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec3> 
 static void write_svg(const char *path,
                       const std::vector<Move2D> &moves,
                       const std::vector<Move2D> *original = nullptr,
+                      MachineType machineType = MAC_MILL,
                       bool mirror_x = false,
                       bool mirror_y = false,
                       float tool_diameter = 0.0f)
@@ -145,6 +167,7 @@ static void write_svg(const char *path,
             auto pts = approx_move_points(m);
             for (auto &p : pts)
             {
+                p = internal_xy_to_plot_xy(p, machineType);
                 b.add(p);
             }
         }
@@ -170,6 +193,7 @@ static void write_svg(const char *path,
             auto pts = approx_move_points(m);
             for (auto &p : pts)
             {
+                p = internal_xy_to_plot_xy(p, machineType);
                 if (mirror_x)
                     p.x = b.maxx + b.minx - p.x;
                 if (mirror_y)
@@ -204,6 +228,8 @@ static void write_svg(const char *path,
             for (size_t i = 0; i + 1 < pts.size(); ++i)
             {
                 Vec3 p0 = pts[i], p1 = pts[i + 1];
+                p0 = internal_xy_to_plot_xy(p0, machineType);
+                p1 = internal_xy_to_plot_xy(p1, machineType);
                 if (mirror_x)
                 {
                     p0.x = b.maxx + b.minx - p0.x;
@@ -234,6 +260,7 @@ static void write_svg(const char *path,
         auto pts = approx_move_points(m);
         for (auto &p : pts)
         {
+            p = internal_xy_to_plot_xy(p, machineType);
             if (mirror_x)
                 p.x = b.maxx + b.minx - p.x;
             if (mirror_y)

@@ -28,6 +28,7 @@ static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr bool ENABLE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
 static constexpr bool ENABLE_MERGE = true;
+static constexpr MachineType MACHINE_TYPE = MAC_MILL;
 static constexpr int MAX_LOOKAHEAD_FOR_INTERSECTIONS = 25; // MaxLookaheadForIntersections
 static constexpr int MAX_TRIM_PASSES = 6;                  // safety cap
 // ------------------------------------------------
@@ -58,35 +59,38 @@ static bool profile_push(const Move2D &m)
 // -------------------- G-code emission --------------------
 static void emit_move_as_gcode(const Move2D &m)
 {
+  const bool latheMode = machine_is_lathe(MACHINE_TYPE);
+  Vec3 p1m = internal_xy_to_machine(m.p1, MACHINE_TYPE);
+
   if (m.type == MOT_LINE)
   {
     DBG_PRINT("N");
     DBG_PRINT(m.seqNum);
     DBG_PRINT(m.type == MOT_RAPID ? " G0" : " G1");
     DBG_PRINT(" X");
-    DBG_PRINT(m.p1.x, 4);
-    DBG_PRINT(" Y");
-    DBG_PRINT(m.p1.y, 4);
+    DBG_PRINT(p1m.x, 4);
+    DBG_PRINT(latheMode ? " Z" : " Y");
+    DBG_PRINT(latheMode ? p1m.z : p1m.y, 4);
     DBG_PRINT("\n");
     return;
   }
 
   if (m.type == MOT_ARC)
   {
-    float I = m.center.x - m.p0.x;
-    float J = m.center.y - m.p0.y;
+    Vec3 dInternal = m.center - m.p0;
+    Vec3 dMachine = internal_delta_xy_to_machine(dInternal, MACHINE_TYPE);
 
     DBG_PRINT("N");
     DBG_PRINT(m.seqNum);
     DBG_PRINT((m.arcDir == ARC_CW) ? " G2" : " G3");
     DBG_PRINT(" X");
-    DBG_PRINT(m.p1.x, 4);
-    DBG_PRINT(" Y");
-    DBG_PRINT(m.p1.y, 4);
+    DBG_PRINT(p1m.x, 4);
+    DBG_PRINT(latheMode ? " Z" : " Y");
+    DBG_PRINT(latheMode ? p1m.z : p1m.y, 4);
     DBG_PRINT(" I");
-    DBG_PRINT(I, 4);
-    DBG_PRINT(" J");
-    DBG_PRINT(J, 4);
+    DBG_PRINT(dMachine.x, 4);
+    DBG_PRINT(latheMode ? " K" : " J");
+    DBG_PRINT(latheMode ? dMachine.z : dMachine.y, 4);
     DBG_PRINT("\n");
     return;
   }
@@ -109,7 +113,7 @@ static void process_one_gcode_line(const char *raw)
   scan_line(clean, s);
 
   // Interpret to motion (also updates modal.comp, modal.motionG, etc.)
-  Move2D mv = interpret_to_move(s, modal);
+  Move2D mv = interpret_to_move(s, modal, MACHINE_TYPE);
 
   // If this block turns comp ON (G41/G42), enable comp BEFORE processing this move.
   if (s.sawG41 || s.sawG42)
@@ -250,6 +254,7 @@ void setup()
 
   // Init cutter comp engine
   cc.setToolRadius(TOOL_RADIUS);
+  cc.setMachineType(MACHINE_TYPE);
   cc.setCornerRolling(ENABLE_ROLL_AROUND);
   cc.setComp(COMP_OFF);
 

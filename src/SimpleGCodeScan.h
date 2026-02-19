@@ -290,7 +290,7 @@ static inline bool arc_center_from_R(const Vec3 &p0, const Vec3 &p1, float R, Ar
 
 // Turn a scanned line into a Move2D (or MOT_EMPTY if no XY motion).
 // Updates modal state (pos, motion mode, comp, feed).
-static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
+static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState, MachineType machineType = MAC_MILL)
 {
     // Update modal toggles first
     if (s.sawG17)
@@ -318,52 +318,70 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
     else if (s.sawG3)
         modeState.motionG = 3;
 
-    // Absolute XYZ only (tiny subset)
+    const bool latheMode = machine_is_lathe(machineType);
+
+    // Coordinates are parsed in machine-space, then mapped to internal XY space.
     Vec3 p0 = modeState.pos;
     Vec3 p1 = p0;
 
     bool anyXYZ = false;
-    if (s.hasX)
+    if (!latheMode)
     {
-        if (modeState.absXYZ)
+        if (s.hasX)
         {
-            // G90: absolute coordinate
-            p1.x = s.X;
+            if (modeState.absXYZ)
+            {
+                p1.x = s.X;
+            }
+            else
+            {
+                p1.x = p0.x + s.X;
+            }
+
+            anyXYZ = true;
         }
-        else
+        if (s.hasY)
         {
-            // G91: incremental, add to current position
-            p1.x = p0.x + s.X;
+            if (modeState.absXYZ)
+            {
+                p1.y = s.Y;
+            }
+            else
+            {
+                p1.y = p0.y + s.Y;
+            }
+            anyXYZ = true;
+        }
+    }
+    else
+    {
+        // Lathe: machine X/Z -> internal Y/X.
+        if (s.hasX)
+        {
+            float yInternal = machine_x_to_internal_y(s.X, machineType);
+            if (modeState.absXYZ)
+            {
+                p1.y = yInternal;
+            }
+            else
+            {
+                p1.y = p0.y + yInternal;
+            }
+            anyXYZ = true;
         }
 
-        anyXYZ = true;
-    }
-    if (s.hasY)
-    {
-        if (modeState.absXYZ)        {
-            // G90: absolute coordinate
-            p1.y = s.Y;
-        }
-        else
+        if (s.hasZ)
         {
-            // G91: incremental, add to current position
-            p1.y = p0.y + s.Y;
+            if (modeState.absXYZ)
+            {
+                p1.x = s.Z;
+            }
+            else
+            {
+                p1.x = p0.x + s.Z;
+            }
+            anyXYZ = true;
         }
-        anyXYZ = true;
-    }
-    if (s.hasZ)
-    {
-        if (modeState.absXYZ)
-        {
-            // G90: absolute coordinate
-            p1.z = s.Z;
-        }
-        else
-        {
-            // G91: incremental, add to current position
-            p1.z = p0.z + s.Z;
-        }
-        anyXYZ = true;
     }
 
     if (!anyXYZ)
@@ -419,10 +437,17 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState)
         out.arcDir = (modeState.motionG == 2) ? ARC_CW : ARC_CCW;
 
         // Resolve center either from I/J or from R
-        if (s.hasI || s.hasJ)
+        if (!latheMode && (s.hasI || s.hasJ))
         {
             Vec3 ij = v2(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f);
             out.center = p0 + ij; // I/J incremental
+            out.radius = len(p0 - out.center);
+        }
+        else if (latheMode && (s.hasI || s.hasK))
+        {
+            Vec3 ikMachine = v3(s.hasI ? s.I : 0.0f, 0.0f, s.hasK ? s.K : 0.0f);
+            Vec3 ikInternal = machine_delta_to_internal_xy(ikMachine, machineType);
+            out.center = p0 + ikInternal; // I/K incremental in machine-space, mapped to internal XY
             out.radius = len(p0 - out.center);
         }
         else if (s.hasR)

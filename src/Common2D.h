@@ -51,6 +51,7 @@ enum CompMode : uint8_t
   CM_STEADY = 2,
   CM_OUT = 3
 };
+
 enum MachineType : uint8_t
 {
   MAC_MILL = 0,
@@ -106,6 +107,82 @@ struct Move2D
   Vec3 startDir{0, 0};
   Vec3 endDir{0, 0};
 };
+static inline bool machine_is_lathe(MachineType mt)
+{
+  return (mt == MAC_LATHE_DIA || mt == MAC_LATHE_RAD);
+}
+
+static inline float machine_x_to_internal_y(float x, MachineType mt)
+{
+  if (mt == MAC_LATHE_DIA)
+    return 0.5f * x;
+  return x;
+}
+
+static inline float internal_y_to_machine_x(float y, MachineType mt)
+{
+  if (mt == MAC_LATHE_DIA)
+    return 2.0f * y;
+  return y;
+}
+
+// Convert machine-space absolute point to internal XY space used by compensation.
+// Mill: X/Y -> X/Y
+// Lathe: X/Z -> Y/X (internal X is machine Z, internal Y is machine X[or X/2 in DIA mode])
+static inline Vec3 machine_to_internal_xy(const Vec3 &p, MachineType mt)
+{
+  if (!machine_is_lathe(mt))
+    return v2(p.x, p.y);
+  return v2(p.z, machine_x_to_internal_y(p.x, mt));
+}
+
+// Convert internal XY absolute point back to machine-space coordinates.
+static inline Vec3 internal_xy_to_machine(const Vec3 &p, MachineType mt)
+{
+  if (!machine_is_lathe(mt))
+    return v3(p.x, p.y, 0.0f);
+  return v3(internal_y_to_machine_x(p.y, mt), 0.0f, p.x);
+}
+
+// Same mapping for center offset vectors (I/J or I/K style offsets).
+// NOTE: In lathe DIA mode, X endpoints are diameter values, but I center offsets
+// are typically provided in radius units. So we do NOT apply DIA 2x/0.5x scaling
+// to center offsets.
+static inline Vec3 machine_delta_to_internal_xy(const Vec3 &d, MachineType mt)
+{
+  if (!machine_is_lathe(mt))
+    return v2(d.x, d.y);
+  return v2(d.z, d.x);
+}
+
+static inline Vec3 internal_delta_xy_to_machine(const Vec3 &d, MachineType mt)
+{
+  if (!machine_is_lathe(mt))
+    return v3(d.x, d.y, 0.0f);
+  return v3(d.y, 0.0f, d.x);
+}
+
+// Convenience aliases requested for pre/post mapping around compensation.
+static inline Vec3 from_xz_to_xy(const Vec3 &machinePoint, MachineType mt)
+{
+  return machine_to_internal_xy(machinePoint, mt);
+}
+
+static inline Vec3 from_xy_to_xz(const Vec3 &internalPoint, MachineType mt)
+{
+  return internal_xy_to_machine(internalPoint, mt);
+}
+
+// Plot-space mapping (SVG still draws in XY):
+// - Mill: plot X/Y
+// - Lathe: plot Z/radius (internal X/internal Y)
+//   This avoids DIA-mode visual stretching caused by plotting machine X-diameter.
+static inline Vec3 internal_xy_to_plot_xy(const Vec3 &p, MachineType mt)
+{
+  (void)mt;
+  return v2(p.x, p.y);
+}
+
 
 inline void update_dirs(Move2D &m)
 {
@@ -316,7 +393,7 @@ static inline void invalidateRange(Move2D *moves, int i, int j)
   }
 }
 // ----- helpers -----
-static inline bool nearPt2(const Vec3 &a, const Vec3 &b)
+static inline bool is_near(const Vec3 &a, const Vec3 &b)
 {
   return len(a - b) <= TOL;
 }
@@ -354,7 +431,7 @@ static inline bool isColinearWith(const Move2D &a, const Move2D &b)
   // -------- ARC vs ARC --------
   if (a.type == MOT_ARC)
   {
-    if (!nearPt2(a.center, b.center) || fabsf(a.radius - b.radius) > TOL)
+    if (!is_near(a.center, b.center) || fabsf(a.radius - b.radius) > TOL)
       return false;
 
     if (fabsf(a.radius - b.radius) > TOL)

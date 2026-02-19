@@ -36,6 +36,7 @@
 static constexpr float TOOL_RADIUS = 0.05f;
 static constexpr bool ENABLE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
+static constexpr MachineType MACHINE_TYPE = MAC_LATHE_DIA;
 
 static constexpr int MAX_LOOKAHEAD_FOR_INTERSECTIONS = 25;
 static constexpr int MAX_TRIM_PASSES = 6;
@@ -76,7 +77,7 @@ static void process_one_gcode_line(const char *raw)
   ScanLine s;
   scan_line(clean, s);
 
-  Move2D mv = interpret_to_move(s, modal);
+  Move2D mv = interpret_to_move(s, modal, MACHINE_TYPE);
 
   // copy raw line for testing only
   strncpy(mv.gcode_line, raw, sizeof(mv.gcode_line) - 1);
@@ -162,7 +163,7 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
     strip_comments(line.c_str(), clean, sizeof(clean));
     ScanLine s;
     scan_line(clean, s);
-    Move2D mv = interpret_to_move(s, m);
+    Move2D mv = interpret_to_move(s, m, MACHINE_TYPE);
     if (mv.type != MOT_EMPTY)
     {
       mv.valid = true;
@@ -177,7 +178,8 @@ int main()
   //const char *default_file = "../../data/RapidComp.nc";
   //const char *default_file = "../../data/G41_2.nc";
   // const char *default_file = "../../data/TortureTestG90.nc";
-  const char *default_file = "../../data/TortureTestG91.nc";
+  //const char *default_file = "../../data/TortureTestG91.nc";
+  const char *default_file = "../../data/LatheDia.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 
@@ -195,6 +197,7 @@ int main()
 
   // Init cutter comp
   cc.setToolRadius(TOOL_RADIUS);
+  cc.setMachineType(MACHINE_TYPE);
   cc.setCornerRolling(ENABLE_ROLL_AROUND);
   cc.setComp(COMP_OFF);
 
@@ -233,8 +236,8 @@ int main()
   // Write outputs for testing/visualization
   auto orig = build_original_moves(program);
 
-  write_svg("out.svg", profile, &orig, false, true, TOOL_RADIUS * 2.0f); // mirror for better visualization
-  write_gcode("out.ngc", profile);
+  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, TOOL_RADIUS * 2.0f); // mirror for better visualization
+  write_gcode("out.ngc", profile, MACHINE_TYPE);
 
   std::puts("Wrote: out.svg, out.ngc, out.csv");
   return 0;

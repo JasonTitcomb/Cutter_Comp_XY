@@ -428,10 +428,9 @@ private:
         return IT_INTERSECT;
     }
 
-    static IntersectType intersectLineCircle(Vec3 a, Vec3 b, Vec3 c, float r,
-                                             Vec3 &p1, Vec3 &p2, int &count)
+    static IntersectType intersectLineCircle(Vec3 a, Vec3 b, Vec3 c, float r,Vec3 &p1, Vec3 &p2, int &count)
     {
-        Vec3 d = b - a;
+         Vec3 d = b - a;
         float dd = dot(d, d);
         count = 0;
         if (dd < 1e-20f)
@@ -766,7 +765,7 @@ bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
 
     void handleArcArc(Move2D &a, Move2D &b, bool acute, bool forceRoll, Move2D inserts[2], int &insertCount)
     {
-        if (nearPt2(a.p1, b.p0) || nearPt2(a.center, b.center))
+        if (is_near(a.p1, b.p0) || is_near(a.center, b.center))
         {
             return; // connected and concentric arcs are already tangent. No need to roll or trim.
         }
@@ -831,6 +830,12 @@ bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
         {
             arc = &b;
             lin = &a;
+        }
+
+        // trivial check for chained elements
+        if (is_near(arc->p1, lin->p0))
+        {
+            return; // already connected, no need to roll or trim.
         }
 
         // Intersect infinite line with circle
@@ -952,7 +957,7 @@ bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
         if (A.type == MOT_ARC && B.type == MOT_ARC)
         {
             // early-out for chained or concentric arcs (important)
-            if (nearPt2(A.p1, B.p0) || nearPt2(A.center, B.center))
+            if (is_near(A.p1, B.p0) || is_near(A.center, B.center))
                 return 0;
 
             Vec3 p1{}, p2{};
