@@ -319,6 +319,8 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
         modeState.motionG = 3;
 
     const bool latheMode = machine_is_lathe(machineType);
+    // - Turning->Milling transform is (X,Y,Z)->(Z,X,Y)
+    // - Internal XY uses that milling view (X:=Z, Y:=X)
 
     // Coordinates are parsed in machine-space, then mapped to internal XY space.
     Vec3 p0 = modeState.pos;
@@ -352,10 +354,23 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
             }
             anyXYZ = true;
         }
+        if (s.hasZ)
+        {
+            if (modeState.absXYZ)
+            {
+                p1.z = s.Z;
+            }
+            else
+            {
+                p1.z = p0.z + s.Z;
+            }
+            anyXYZ = true;
+        }
     }
     else
     {
-        // Lathe: machine X/Z -> internal Y/X.
+        // Lathe path in internal XY (VB-equivalent axis permutation):
+        // machine X -> internal Y, machine Z -> internal X.
         if (s.hasX)
         {
             float yInternal = machine_x_to_internal_y(s.X, machineType);
@@ -439,13 +454,15 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
         // Resolve center either from I/J or from R
         if (!latheMode && (s.hasI || s.hasJ))
         {
-            Vec3 ij = v2(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f);
-            out.center = p0 + ij; // I/J incremental
+            Vec3 ij = v3(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f, 0.0f); // I/J are already in internal XY space
+            out.center = p0 + ij;                                         // I/J incremental
             out.radius = len(p0 - out.center);
         }
         else if (latheMode && (s.hasI || s.hasK))
         {
             Vec3 ikMachine = v3(s.hasI ? s.I : 0.0f, 0.0f, s.hasK ? s.K : 0.0f);
+            // Lathe arcs use I/K in machine turning space; map them through
+            // the same turning->milling transform into internal XY.
             Vec3 ikInternal = machine_delta_to_internal_xy(ikMachine, machineType);
             out.center = p0 + ikInternal; // I/K incremental in machine-space, mapped to internal XY
             out.radius = len(p0 - out.center);

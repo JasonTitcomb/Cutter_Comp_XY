@@ -186,7 +186,6 @@ private:
         return m;
     }
 
-
     bool convex(const Move2D &a, const Move2D &b) const
     {
         int cw = WindingDirection(a.endDir, b.startDir);
@@ -428,9 +427,9 @@ private:
         return IT_INTERSECT;
     }
 
-    static IntersectType intersectLineCircle(Vec3 a, Vec3 b, Vec3 c, float r,Vec3 &p1, Vec3 &p2, int &count)
+    static IntersectType intersectLineCircle(Vec3 a, Vec3 b, Vec3 c, float r, Vec3 &p1, Vec3 &p2, int &count)
     {
-         Vec3 d = b - a;
+        Vec3 d = b - a;
         float dd = dot(d, d);
         count = 0;
         if (dd < 1e-20f)
@@ -529,151 +528,152 @@ private:
         update_vectors(roll);
         return roll;
     }
-// Creates a line segment bridging arc<->line/arc when comping and no TIP.
-bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
-{
-    auto make_line = [&](const Vec3 &p0, const Vec3 &p1)
+    
+    // Creates a line segment bridging arc<->line/arc when comping and no TIP.
+    bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
     {
-        extOut.type = MOT_LINE;
-        extOut.feed = (a.feed > 0) ? a.feed : b.feed;
-        extOut.p0 = p0;
-        extOut.p1 = p1;
-        update_vectors(extOut);
-    };
-
-    // Case: a is LINE, b is ARC
-    if (a.type == MOT_LINE && b.type == MOT_ARC)
-    {
-        Move2D probe;
-        probe.type = MOT_LINE;
-        probe.p0 = b.p0;
-        probe.p1 = b.p0 + b.startDir;
-
-        Vec3 ip;
-        bool tip = false;
-        if (intersectLineLine(probe, a, ip, tip) == IT_NONE)
-            return false;
-
-        float da = dot(ip - a.p1, a.endDir);
-        float db = dot(ip - b.p0, b.startDir);
-
-        if (!(da > 0 && db < 0))
-            return false;
-
-        a.p1 = ip;
-        update_vectors(a);
-
-        make_line(ip, b.p0);
-        return true;
-    }
-
-    // Case: a is ARC, b is LINE
-    if (a.type == MOT_ARC && b.type == MOT_LINE)
-    {
-        Move2D probe;
-        probe.type = MOT_LINE;
-        probe.p0 = a.p1;
-        probe.p1 = a.p1 + a.endDir;
-
-        Vec3 ip;
-        bool tip = false;
-        if (intersectLineLine(probe, b, ip, tip) == IT_NONE)
-            return false;
-
-        float da = dot(ip - a.p1, a.endDir);
-        float db = dot(ip - b.p0, b.startDir);
-
-        if (!(da > 0 && db < 0))
-            return false;
-
-        b.p0 = ip;
-        update_vectors(b);
-
-        make_line(a.p1, ip);
-        return true;
-    }
-
-    // Case: a is ARC, b is ARC (true common tangent)
-    if (a.type == MOT_ARC && b.type == MOT_ARC)
-    {
-        Vec3 c0 = a.center;
-        Vec3 c1 = b.center;
-        Vec3 d = c1 - c0;
-        float dist = len(d);
-        if (dist < TOL)
-            return false;
-
-        Vec3 u = d * (1.0f / dist);
-        Vec3 perp = leftNormal(u);
-
-        bool found = false;
-        float bestLen = 1e30f;
-        Vec3 bestP0{}, bestP1{};
-
-        auto try_tangents = [&](float r1prime)
+        auto make_line = [&](const Vec3 &p0, const Vec3 &p1)
         {
-            float c = (a.radius - r1prime) / dist;
-            if (c < -1.0f || c > 1.0f)
-                return;
-            float h2 = 1.0f - c * c;
-            if (h2 < 0.0f)
-                return;
-            float h = sqrtf(fmaxf(0.0f, h2));
-
-            for (int s = -1; s <= 1; s += 2)
-            {
-                Vec3 n = u * c + perp * (h * (float)s);
-                Vec3 p0 = c0 + n * a.radius;
-                Vec3 p1 = c1 + n * r1prime;
-
-                if (!pointOnArc(a, p0) || !pointOnArc(b, p1))
-                    continue;
-
-                Vec3 seg = p1 - p0;
-                float segLen = len(seg);
-                if (segLen < TOL)
-                    continue;
-                Vec3 tdir = seg * (1.0f / segLen);
-
-                Vec3 ra = normalize(p0 - c0);
-                Vec3 rb = normalize(p1 - c1);
-                Vec3 tanA = (a.arcDir == ARC_CCW) ? leftNormal(ra) : rightNormal(ra);
-                Vec3 tanB = (b.arcDir == ARC_CCW) ? leftNormal(rb) : rightNormal(rb);
-
-                if (dot(tdir, tanA) <= 0.0f || dot(tdir, tanB) <= 0.0f)
-                    continue;
-
-                float da = dot(p0 - a.p1, a.endDir);
-                float db = dot(p1 - b.p0, b.startDir);
-                if (!(da > 0 && db < 0))
-                    continue;
-
-                if (segLen < bestLen)
-                {
-                    bestLen = segLen;
-                    bestP0 = p0;
-                    bestP1 = p1;
-                    found = true;
-                }
-            }
+            extOut.type = MOT_LINE;
+            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
+            extOut.p0 = p0;
+            extOut.p1 = p1;
+            update_vectors(extOut);
         };
 
-        try_tangents(b.radius);
-        try_tangents(-b.radius);
+        // Case: a is LINE, b is ARC
+        if (a.type == MOT_LINE && b.type == MOT_ARC)
+        {
+            Move2D probe;
+            probe.type = MOT_LINE;
+            probe.p0 = b.p0;
+            probe.p1 = b.p0 + b.startDir;
 
-        if (!found)
-            return false;
+            Vec3 ip;
+            bool tip = false;
+            if (intersectLineLine(probe, a, ip, tip) == IT_NONE)
+                return false;
 
-        a.p1 = bestP0;
-        b.p0 = bestP1;
-        update_vectors(a);
-        update_vectors(b);
-        make_line(bestP0, bestP1);
-        return true;
+            float da = dot(ip - a.p1, a.endDir);
+            float db = dot(ip - b.p0, b.startDir);
+
+            if (!(da > 0 && db < 0))
+                return false;
+
+            a.p1 = ip;
+            update_vectors(a);
+
+            make_line(ip, b.p0);
+            return true;
+        }
+
+        // Case: a is ARC, b is LINE
+        if (a.type == MOT_ARC && b.type == MOT_LINE)
+        {
+            Move2D probe;
+            probe.type = MOT_LINE;
+            probe.p0 = a.p1;
+            probe.p1 = a.p1 + a.endDir;
+
+            Vec3 ip;
+            bool tip = false;
+            if (intersectLineLine(probe, b, ip, tip) == IT_NONE)
+                return false;
+
+            float da = dot(ip - a.p1, a.endDir);
+            float db = dot(ip - b.p0, b.startDir);
+
+            if (!(da > 0 && db < 0))
+                return false;
+
+            b.p0 = ip;
+            update_vectors(b);
+
+            make_line(a.p1, ip);
+            return true;
+        }
+
+        // Case: a is ARC, b is ARC (true common tangent)
+        if (a.type == MOT_ARC && b.type == MOT_ARC)
+        {
+            Vec3 c0 = a.center;
+            Vec3 c1 = b.center;
+            Vec3 d = c1 - c0;
+            float dist = len(d);
+            if (dist < TOL)
+                return false;
+
+            Vec3 u = d * (1.0f / dist);
+            Vec3 perp = leftNormal(u);
+
+            bool found = false;
+            float bestLen = 1e30f;
+            Vec3 bestP0{}, bestP1{};
+
+            auto try_tangents = [&](float r1prime)
+            {
+                float c = (a.radius - r1prime) / dist;
+                if (c < -1.0f || c > 1.0f)
+                    return;
+                float h2 = 1.0f - c * c;
+                if (h2 < 0.0f)
+                    return;
+                float h = sqrtf(fmaxf(0.0f, h2));
+
+                for (int s = -1; s <= 1; s += 2)
+                {
+                    Vec3 n = u * c + perp * (h * (float)s);
+                    Vec3 p0 = c0 + n * a.radius;
+                    Vec3 p1 = c1 + n * r1prime;
+
+                    if (!pointOnArc(a, p0) || !pointOnArc(b, p1))
+                        continue;
+
+                    Vec3 seg = p1 - p0;
+                    float segLen = len(seg);
+                    if (segLen < TOL)
+                        continue;
+                    Vec3 tdir = seg * (1.0f / segLen);
+
+                    Vec3 ra = normalize(p0 - c0);
+                    Vec3 rb = normalize(p1 - c1);
+                    Vec3 tanA = (a.arcDir == ARC_CCW) ? leftNormal(ra) : rightNormal(ra);
+                    Vec3 tanB = (b.arcDir == ARC_CCW) ? leftNormal(rb) : rightNormal(rb);
+
+                    if (dot(tdir, tanA) <= 0.0f || dot(tdir, tanB) <= 0.0f)
+                        continue;
+
+                    float da = dot(p0 - a.p1, a.endDir);
+                    float db = dot(p1 - b.p0, b.startDir);
+                    if (!(da > 0 && db < 0))
+                        continue;
+
+                    if (segLen < bestLen)
+                    {
+                        bestLen = segLen;
+                        bestP0 = p0;
+                        bestP1 = p1;
+                        found = true;
+                    }
+                }
+            };
+
+            try_tangents(b.radius);
+            try_tangents(-b.radius);
+
+            if (!found)
+                return false;
+
+            a.p1 = bestP0;
+            b.p0 = bestP1;
+            update_vectors(a);
+            update_vectors(b);
+            make_line(bestP0, bestP1);
+            return true;
+        }
+
+        return false;
     }
-
-    return false;
-}
 
     void applyLogic(Move2D &a, Move2D &b, bool forceRoll, Move2D inserts[2], int &insertCount)
     {
@@ -721,7 +721,7 @@ bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
             return;
         }
 
-         // direction gate (same condition used inside ExtendToCommonFIP)
+        // direction gate (same condition used inside ExtendToCommonFIP)
         float fipDir1 = dot(ip - a.p1, a.endDir);
         float fipDir2 = dot(ip - b.p0, b.startDir);
         bool dirOK = (fipDir1 > 0 && fipDir2 < 0);
@@ -833,7 +833,7 @@ bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
         }
 
         // trivial check for chained elements
-        if (is_near(arc->p1, lin->p0))
+        if (is_near(a.p1, b.p0))
         {
             return; // already connected, no need to roll or trim.
         }
@@ -1051,7 +1051,7 @@ bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
 public:
     bool trimCrossingElements(Move2D *moves, int numMoves, int maxLookahead)
     {
-        //calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
+        // calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
         init_all_aabb(moves, numMoves);
 
         int src = 1; // skip the first element since it has no previous neighbor to cross with

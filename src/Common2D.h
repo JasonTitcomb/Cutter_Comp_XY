@@ -24,7 +24,6 @@ struct Vec3
   Vec3 operator*(float s) const { return {x * s, y * s, z * s}; }
 };
 
-static inline Vec3 v2(float x, float y) { return {x, y, 0.0f}; }
 static inline Vec3 v3(float x, float y, float z) { return {x, y, z}; }
 
 static inline float dot(const Vec3 &a, const Vec3 &b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
@@ -126,14 +125,32 @@ static inline float internal_y_to_machine_x(float y, MachineType mt)
   return y;
 }
 
+// VB-equivalent axis permutations for turning (XZ) <-> milling (XY) thinking:
+// Turning -> Milling: (X,Y,Z) => (Z,X,Y)
+// Milling -> Turning: (X,Y,Z) => (Y,Z,X)
+static inline Vec3 turning_to_milling_xyz(const Vec3 &coord)
+{
+  return v3(coord.z, coord.x, coord.y);
+}
+
+static inline Vec3 milling_to_turning_xyz(const Vec3 &coord)
+{
+  return v3(coord.y, coord.z, coord.x);
+}
+
 // Convert machine-space absolute point to internal XY space used by compensation.
 // Mill: X/Y -> X/Y
 // Lathe: X/Z -> Y/X (internal X is machine Z, internal Y is machine X[or X/2 in DIA mode])
 static inline Vec3 machine_to_internal_xy(const Vec3 &p, MachineType mt)
 {
   if (!machine_is_lathe(mt))
-    return v2(p.x, p.y);
-  return v2(p.z, machine_x_to_internal_y(p.x, mt));
+    return v3(p.x, p.y, 0.0f);
+
+  Vec3 mill = turning_to_milling_xyz(p); // mill.x=Z, mill.y=X
+  if (mt == MAC_LATHE_DIA)
+    mill.y = machine_x_to_internal_y(mill.y, mt); // DIA endpoint X -> radius
+
+  return v3(mill.x, mill.y, 0.0f);
 }
 
 // Convert internal XY absolute point back to machine-space coordinates.
@@ -141,7 +158,12 @@ static inline Vec3 internal_xy_to_machine(const Vec3 &p, MachineType mt)
 {
   if (!machine_is_lathe(mt))
     return v3(p.x, p.y, 0.0f);
-  return v3(internal_y_to_machine_x(p.y, mt), 0.0f, p.x);
+
+  Vec3 mill = v3(p.x, p.y, 0.0f);
+  if (mt == MAC_LATHE_DIA)
+    mill.y = internal_y_to_machine_x(mill.y, mt); // radius -> DIA endpoint X
+
+  return milling_to_turning_xyz(mill);
 }
 
 // Same mapping for center offset vectors (I/J or I/K style offsets).
@@ -151,8 +173,8 @@ static inline Vec3 internal_xy_to_machine(const Vec3 &p, MachineType mt)
 static inline Vec3 machine_delta_to_internal_xy(const Vec3 &d, MachineType mt)
 {
   if (!machine_is_lathe(mt))
-    return v2(d.x, d.y);
-  return v2(d.z, d.x);
+    return v3(d.x, d.y, 0.0f);
+  return v3(d.z, d.x, 0.0f);
 }
 
 static inline Vec3 internal_delta_xy_to_machine(const Vec3 &d, MachineType mt)
@@ -180,7 +202,7 @@ static inline Vec3 from_xy_to_xz(const Vec3 &internalPoint, MachineType mt)
 static inline Vec3 internal_xy_to_plot_xy(const Vec3 &p, MachineType mt)
 {
   (void)mt;
-  return v2(p.x, p.y);
+  return v3(p.x, p.y, 0.0f);
 }
 
 
@@ -268,7 +290,7 @@ static inline AABB2 aabb_of(const Move2D &m)
   {
     // Check silhouette points to get tighter bounds
     // Left point (180 degrees, -X direction)
-    Vec3 silhouettePoint = v2(m.center.x - m.radius, m.center.y);
+    Vec3 silhouettePoint = v3(m.center.x - m.radius, m.center.y, 0.0f);
     if (len(silhouettePoint - m.center) > TOL) // ensure valid point
     {
       float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
@@ -286,7 +308,7 @@ static inline AABB2 aabb_of(const Move2D &m)
     }
 
     // Right point (0 degrees, +X direction)
-    silhouettePoint = v2(m.center.x + m.radius, m.center.y);
+    silhouettePoint = v3(m.center.x + m.radius, m.center.y, 0.0f);
     if (len(silhouettePoint - m.center) > TOL)
     {
       float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
@@ -304,7 +326,7 @@ static inline AABB2 aabb_of(const Move2D &m)
     }
 
     // Top point (90 degrees, +Y direction)
-    silhouettePoint = v2(m.center.x, m.center.y + m.radius);
+    silhouettePoint = v3(m.center.x, m.center.y + m.radius, 0.0f);
     if (len(silhouettePoint - m.center) > TOL)
     {
       float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
@@ -322,7 +344,7 @@ static inline AABB2 aabb_of(const Move2D &m)
     }
 
     // Bottom point (270 degrees, -Y direction)
-    silhouettePoint = v2(m.center.x, m.center.y - m.radius);
+    silhouettePoint = v3(m.center.x, m.center.y - m.radius, 0.0f);
     if (len(silhouettePoint - m.center) > TOL)
     {
       float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);

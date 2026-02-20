@@ -33,10 +33,10 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.05f;
+static constexpr float TOOL_RADIUS = 0.07f;
 static constexpr bool ENABLE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
-static constexpr MachineType MACHINE_TYPE = MAC_LATHE_DIA;
+static constexpr MachineType MACHINE_TYPE = MAC_MILL;
 
 static constexpr int MAX_LOOKAHEAD_FOR_INTERSECTIONS = 25;
 static constexpr int MAX_TRIM_PASSES = 6;
@@ -155,7 +155,7 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
   m.motionG = 0;
   m.comp = COMP_OFF;
   m.feed = 0;
-  m.pos = v2(0, 0);
+  m.pos = v3(0, 0, 0);
 
   for (const auto &line : program)
   {
@@ -177,9 +177,11 @@ int main()
 {
   //const char *default_file = "../../data/RapidComp.nc";
   //const char *default_file = "../../data/G41_2.nc";
-  // const char *default_file = "../../data/TortureTestG90.nc";
+  //const char *default_file = "../../data/TortureTestG90.nc";
   //const char *default_file = "../../data/TortureTestG91.nc";
-  const char *default_file = "../../data/LatheDia.nc";
+  //const char *default_file = "../../data/LatheDia.nc";
+  //const char *default_file = "../../data/LatheRad.nc";
+  const char *default_file = "../../data/TortureTestSmallFilletsG90.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 
@@ -193,7 +195,7 @@ int main()
   modal.motionG = 0;
   modal.comp = COMP_OFF;
   modal.feed = 0;
-  modal.pos = v2(0, 0);
+  modal.pos = v3(0, 0, 0);
 
   // Init cutter comp
   cc.setToolRadius(TOOL_RADIUS);

@@ -23,6 +23,8 @@ struct Bounds
 static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType)
 {
     const bool latheMode = machine_is_lathe(machineType);
+    // Reverse of parser mapping: internal milling-like XY -> machine turning axes.
+    // (VB parity with ConvertToTurning)
     Vec3 p1m = internal_xy_to_machine(m.p1, machineType);
 
     if (m.type == MOT_LINE || m.type == MOT_RAPID)
@@ -43,6 +45,8 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
     if (m.type == MOT_ARC)
     {
         Vec3 dInternal = m.center - m.p0;
+        // Internal center deltas converted back to machine deltas:
+        // mill => I/J, lathe => I/K.
         Vec3 dMachine = internal_delta_xy_to_machine(dInternal, machineType);
 
         if (latheMode)
@@ -129,8 +133,8 @@ static std::vector<Vec3> approx_move_points(const Move2D &m, int arcSegments = 2
         {
             float t = (float)i / (float)n;
             float a = a0 + sweep * t;
-            Vec3 p = v2(m.center.x + m.radius * std::cos(a),
-                        m.center.y + m.radius * std::sin(a));
+            Vec3 p = v3(m.center.x + m.radius * std::cos(a),
+                        m.center.y + m.radius * std::sin(a), 0.0f);
             pts.push_back(p);
         }
         return pts;
