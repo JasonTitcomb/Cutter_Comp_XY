@@ -5,43 +5,53 @@
 
 #define TOL 0.00005f
 #define EPS 1e-7f
+#define PI 3.14159265358979323846f
+#define TWO_PI 6.2831853071795864769f
 
-static inline float c2d_sqr(float x) { return x * x; }
-static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi : x; }
-
+static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi
+                                                                                             : x; }
 struct Vec3
+{
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+
+    Vec3() = default;
+    Vec3(float X, float Y, float Z) : x(X), y(Y), z(Z) {}
+};
+
+struct Vec2
 {
   float x = 0.0f;
   float y = 0.0f;
-  float z = 0.0f;
 
-  Vec3() = default;
-  Vec3(float X, float Y) : x(X), y(Y), z(0.0f) {}
-  Vec3(float X, float Y, float Z) : x(X), y(Y), z(Z) {}
+  Vec2() = default;
+  Vec2(float X, float Y) : x(X), y(Y) {}
 
-  Vec3 operator+(const Vec3 &o) const { return {x + o.x, y + o.y, z + o.z}; }
-  Vec3 operator-(const Vec3 &o) const { return {x - o.x, y - o.y, z - o.z}; }
-  Vec3 operator*(float s) const { return {x * s, y * s, z * s}; }
+  Vec2 operator+(const Vec2 &o) const { return {x + o.x, y + o.y}; }
+  Vec2 operator-(const Vec2 &o) const { return {x - o.x, y - o.y}; }
+  Vec2 operator*(float s) const { return {x * s, y * s}; }
 };
 
+static inline Vec2 v2(float x, float y) { return {x, y}; }
 static inline Vec3 v3(float x, float y, float z) { return {x, y, z}; }
 
-static inline float dot(const Vec3 &a, const Vec3 &b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
-static inline float cross(const Vec3 &a, const Vec3 &b) { return a.x * b.y - a.y * b.x; }
-static inline float len(const Vec3 &v) { return sqrtf(dot(v, v)); }
+static inline float dot(const Vec2 &a, const Vec2 &b) { return a.x * b.x + a.y * b.y; }
+static inline float cross(const Vec2 &a, const Vec2 &b) { return a.x * b.y - a.y * b.x; }
+static inline float len(const Vec2 &v) { return sqrtf(dot(v, v)); }
 
-static inline Vec3 normalize(const Vec3 &v)
+static inline Vec2 normalize(const Vec2 &v)
 {
   float l = len(v);
   if (l < TOL)
-    return {0, 0, 0};
-  return {v.x / l, v.y / l, v.z / l};
+    return {0, 0};
+  return {v.x / l, v.y / l};
 }
 
 // Left normal (rotate +90)
-static inline Vec3 leftNormal(const Vec3 &v) { return {-v.y, v.x}; }
+static inline Vec2 leftNormal(const Vec2 &v) { return {-v.y, v.x}; }
 // Right normal (rotate -90)
-static inline Vec3 rightNormal(const Vec3 &v) { return {v.y, -v.x}; }
+static inline Vec2 rightNormal(const Vec2 &v) { return {v.y, -v.x}; }
 
 enum CompMode : uint8_t
 {
@@ -87,8 +97,8 @@ struct Move2D
   char gcode_line[160] = {0};
   MotionType type = MOT_EMPTY;
   uint32_t seqNum = 0; // for debugging
-  Vec3 p0{0, 0};       // start
-  Vec3 p1{0, 0};       // end
+  Vec2 p0{0, 0};       // start
+  Vec2 p1{0, 0};       // end
   AABB2 bounds;        // precomputed bounding box for this move
   float feed = 0.0f;
   bool valid = true; // for output moves, indicates if move is valid
@@ -96,15 +106,15 @@ struct Move2D
 
   // Arc only:
   ArcDir arcDir = ARC_CW;
-  Vec3 center{0, 0};
+  Vec2 center{0, 0};
   float radius = 0.0f;
   // Track original end before any trimming/extension
-  Vec3 initialStartPt{0, 0};
-  Vec3 initialEndPt{0, 0};
+  Vec2 initialStartPt{0, 0};
+  Vec2 initialEndPt{0, 0};
 
   // Tangent directions
-  Vec3 startDir{0, 0};
-  Vec3 endDir{0, 0};
+  Vec2 startDir{0, 0};
+  Vec2 endDir{0, 0};
 };
 static inline bool machine_is_lathe(MachineType mt)
 {
@@ -141,20 +151,20 @@ static inline Vec3 milling_to_turning_xyz(const Vec3 &coord)
 // Convert machine-space absolute point to internal XY space used by compensation.
 // Mill: X/Y -> X/Y
 // Lathe: X/Z -> Y/X (internal X is machine Z, internal Y is machine X[or X/2 in DIA mode])
-static inline Vec3 machine_to_internal_xy(const Vec3 &p, MachineType mt)
+static inline Vec2 machine_to_internal_xy(const Vec3 &p, MachineType mt)
 {
   if (!machine_is_lathe(mt))
-    return v3(p.x, p.y, 0.0f);
+    return v2(p.x, p.y);
 
   Vec3 mill = turning_to_milling_xyz(p); // mill.x=Z, mill.y=X
   if (mt == MAC_LATHE_DIA)
     mill.y = machine_x_to_internal_y(mill.y, mt); // DIA endpoint X -> radius
 
-  return v3(mill.x, mill.y, 0.0f);
+  return v2(mill.x, mill.y);
 }
 
 // Convert internal XY absolute point back to machine-space coordinates.
-static inline Vec3 internal_xy_to_machine(const Vec3 &p, MachineType mt)
+static inline Vec3 internal_xy_to_machine(const Vec2 &p, MachineType mt)
 {
   if (!machine_is_lathe(mt))
     return v3(p.x, p.y, 0.0f);
@@ -170,14 +180,14 @@ static inline Vec3 internal_xy_to_machine(const Vec3 &p, MachineType mt)
 // NOTE: In lathe DIA mode, X endpoints are diameter values, but I center offsets
 // are typically provided in radius units. So we do NOT apply DIA 2x/0.5x scaling
 // to center offsets.
-static inline Vec3 machine_delta_to_internal_xy(const Vec3 &d, MachineType mt)
+static inline Vec2 machine_delta_to_internal_xy(const Vec3 &d, MachineType mt)
 {
   if (!machine_is_lathe(mt))
-    return v3(d.x, d.y, 0.0f);
-  return v3(d.z, d.x, 0.0f);
+    return v2(d.x, d.y);
+  return v2(d.z, d.x);
 }
 
-static inline Vec3 internal_delta_xy_to_machine(const Vec3 &d, MachineType mt)
+static inline Vec3 internal_delta_xy_to_machine(const Vec2 &d, MachineType mt)
 {
   if (!machine_is_lathe(mt))
     return v3(d.x, d.y, 0.0f);
@@ -185,12 +195,12 @@ static inline Vec3 internal_delta_xy_to_machine(const Vec3 &d, MachineType mt)
 }
 
 // Convenience aliases requested for pre/post mapping around compensation.
-static inline Vec3 from_xz_to_xy(const Vec3 &machinePoint, MachineType mt)
+static inline Vec2 from_xz_to_xy(const Vec3 &machinePoint, MachineType mt)
 {
   return machine_to_internal_xy(machinePoint, mt);
 }
 
-static inline Vec3 from_xy_to_xz(const Vec3 &internalPoint, MachineType mt)
+static inline Vec3 from_xy_to_xz(const Vec2 &internalPoint, MachineType mt)
 {
   return internal_xy_to_machine(internalPoint, mt);
 }
@@ -199,19 +209,18 @@ static inline Vec3 from_xy_to_xz(const Vec3 &internalPoint, MachineType mt)
 // - Mill: plot X/Y
 // - Lathe: plot Z/radius (internal X/internal Y)
 //   This avoids DIA-mode visual stretching caused by plotting machine X-diameter.
-static inline Vec3 internal_xy_to_plot_xy(const Vec3 &p, MachineType mt)
+static inline Vec2 internal_xy_to_plot_xy(const Vec2 &p, MachineType mt)
 {
   (void)mt;
-  return v3(p.x, p.y, 0.0f);
+  return v2(p.x, p.y);
 }
-
 
 inline void update_dirs(Move2D &m)
 {
   if (m.type == MOT_LINE)
   {
-    Vec3 d = m.p1 - m.p0;
-    Vec3 u = normalize(d);
+    Vec2 d = m.p1 - m.p0;
+    Vec2 u = normalize(d);
     m.startDir = u;
     m.endDir = u;
     return;
@@ -219,8 +228,8 @@ inline void update_dirs(Move2D &m)
   if (m.type == MOT_ARC)
   {
     // Tangent is +/- 90° from radius vector
-    Vec3 rs = normalize(m.p0 - m.center);
-    Vec3 re = normalize(m.p1 - m.center);
+    Vec2 rs = normalize(m.p0 - m.center);
+    Vec2 re = normalize(m.p1 - m.center);
 
     // For CCW, tangent = leftNormal(radius); for CW, tangent = rightNormal(radius)
     if (m.arcDir == ARC_CCW)
@@ -239,8 +248,14 @@ inline void update_dirs(Move2D &m)
   m.endDir = {0, 0};
 }
 
+static inline bool radiusConsistent(const Move2D &m)
+{
+    float r0 = len(m.p0 - m.center);
+    float r1 = len(m.p1 - m.center);
+    return fabsf(r0 - r1) <= TOL;
+}
 
-static inline int WindingDirection(Vec3 a, Vec3 b)
+static inline int WindingDirection(Vec2 a, Vec2 b)
 {
   // Implemented as sign of cross of normalized vectors.
   a = normalize(a);
@@ -256,11 +271,35 @@ static inline int WindingDirection(Vec3 a, Vec3 b)
 static inline float angleNorm(float a)
 {
   while (a < 0)
-    a += 2.0f * (float)M_PI;
-  while (a >= 2.0f * (float)M_PI)
-    a -= 2.0f * (float)M_PI;
+    a += TWO_PI;
+  while (a >= TWO_PI)
+    a -= TWO_PI;
   return a;
 }
+
+static inline float wrap2pi(float a)
+{
+    a = fmodf(a, TWO_PI);
+    if (a < 0) a += TWO_PI;
+    return a;
+}
+
+static inline float arcSweep(const Move2D &m)
+{
+    float a0 = wrap2pi(atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x));
+    float a1 = wrap2pi(atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x));
+
+    if (m.arcDir == ARC_CCW) {
+        float sw = a1 - a0;
+        if (sw < 0) sw += TWO_PI;
+        return sw;                  // [0, 2π)
+    } else { // ARC_CW
+        float sw = a0 - a1;
+        if (sw < 0) sw += TWO_PI;
+        return sw;                  // [0, 2π)
+    }
+}
+
 
 static inline float sweepCCW(float a0, float a1)
 {
@@ -268,7 +307,7 @@ static inline float sweepCCW(float a0, float a1)
   a1 = angleNorm(a1);
   float d = a1 - a0;
   if (d < 0)
-    d += 2.0f * (float)M_PI;
+    d += TWO_PI;
   return d;
 }
 
@@ -290,7 +329,7 @@ static inline AABB2 aabb_of(const Move2D &m)
   {
     // Check silhouette points to get tighter bounds
     // Left point (180 degrees, -X direction)
-    Vec3 silhouettePoint = v3(m.center.x - m.radius, m.center.y, 0.0f);
+    Vec2 silhouettePoint = v2(m.center.x - m.radius, m.center.y);
     if (len(silhouettePoint - m.center) > TOL) // ensure valid point
     {
       float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
@@ -308,7 +347,7 @@ static inline AABB2 aabb_of(const Move2D &m)
     }
 
     // Right point (0 degrees, +X direction)
-    silhouettePoint = v3(m.center.x + m.radius, m.center.y, 0.0f);
+    silhouettePoint = v2(m.center.x + m.radius, m.center.y);
     if (len(silhouettePoint - m.center) > TOL)
     {
       float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
@@ -326,7 +365,7 @@ static inline AABB2 aabb_of(const Move2D &m)
     }
 
     // Top point (90 degrees, +Y direction)
-    silhouettePoint = v3(m.center.x, m.center.y + m.radius, 0.0f);
+    silhouettePoint = v2(m.center.x, m.center.y + m.radius);
     if (len(silhouettePoint - m.center) > TOL)
     {
       float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
@@ -344,7 +383,7 @@ static inline AABB2 aabb_of(const Move2D &m)
     }
 
     // Bottom point (270 degrees, -Y direction)
-    silhouettePoint = v3(m.center.x, m.center.y - m.radius, 0.0f);
+    silhouettePoint = v2(m.center.x, m.center.y - m.radius);
     if (len(silhouettePoint - m.center) > TOL)
     {
       float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
@@ -379,9 +418,9 @@ static inline bool aabb_intersects(const AABB2 &a, const AABB2 &b)
 }
 
 // param along LINE (0..1 if on segment)
-static inline float line_t(const Move2D &m, Vec3 p)
+static inline float line_t(const Move2D &m, Vec2 p)
 {
-  Vec3 d = m.p1 - m.p0;
+  Vec2 d = m.p1 - m.p0;
   float L2 = dot(d, d);
   if (L2 < 1e-12f)
     return 0.0f;
@@ -389,7 +428,7 @@ static inline float line_t(const Move2D &m, Vec3 p)
 }
 
 // distance-along-source used for "nearest crossing" selection
-static inline float distFromStart_along(const Move2D &m, Vec3 p)
+static inline float distFromStart_along(const Move2D &m, Vec2 p)
 {
   if (m.type == MOT_LINE)
   {
@@ -415,7 +454,7 @@ static inline void invalidateRange(Move2D *moves, int i, int j)
   }
 }
 // ----- helpers -----
-static inline bool is_near(const Vec3 &a, const Vec3 &b)
+static inline bool is_near(const Vec2 &a, const Vec2 &b)
 {
   return len(a - b) <= TOL;
 }
@@ -436,8 +475,8 @@ static inline bool isColinearWith(const Move2D &a, const Move2D &b)
   // -------- LINE vs LINE --------
   if (a.type == MOT_LINE)
   {
-    Vec3 da = a.startDir;
-    Vec3 db = b.startDir;
+    Vec2 da = a.startDir;
+    Vec2 db = b.startDir;
 
     if (len(da) < TOL || len(db) < TOL)
       return false;
@@ -494,16 +533,16 @@ static inline bool lines_colinear(const Move2D &a, const Move2D &b,
   if (a.type != MOT_LINE || b.type != MOT_LINE)
     return false;
 
-  Vec3 da = a.p1 - a.p0;
-  Vec3 db = b.p1 - b.p0;
+  Vec2 da = a.p1 - a.p0;
+  Vec2 db = b.p1 - b.p0;
 
   float la = len(da);
   float lb = len(db);
   if (la < TOL || lb < TOL)
     return false;
 
-  Vec3 ua = da * (1.0f / la);
-  Vec3 ub = db * (1.0f / lb);
+  Vec2 ua = da * (1.0f / la);
+  Vec2 ub = db * (1.0f / lb);
 
   // parallel (ignore direction sign)
   float c = c2d_clamp(dot(ua, ub), -1.0f, 1.0f);
@@ -551,7 +590,6 @@ static int last_cutting_move(const Move2D *moves, int count)
   return -1; // No CM_OUT found
 }
 
-
 static inline bool angleOnSweepCCW(float a0, float a1, float ap)
 {
   a0 = angleNorm(a0);
@@ -569,7 +607,7 @@ static inline bool angleOnSweepCW(float a0, float a1, float ap)
   return angleOnSweepCCW(a1, a0, ap);
 }
 
-static inline float includedAngleDeg(Vec3 v1, Vec3 v2)
+static inline float includedAngleDeg(Vec2 v1, Vec2 v2)
 {
   // VB does: v2 = -v2
   v1 = normalize(v1);
@@ -580,7 +618,7 @@ static inline float includedAngleDeg(Vec3 v1, Vec3 v2)
   return rad2deg(acosf(c));
 }
 
-static inline bool isNearDir(Vec3 a, Vec3 b)
+static inline bool isNearDir(Vec2 a, Vec2 b)
 {
   a = normalize(a);
   b = normalize(b);

@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <cstdio>
 #include <algorithm>
 #include <cmath>
 #include "CutterComp2D.h"
@@ -10,7 +11,7 @@
 struct Bounds
 {
     float minx = +1e30f, miny = +1e30f, maxx = -1e30f, maxy = -1e30f;
-    void add(Vec3 p)
+    void add(Vec2 p)
     {
         minx = std::min(minx, p.x);
         miny = std::min(miny, p.y);
@@ -44,7 +45,7 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
 
     if (m.type == MOT_ARC)
     {
-        Vec3 dInternal = m.center - m.p0;
+        Vec2 dInternal = m.center - m.p0;
         // Internal center deltas converted back to machine deltas:
         // mill => I/J, lathe => I/K.
         Vec3 dMachine = internal_delta_xy_to_machine(dInternal, machineType);
@@ -68,7 +69,8 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
 void write_gcode(const char *path, const std::vector<Move2D> &moves, MachineType machineType = MAC_MILL)
 {
     // G-code file
-    if (FILE *f = std::fopen(path, "wb"))
+    FILE *f = nullptr;
+    if (::fopen_s(&f, path, "wb") == 0 && f)
     {
         for (auto &m : moves)
         {
@@ -80,7 +82,7 @@ void write_gcode(const char *path, const std::vector<Move2D> &moves, MachineType
     }
 }
 
-static void svg_polyline(std::ostringstream &ss, const std::vector<Vec3> &pts, const char *stroke)
+static void svg_polyline(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke)
 {
     if (pts.size() < 2)
         return;
@@ -90,9 +92,9 @@ static void svg_polyline(std::ostringstream &ss, const std::vector<Vec3> &pts, c
     ss << "\" />\n";
 }
 
-static std::vector<Vec3> approx_move_points(const Move2D &m, int arcSegments = 24)
+static std::vector<Vec2> approx_move_points(const Move2D &m, int arcSegments = 24)
 {
-    std::vector<Vec3> pts;
+    std::vector<Vec2> pts;
     if (m.type == MOT_LINE || m.type == MOT_RAPID)
     {
         pts.push_back(m.p0);
@@ -133,8 +135,8 @@ static std::vector<Vec3> approx_move_points(const Move2D &m, int arcSegments = 2
         {
             float t = (float)i / (float)n;
             float a = a0 + sweep * t;
-            Vec3 p = v3(m.center.x + m.radius * std::cos(a),
-                        m.center.y + m.radius * std::sin(a), 0.0f);
+            Vec2 p = v2(m.center.x + m.radius * std::cos(a),
+                        m.center.y + m.radius * std::sin(a));
             pts.push_back(p);
         }
         return pts;
@@ -142,8 +144,7 @@ static std::vector<Vec3> approx_move_points(const Move2D &m, int arcSegments = 2
     return pts;
 }
 
-// Add this helper function after svg_polyline:
-static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec3> &pts, const char *stroke)
+static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke)
 {
     if (pts.size() < 2)
         return;
@@ -231,7 +232,7 @@ static void write_svg(const char *path,
             auto pts = approx_move_points(m, 10); // finer for smoother lerp
             for (size_t i = 0; i + 1 < pts.size(); ++i)
             {
-                Vec3 p0 = pts[i], p1 = pts[i + 1];
+                Vec2 p0 = pts[i], p1 = pts[i + 1];
                 p0 = internal_xy_to_plot_xy(p0, machineType);
                 p1 = internal_xy_to_plot_xy(p1, machineType);
                 if (mirror_x)

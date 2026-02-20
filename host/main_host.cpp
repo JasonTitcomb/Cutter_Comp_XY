@@ -33,7 +33,7 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.07f;
+static constexpr float TOOL_RADIUS = 0.05f;
 static constexpr bool ENABLE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
@@ -80,8 +80,7 @@ static void process_one_gcode_line(const char *raw)
   Move2D mv = interpret_to_move(s, modal, MACHINE_TYPE);
 
   // copy raw line for testing only
-  strncpy(mv.gcode_line, raw, sizeof(mv.gcode_line) - 1);
-  mv.gcode_line[sizeof(mv.gcode_line) - 1] = '\0';
+  strncpy_s(mv.gcode_line, sizeof(mv.gcode_line), raw, _TRUNCATE);
 
   if ((s.sawG41 || s.sawG42))
   {
@@ -155,7 +154,7 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
   m.motionG = 0;
   m.comp = COMP_OFF;
   m.feed = 0;
-  m.pos = v3(0, 0, 0);
+  m.pos = v2(0, 0);
 
   for (const auto &line : program)
   {
@@ -176,12 +175,14 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
 int main()
 {
   //const char *default_file = "../../data/RapidComp.nc";
+  //const char *default_file = "../../data/G41_1.nc";
   //const char *default_file = "../../data/G41_2.nc";
   //const char *default_file = "../../data/TortureTestG90.nc";
   //const char *default_file = "../../data/TortureTestG91.nc";
   //const char *default_file = "../../data/LatheDia.nc";
   //const char *default_file = "../../data/LatheRad.nc";
-  const char *default_file = "../../data/TortureTestSmallFilletsG90.nc";
+  //const char *default_file = "../../data/TortureTestG90.nc";
+  const char *default_file = "../../data/Sample2.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 
@@ -195,7 +196,7 @@ int main()
   modal.motionG = 0;
   modal.comp = COMP_OFF;
   modal.feed = 0;
-  modal.pos = v3(0, 0, 0);
+  modal.pos = v2(0, 0);
 
   // Init cutter comp
   cc.setToolRadius(TOOL_RADIUS);
@@ -212,8 +213,17 @@ int main()
   }
   flush_pipeline();
 
+  //check profile validity before trimming
+  bool allRadiusConsistent = true;
+  bool isvalid = cc.is_validate_profile(profile.data(), (int)profile.size(), MAX_LOOKAHEAD_FOR_INTERSECTIONS, allRadiusConsistent);
+  if (!isvalid)
+  {
+    std::puts("Profile has crossings before trimming.");
+  }
+
+
   // Post-pass trim crossings (optional)
-  if (ENABLE_TRIM_CROSSINGS)
+  if (!isvalid && ENABLE_TRIM_CROSSINGS)
   {
     for (int pass = 0; pass < MAX_TRIM_PASSES; ++pass)
     {

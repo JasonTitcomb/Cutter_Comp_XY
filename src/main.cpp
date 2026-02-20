@@ -77,7 +77,7 @@ static void emit_move_as_gcode(const Move2D &m)
 
   if (m.type == MOT_ARC)
   {
-    Vec3 dInternal = m.center - m.p0;
+    Vec2 dInternal = m.center - m.p0;
     Vec3 dMachine = internal_delta_xy_to_machine(dInternal, MACHINE_TYPE);
 
     DBG_PRINT("N");

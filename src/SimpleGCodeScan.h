@@ -51,7 +51,7 @@ struct ModalState
     CompSide comp = COMP_OFF;
     CompMode compMode = CM_NONE;
     float feed = 0.0f;
-    Vec3 pos{0, 0, 0}; // current XYZ position; updated by interpret_to_move
+    Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
 };
 
 // -------------------------
@@ -251,29 +251,29 @@ static inline void scan_line(const char *line, ScanLine &s)
 
 // Compute center from R for G2/G3 arc in XY.
 // Chooses the center matching CW/CCW; assumes "shorter" arc when ambiguous.
-static inline bool arc_center_from_R(const Vec3 &p0, const Vec3 &p1, float R, ArcDir dir, Vec3 &outC)
+static inline bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, ArcDir dir, Vec2 &outC)
 {
     float r = fabsf(R);
-    Vec3 chord = p1 - p0;
+    Vec2 chord = p1 - p0;
     float d = len(chord);
     if (d < TOL)
         return false;
     if (d > 2.0f * r + 1e-5f)
         return false;
 
-    Vec3 M = (p0 + p1) * 0.5f;
+    Vec2 M = (p0 + p1) * 0.5f;
     float half = 0.5f * d;
     float h = sqrtf(fmaxf(0.0f, r * r - half * half));
 
-    Vec3 u = chord * (1.0f / d);
-    Vec3 perp = leftNormal(u);
+    Vec2 u = chord * (1.0f / d);
+    Vec2 perp = leftNormal(u);
 
-    Vec3 C1 = M + perp * h;
-    Vec3 C2 = M - perp * h;
+    Vec2 C1 = M + perp * h;
+    Vec2 C2 = M - perp * h;
 
-    auto ok = [&](const Vec3 &C)
+    auto ok = [&](const Vec2 &C)
     {
-        Vec3 a = p0 - C, b = p1 - C;
+        Vec2 a = p0 - C, b = p1 - C;
         float z = cross(a, b);
         return (dir == ARC_CCW) ? (z > 0) : (z < 0);
     };
@@ -323,8 +323,8 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
     // - Internal XY uses that milling view (X:=Z, Y:=X)
 
     // Coordinates are parsed in machine-space, then mapped to internal XY space.
-    Vec3 p0 = modeState.pos;
-    Vec3 p1 = p0;
+    Vec2 p0 = modeState.pos;
+    Vec2 p1 = p0;
 
     bool anyXYZ = false;
     if (!latheMode)
@@ -354,18 +354,7 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
             }
             anyXYZ = true;
         }
-        if (s.hasZ)
-        {
-            if (modeState.absXYZ)
-            {
-                p1.z = s.Z;
-            }
-            else
-            {
-                p1.z = p0.z + s.Z;
-            }
-            anyXYZ = true;
-        }
+        // Z is ignored by 2D compensation geometry.
     }
     else
     {
@@ -454,7 +443,7 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
         // Resolve center either from I/J or from R
         if (!latheMode && (s.hasI || s.hasJ))
         {
-            Vec3 ij = v3(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f, 0.0f); // I/J are already in internal XY space
+            Vec2 ij = v2(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f); // I/J are already in internal XY space
             out.center = p0 + ij;                                         // I/J incremental
             out.radius = len(p0 - out.center);
         }
@@ -463,13 +452,13 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
             Vec3 ikMachine = v3(s.hasI ? s.I : 0.0f, 0.0f, s.hasK ? s.K : 0.0f);
             // Lathe arcs use I/K in machine turning space; map them through
             // the same turning->milling transform into internal XY.
-            Vec3 ikInternal = machine_delta_to_internal_xy(ikMachine, machineType);
+            Vec2 ikInternal = machine_delta_to_internal_xy(ikMachine, machineType);
             out.center = p0 + ikInternal; // I/K incremental in machine-space, mapped to internal XY
             out.radius = len(p0 - out.center);
         }
         else if (s.hasR)
         {
-            Vec3 C;
+            Vec2 C;
             if (!arc_center_from_R(p0, p1, s.R, out.arcDir, C))
             {
                 out.type = MOT_LINE; // fallback
