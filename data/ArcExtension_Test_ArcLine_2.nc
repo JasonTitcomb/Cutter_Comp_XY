@@ -1,0 +1,8 @@
+(MILL - Arc->Line extension candidate, opposite side)
+G0 G20 G17 X0.0 Y0.0 Z0.0
+N1 G42 G1 X0.20 Y0.20
+N2 X0.55 Y0.20
+N3 G02 X0.75 Y0.40 R0.20
+N4 G1 X1.05 Y0.65
+N5 X1.25 Y0.95
+N6 G40 X1.35 Y1.05

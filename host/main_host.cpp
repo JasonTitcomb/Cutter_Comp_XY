@@ -37,6 +37,7 @@
 static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr bool ENABLE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
+static constexpr bool ENABLE_ARC_EXTENSION = false;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
 
 static constexpr int MAX_LOOKAHEAD_FOR_INTERSECTIONS = 25;
@@ -193,6 +194,8 @@ int main()
   //const char *default_file = "../../data/LatheDia.nc";
   //const char *default_file = "../../data/LatheRad.nc";
   //const char *default_file = "../../data/Sample2.nc";
+  //const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
+  //const char *default_file = "../../data/TortureTestmm.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 
@@ -212,6 +215,7 @@ int main()
   cc.setToolRadius(TOOL_RADIUS);
   cc.setMachineType(MACHINE_TYPE);
   cc.setCornerRolling(ENABLE_ROLL_AROUND);
+  cc.setTryArcExtension(ENABLE_ARC_EXTENSION);
   cc.setComp(COMP_OFF);
 
   profile_reset();

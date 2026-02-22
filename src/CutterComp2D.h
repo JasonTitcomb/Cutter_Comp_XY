@@ -10,6 +10,7 @@ public:
     float cornerAngleToleranceDeg = 30.0f; // CornerAngleTolerance
     bool cornerRolling = true;             // rollAround flag
     bool performTrim = true;               // performTrim flag
+    bool tryArcExtension = true;            // tryArcExtension flag
     MachineType machineType = MAC_MILL;    // machine type
     // Buffers
     static constexpr int IN_CAP = 16;
@@ -33,6 +34,7 @@ public:
 
     void setMachineType(MachineType mt) { machineType = mt; }
     void setCornerRolling(bool en) { cornerRolling = en; }
+    void setTryArcExtension(bool en) { tryArcExtension = en; }
     void setCornerAngleTolerance(float deg) { cornerAngleToleranceDeg = deg; }
     void setPerformTrim(bool en) { performTrim = en; }
 
@@ -578,18 +580,74 @@ public:
         return roll;
     }
 
+    bool try_arc_arc_tangents(const Move2D &a, const Move2D &b,
+                              float r1prime,
+                              float dist,
+                              const Vec2 &u,
+                              const Vec2 &perp,
+                              float &bestLen,
+                              Vec2 &bestP0,
+                              Vec2 &bestP1) const
+    {
+        float c = (a.radius - r1prime) / dist;
+        if (c < -1.0f || c > 1.0f)
+            return false;
+
+        float h2 = 1.0f - c * c;
+        if (h2 < 0.0f)
+            return false;
+
+        float h = sqrtf(fmaxf(0.0f, h2));
+        bool found = false;
+
+        Vec2 c0 = a.center;
+        Vec2 c1 = b.center;
+
+        for (int s = -1; s <= 1; s += 2)
+        {
+            Vec2 n = u * c + perp * (h * (float)s);
+            Vec2 p0 = c0 + n * a.radius;
+            Vec2 p1 = c1 + n * r1prime;
+
+            if (!pointOnArc(a, p0) || !pointOnArc(b, p1))
+                continue;
+
+            Vec2 seg = p1 - p0;
+            float segLen = len(seg);
+            if (segLen < TOL)
+                continue;
+            Vec2 tdir = seg * (1.0f / segLen);
+
+            Vec2 ra = normalize(p0 - c0);
+            Vec2 rb = normalize(p1 - c1);
+            Vec2 tanA = (a.arcDir == ARC_CCW) ? leftNormal(ra) : rightNormal(ra);
+            Vec2 tanB = (b.arcDir == ARC_CCW) ? leftNormal(rb) : rightNormal(rb);
+
+            if (dot(tdir, tanA) <= 0.0f || dot(tdir, tanB) <= 0.0f)
+                continue;
+
+            float da = dot(p0 - a.p_1, a.endDir);
+            float db = dot(p1 - b.p_0, b.startDir);
+            if (!(da > 0 && db < 0))
+                continue;
+
+            if (segLen < bestLen)
+            {
+                bestLen = segLen;
+                bestP0 = p0;
+                bestP1 = p1;
+                found = true;
+            }
+        }
+
+        return found;
+    }
+
     // Creates a line segment bridging arc<->line/arc when comping and no TIP.
     bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
     {
-        auto make_line = [&](const Vec2 &p0, const Vec2 &p1)
-        {
-            extOut.type = MOT_LINE;
-            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extOut.p_0 = p0;
-            extOut.p_1 = p1;
-            update_vectors(extOut);
-        };
-
+        if(!tryArcExtension)
+            return false;
         // Case: a is LINE, b is ARC
         if (a.type == MOT_LINE && b.type == MOT_ARC)
         {
@@ -597,6 +655,8 @@ public:
             probe.type = MOT_LINE;
             probe.p_0 = b.p_0;
             probe.p_1 = b.p_0 + b.startDir;
+            probe.o_0 = probe.p_0;
+            probe.o_1 = probe.p_1;
 
             Vec2 ip;
             bool tip = false;
@@ -612,7 +672,11 @@ public:
             a.p_1 = ip;
             update_vectors(a);
 
-            make_line(ip, b.p_0);
+            extOut.type = MOT_LINE;
+            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
+            extOut.p_0 = ip;
+            extOut.p_1 = b.p_0;
+            update_vectors(extOut);
             return true;
         }
 
@@ -623,6 +687,8 @@ public:
             probe.type = MOT_LINE;
             probe.p_0 = a.p_1;
             probe.p_1 = a.p_1 + a.endDir;
+            probe.o_0 = probe.p_0;
+            probe.o_1 = probe.p_1;
 
             Vec2 ip;
             bool tip = false;
@@ -638,7 +704,11 @@ public:
             b.p_0 = ip;
             update_vectors(b);
 
-            make_line(a.p_1, ip);
+            extOut.type = MOT_LINE;
+            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
+            extOut.p_0 = a.p_1;
+            extOut.p_1 = ip;
+            update_vectors(extOut);
             return true;
         }
 
@@ -659,56 +729,10 @@ public:
             float bestLen = 1e30f;
             Vec2 bestP0{}, bestP1{};
 
-            auto try_tangents = [&](float r1prime)
-            {
-                float c = (a.radius - r1prime) / dist;
-                if (c < -1.0f || c > 1.0f)
-                    return;
-                float h2 = 1.0f - c * c;
-                if (h2 < 0.0f)
-                    return;
-                float h = sqrtf(fmaxf(0.0f, h2));
-
-                for (int s = -1; s <= 1; s += 2)
-                {
-                    Vec2 n = u * c + perp * (h * (float)s);
-                    Vec2 p0 = c0 + n * a.radius;
-                    Vec2 p1 = c1 + n * r1prime;
-
-                    if (!pointOnArc(a, p0) || !pointOnArc(b, p1))
-                        continue;
-
-                    Vec2 seg = p1 - p0;
-                    float segLen = len(seg);
-                    if (segLen < TOL)
-                        continue;
-                    Vec2 tdir = seg * (1.0f / segLen);
-
-                    Vec2 ra = normalize(p0 - c0);
-                    Vec2 rb = normalize(p1 - c1);
-                    Vec2 tanA = (a.arcDir == ARC_CCW) ? leftNormal(ra) : rightNormal(ra);
-                    Vec2 tanB = (b.arcDir == ARC_CCW) ? leftNormal(rb) : rightNormal(rb);
-
-                    if (dot(tdir, tanA) <= 0.0f || dot(tdir, tanB) <= 0.0f)
-                        continue;
-
-                    float da = dot(p0 - a.p_1, a.endDir);
-                    float db = dot(p1 - b.p_0, b.startDir);
-                    if (!(da > 0 && db < 0))
-                        continue;
-
-                    if (segLen < bestLen)
-                    {
-                        bestLen = segLen;
-                        bestP0 = p0;
-                        bestP1 = p1;
-                        found = true;
-                    }
-                }
-            };
-
-            try_tangents(b.radius);
-            try_tangents(-b.radius);
+            if (try_arc_arc_tangents(a, b, b.radius, dist, u, perp, bestLen, bestP0, bestP1))
+                found = true;
+            if (try_arc_arc_tangents(a, b, -b.radius, dist, u, perp, bestLen, bestP0, bestP1))
+                found = true;
 
             if (!found)
                 return false;
@@ -717,7 +741,11 @@ public:
             b.p_0 = bestP1;
             update_vectors(a);
             update_vectors(b);
-            make_line(bestP0, bestP1);
+            extOut.type = MOT_LINE;
+            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
+            extOut.p_0 = bestP0;
+            extOut.p_1 = bestP1;
+            update_vectors(extOut);
             return true;
         }
 
@@ -732,8 +760,7 @@ public:
 
         // Determine if corner is acute (used in multiple branches, and forces roll if true)
         bool acute = false;
-        if (!forceRoll && includedAngleDeg(a.endDir, b.startDir) < cornerAngleToleranceDeg)
-            acute = true;
+        acute = includedAngleDeg(a.endDir, b.startDir) < cornerAngleToleranceDeg;
 
         bool comping = (a.compMode == CM_IN || a.compMode == CM_OUT || b.compMode == CM_IN || b.compMode == CM_OUT);
 
@@ -824,7 +851,13 @@ public:
         IntersectType it = intersectCircleCircle(a, b, p1, p2, count);
         if (it == IT_NONE)
         {
-            // MUST roll to close gap
+            if (!acute &&  makeArcExtension(a, b, inserts[insertCount]))
+            {
+                insertCount++;
+                return;
+            }
+
+            // fallback: roll to close gap
             inserts[insertCount++] = makeRollArc(a, b);
             return;
         }
@@ -852,6 +885,12 @@ public:
         // No true intersection
         if (acute || forceRoll)
         {
+            if (makeArcExtension(a, b, inserts[insertCount]))
+            {
+                insertCount++;
+                return;
+            }
+
             Move2D roll = makeRollArc(a, b);
             float sw = arcSweep(roll);
             if (sw > PI * 1.5)
@@ -901,6 +940,12 @@ public:
 
         if (it == IT_NONE)
         {
+            if (!acute &&  makeArcExtension(a, b, inserts[insertCount]))
+            {
+                insertCount++;
+                return;
+            }
+
             // only if convex or forced, otherwise just leave it
             if (was_convex(a, b))
             {
@@ -954,6 +999,12 @@ public:
 
         if (acute || forceRoll)
         {
+            if (makeArcExtension(a, b, inserts[insertCount]))
+            {
+                insertCount++;
+                return;
+            }
+
             if (cornerRolling && is_convex(a, b))
             {
                 inserts[insertCount++] = makeRollArc(a, b);
