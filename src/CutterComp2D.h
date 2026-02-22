@@ -15,6 +15,35 @@ public:
     static constexpr int IN_CAP = 16;
     static constexpr int OUT_CAP = 32;
 
+    // Ring buffers
+    Move2D input_buffer[IN_CAP];
+    int inHead = 0, inCount = 0;
+
+    Move2D output_buffer[OUT_CAP];
+    int outHead = 0, outCount = 0;
+
+    // Settings
+    float toolR = 0.0f;
+    int8_t toolSign = 0;
+    CompSide comp_state = COMP_OFF;
+
+    // Delayed output state
+    bool havePrev = false;
+    Move2D prevOff;
+
+    void setMachineType(MachineType mt) { machineType = mt; }
+    void setCornerRolling(bool en) { cornerRolling = en; }
+    void setCornerAngleTolerance(float deg) { cornerAngleToleranceDeg = deg; }
+    void setPerformTrim(bool en) { performTrim = en; }
+
+    // ---------- intersection tests producing TIP/FIP ----------
+    enum IntersectType : uint8_t
+    {
+        IT_NONE = 0,
+        IT_TANGENT = 1,
+        IT_INTERSECT = 2
+    };
+
     void setToolRadius(float r)
     {
         toolR = (r < 0) ? -r : r;
@@ -25,11 +54,6 @@ public:
         comp_state = s;
         resetState();
     }
-    void setMachineType(MachineType mt) { machineType = mt; }
-    void setCornerRolling(bool en) { cornerRolling = en; }
-    void setCornerAngleTolerance(float deg) { cornerAngleToleranceDeg = deg; }
-    void setPerformTrim(bool en) { performTrim = en; }
-
     bool pushIn(const Move2D &m)
     {
         if (inCount >= IN_CAP)
@@ -66,15 +90,14 @@ public:
             if (raw.type == MOT_EMPTY)
                 continue;
 
+            update_vectors(raw); // before offsetting.
+
             Move2D curOff;
-            // if in or out then no offsetting, just pass through with comp mode set for downstream logic and rolling decisions.
+            // capture the original raw vectors before any comp modifications
             offsetMove(raw, curOff);
-
-            // Stash "InitialEndPt"
-            curOff.initialEndPt = raw.p1;
-            curOff.initialStartPt = raw.p0;
-
-            update_vectors(curOff);
+            curOff.initialStartDir = raw.startDir;
+            curOff.initialEndDir = raw.endDir;
+            update_vectors(curOff); // after offsetting.
 
             if (!havePrev)
             {
@@ -90,14 +113,14 @@ public:
             if (prevOff.compMode == CM_IN)
             {
                 // modify the previous move so that the end is the start of the current move,
-                prevOff.p1 = curOff.p0;
+                prevOff.p_1 = curOff.p_0;
                 canRoll = false;
             }
 
             if (curOff.compMode == CM_OUT)
             {
                 // modify the G40 start is the end of the previous move,
-                curOff.p0 = prevOff.p1;
+                curOff.p_0 = prevOff.p_1;
                 canRoll = false;
             }
 
@@ -134,24 +157,6 @@ public:
         return true;
     }
 
-private:
-    // Ring buffers
-    Move2D input_buffer[IN_CAP];
-    int inHead = 0, inCount = 0;
-
-    Move2D output_buffer[OUT_CAP];
-    int outHead = 0, outCount = 0;
-
-    // Settings
-    float toolR = 0.0f;
-    int8_t toolSign = 0;
-    CompSide comp_state = COMP_OFF;
-
-    // Delayed output state
-    bool havePrev = false;
-    Move2D prevOff;
-
-private:
     // ---------- small helpers ----------
     bool outHasSpace(int n) const { return (outCount + n) <= OUT_CAP; }
 
@@ -177,33 +182,38 @@ private:
         Move2D m;
         m.type = MOT_LINE;
         m.feed = (a.feed > 0) ? a.feed : b.feed;
-        m.p0 = a.p1;
-        m.p1 = b.p0;
-        m.initialEndPt = m.p1;
-        m.initialStartPt = m.p0;
+        m.p_0 = a.p_1;
+        m.p_1 = b.p_0;
+        m.o_1 = m.p_1;
+        m.o_0 = m.p_0;
         update_vectors(m);
         return m;
     }
 
-    bool convex(const Move2D &a, const Move2D &b) const
+    bool convex_from_winding(int cw) const
     {
-        int cw = WindingDirection(a.endDir, b.startDir);
         if (cw == 0)
             return false;
 
-        // Apply toolSign flip
         bool isLeft = (comp_state == COMP_LEFT);
         if (toolSign < 0)
             isLeft = !isLeft;
 
         if (isLeft)
-        {
             return !(cw > 0);
-        }
-        else
-        {
-            return (cw > 0);
-        }
+        return (cw > 0);
+    }
+
+    bool is_convex(const Move2D &a, const Move2D &b) const
+    {
+        int cw = get_winding_dir(a.endDir, b.startDir);
+        return convex_from_winding(cw);
+    }
+
+    bool was_convex(const Move2D &a, const Move2D &b) const
+    {
+        int cw = get_winding_dir(a.initialEndDir, b.initialStartDir);
+        return convex_from_winding(cw);
     }
 
     // ---------- offset primitives ----------
@@ -219,7 +229,16 @@ private:
 
     bool offsetLine(const Move2D &src, Move2D &dst)
     {
-        Vec2 v = src.p1 - src.p0;
+        // complete copy for non-comp moves or if tool radius is zero (also captures original vectors)
+        dst = src;
+        // capture the original move's start/end points before any comp modifications
+        dst.src_0 = src.p_0;
+        dst.src_1 = src.p_1;
+        dst.src_c = src.center;
+        dst.initialStartDir = src.startDir;
+        dst.initialEndDir = src.endDir;
+
+        Vec2 v = src.p_1 - src.p_0;
         float l = len(v);
         if (l < TOL)
             return false;
@@ -228,10 +247,9 @@ private:
         // if comping in or out then offset should be zero.
         if (src.compMode == CM_IN || src.compMode == CM_OUT)
         {
-            dst = src;
             dst.type = MOT_LINE;
-            dst.initialStartPt = dst.p0;
-            dst.initialEndPt = dst.p1;
+            dst.o_0 = dst.p_0;
+            dst.o_1 = dst.p_1;
             return false;
         }
 
@@ -243,12 +261,12 @@ private:
         Vec2 n = useLeft ? leftNormal(u) : rightNormal(u);
         Vec2 off = n * toolR;
 
-        dst = src;
         dst.type = src.type; // keep rapid vs feed
-        dst.p0 = src.p0 + off;
-        dst.p1 = src.p1 + off;
-        dst.initialStartPt = dst.p0;
-        dst.initialEndPt = dst.p1;
+        dst.p_0 = src.p_0 + off;
+        dst.p_1 = src.p_1 + off;
+        dst.o_0 = dst.p_0;
+        dst.o_1 = dst.p_1;
+
         return true;
     }
 
@@ -257,9 +275,18 @@ private:
     {
         float r0 = src.radius;
         if (r0 < TOL)
-            r0 = len(src.p0 - src.center);
+            r0 = len(src.p_0 - src.center);
         if (r0 < TOL)
             return false;
+
+        // complete copy.
+        dst = src;
+        // backups of original geometry.
+        dst.src_0 = src.p_0;
+        dst.src_1 = src.p_1;
+        dst.src_c = src.center;
+        dst.initialStartDir = src.startDir;
+        dst.initialEndDir = src.endDir;
 
         float dr = toolR;
         bool ccw = (src.arcDir == ARC_CCW);
@@ -278,61 +305,36 @@ private:
         // which is a valid geometry (though maybe not what you want for a real cutter comp).
         // The logic later should be able to handle it as long as we keep the direction semantics consistent.
 
-        Vec2 v0 = src.p0 - src.center;
-        Vec2 v1 = src.p1 - src.center;
+        Vec2 v0 = src.p_0 - src.center;
+        Vec2 v1 = src.p_1 - src.center;
         float lv0 = len(v0), lv1 = len(v1);
         if (lv0 < TOL || lv1 < TOL)
             return false;
 
-        dst = src;
         dst.type = MOT_ARC;
         dst.center = src.center;
         dst.radius = r1;
-        dst.p0 = src.center + v0 * (r1 / lv0);
-        dst.p1 = src.center + v1 * (r1 / lv1);
-        dst.initialStartPt = dst.p0;
-        dst.initialEndPt = dst.p1;
+        dst.p_0 = src.center + v0 * (r1 / lv0);
+        dst.p_1 = src.center + v1 * (r1 / lv1);
+        dst.o_0 = dst.p_0;
+        dst.o_1 = dst.p_1;
         return true;
     }
 
-    // This function expects you added startDir/endDir fields in Move2D.
-    static inline void update_vectors(Move2D &m)
+    static inline bool check_validity(Move2D &m)
     {
         if (m.type == MOT_LINE)
         {
-            Vec2 d = m.p1 - m.p0;
-            Vec2 u = normalize(d);
-            m.startDir = u;
-            m.endDir = u;
-            return;
+            m.valid = (len(m.p_1 - m.p_0) >= TOL);
         }
         if (m.type == MOT_ARC)
         {
-            Vec2 rs = normalize(m.p0 - m.center);
-            Vec2 re = normalize(m.p1 - m.center);
-            if (m.arcDir == ARC_CCW)
-            {
-                m.startDir = leftNormal(rs);
-                m.endDir = leftNormal(re);
-            }
-            else
-            {
-                m.startDir = rightNormal(rs);
-                m.endDir = rightNormal(re);
-            }
-            return;
+            float d = distFromStart_along(m, m.p_1);
+            bool radius_ok = is_radius_consistent(m);
+            m.valid = d >= TOL && radius_ok;
         }
-        m.startDir = {0, 0};
-        m.endDir = {0, 0};
+        return m.valid;
     }
-
-    // ---------- intersection tests producing TIP/FIP ----------
-    enum IntersectType : uint8_t
-    {
-        IT_NONE = 0,
-        IT_TANGENT = 1,
-        IT_INTERSECT = 2
-    };
 
     static inline bool pointOnSegment(Vec2 a, Vec2 b, Vec2 p)
     {
@@ -356,8 +358,8 @@ private:
         if (fabsf(rp - a.radius) > TOL)
             return false;
 
-        float a0 = atan2f(a.p0.y - a.center.y, a.p0.x - a.center.x);
-        float a1 = atan2f(a.p1.y - a.center.y, a.p1.x - a.center.x);
+        float a0 = atan2f(a.p_0.y - a.center.y, a.p_0.x - a.center.x);
+        float a1 = atan2f(a.p_1.y - a.center.y, a.p_1.x - a.center.x);
         float ap = atan2f(p.y - a.center.y, p.x - a.center.x);
 
         if (a.arcDir == ARC_CCW)
@@ -366,12 +368,20 @@ private:
             return angleOnSweepCW(a0, a1, ap);
     }
 
-    static IntersectType intersectLineLine(const Move2D &A, const Move2D &B, Vec2 &ip, bool &tip)
+    static IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
     {
-        Vec2 p = A.p0;
-        Vec2 r = A.p1 - A.p0;
-        Vec2 q = B.p0;
-        Vec2 s = B.p1 - B.p0;
+        // Vec2 p = ln1.p_0;
+        // Vec2 r = ln1.p_1 - ln1.p_0;
+        // Vec2 q = ln2.p_0;
+        // Vec2 s = ln2.p_1 - ln2.p_0;
+        // using original offset points.
+        // This is important for consistent TIP/FIP decisions based on the original geometry,
+        // not the modified one after trim/extend operations.
+
+        Vec2 p = ln1.o_0;
+        Vec2 r = ln1.o_1 - ln1.o_0;
+        Vec2 q = ln2.o_0;
+        Vec2 s = ln2.o_1 - ln2.o_0;
 
         float den = cross(r, s);
         if (fabsf(den) < TOL)
@@ -388,11 +398,11 @@ private:
         return IT_INTERSECT;
     }
 
-    static IntersectType intersectCircleCircle(const Move2D &A, const Move2D &B, Vec2 &p1, Vec2 &p2, int &count)
+    static IntersectType intersectCircleCircle(const Move2D &a1, const Move2D &a2, Vec2 &p1, Vec2 &p2, int &count)
     {
         // circles defined by center/radius
-        Vec2 c0 = A.center, c1 = B.center;
-        float r0 = A.radius, r1 = B.radius;
+        Vec2 c0 = a1.center, c1 = a2.center;
+        float r0 = a1.radius, r1 = a2.radius;
         Vec2 d = c1 - c0;
         float distc = len(d);
         count = 0;
@@ -424,21 +434,21 @@ private:
         return IT_INTERSECT;
     }
 
-    static IntersectType intersectLineCircle(Vec2 a, Vec2 b, Vec2 c, float r, Vec2 &p1, Vec2 &p2, int &count)
+    static IntersectType intersectLineCircle(Vec2 l1, Vec2 a1, Vec2 ctr, float r, Vec2 &p1, Vec2 &p2, int &count)
     {
-        Vec2 d = b - a;
+        Vec2 d = a1 - l1;
         float dd = dot(d, d);
         count = 0;
         if (dd < 1e-20f)
             return IT_NONE; // degenerate
 
         // Closest point from center to the infinite line
-        Vec2 f = a - c;
+        Vec2 f = l1 - ctr;
         float t0 = -dot(f, d) / dd;
-        Vec2 q = a + d * t0;
+        Vec2 q = l1 + d * t0;
 
         // distance^2 from center to line
-        Vec2 qc = q - c;
+        Vec2 qc = q - ctr;
         float dist2 = dot(qc, qc);
 
         float r2 = r * r;
@@ -475,43 +485,76 @@ private:
         return (len(a - ref) <= len(b - ref)) ? a : b;
     }
 
-    void trimToTIP(Move2D &a, Move2D &b, Vec2 tip)
+    bool trimToTIP(Move2D &a, Move2D &b, Vec2 tip)
     {
         if (!performTrim)
-            return;
-        a.p1 = tip;
-        b.p0 = tip;
+            return false;
+        a.p_1 = tip;
+        b.p_0 = tip;
+
         update_vectors(a);
         update_vectors(b);
+
+        check_validity(a);
+        check_validity(b);
+        return a.valid && b.valid;
     }
 
     bool extendToFIP(Move2D &a, Move2D &b, Vec2 fip)
     {
         if (!performTrim)
             return false;
-        float fipDir1 = dot(fip - a.p1, a.endDir);
-        float fipDir2 = dot(fip - b.p0, b.startDir);
+        float fipDir1 = dot(fip - a.p_1, a.endDir);
+        float fipDir2 = dot(fip - b.p_0, b.startDir);
         if (fipDir1 > 0 && fipDir2 < 0)
         {
-            a.p1 = fip;
-            b.p0 = fip;
+            a.p_1 = fip;
+            b.p_0 = fip;
+
             update_vectors(a);
             update_vectors(b);
-            return true;
+
+            check_validity(a);
+            check_validity(b);
         }
-        return false;
+        return a.valid && b.valid;
     }
 
     Move2D makeRollArc(const Move2D &a, const Move2D &b) const
     {
         Move2D roll;
+        roll.seqNum = (a.seqNum * 10) + 5; // for debugging
         roll.type = MOT_ARC;
         roll.compMode = CM_STEADY;
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
-        roll.p0 = a.p1;
-        roll.p1 = b.p0;
-        roll.center = a.initialEndPt;
-        roll.radius = len(roll.p0 - roll.center);
+        roll.p_0 = a.p_1;
+        roll.p_1 = b.p_0;
+        roll.center = a.src_1; // original non-offset end point to compute the center correctly
+
+        // Find the best arc center for the roll. 
+        // We want to preserve the original radius as much as possible to avoid weird geometry changes
+        // that could cause logic issues later.
+        Vec2 v0 = roll.p_0 - roll.center;
+        Vec2 v1 = roll.p_1 - roll.center;
+        float r0 = len(v0);
+        float r1 = len(v1);
+
+        float r = 0.0f;
+        if (r0 >= TOL && r1 >= TOL)
+            r = 0.5f * (r0 + r1);
+        else if (r0 >= TOL)
+            r = r0;
+        else if (r1 >= TOL)
+            r = r1;
+        else
+            r = toolR;
+
+        if (r0 >= TOL)
+            roll.p_0 = roll.center + v0 * (r / r0);
+        if (r1 >= TOL)
+            roll.p_1 = roll.center + v1 * (r / r1);
+
+        roll.radius = r;
 
         // Apply toolSign flip to arc direction
         bool useLeft = (comp_state == COMP_LEFT);
@@ -519,8 +562,8 @@ private:
             useLeft = !useLeft;
 
         roll.arcDir = useLeft ? ARC_CW : ARC_CCW;
-        roll.initialStartPt = roll.p0;
-        roll.initialEndPt = roll.p1;
+        roll.o_0 = roll.p_0;
+        roll.o_1 = roll.p_1;
         roll.valid = true;
         update_vectors(roll);
         return roll;
@@ -533,8 +576,8 @@ private:
         {
             extOut.type = MOT_LINE;
             extOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extOut.p0 = p0;
-            extOut.p1 = p1;
+            extOut.p_0 = p0;
+            extOut.p_1 = p1;
             update_vectors(extOut);
         };
 
@@ -543,24 +586,24 @@ private:
         {
             Move2D probe;
             probe.type = MOT_LINE;
-            probe.p0 = b.p0;
-            probe.p1 = b.p0 + b.startDir;
+            probe.p_0 = b.p_0;
+            probe.p_1 = b.p_0 + b.startDir;
 
             Vec2 ip;
             bool tip = false;
             if (intersectLineLine(probe, a, ip, tip) == IT_NONE)
                 return false;
 
-            float da = dot(ip - a.p1, a.endDir);
-            float db = dot(ip - b.p0, b.startDir);
+            float da = dot(ip - a.p_1, a.endDir);
+            float db = dot(ip - b.p_0, b.startDir);
 
             if (!(da > 0 && db < 0))
                 return false;
 
-            a.p1 = ip;
+            a.p_1 = ip;
             update_vectors(a);
 
-            make_line(ip, b.p0);
+            make_line(ip, b.p_0);
             return true;
         }
 
@@ -569,24 +612,24 @@ private:
         {
             Move2D probe;
             probe.type = MOT_LINE;
-            probe.p0 = a.p1;
-            probe.p1 = a.p1 + a.endDir;
+            probe.p_0 = a.p_1;
+            probe.p_1 = a.p_1 + a.endDir;
 
             Vec2 ip;
             bool tip = false;
             if (intersectLineLine(probe, b, ip, tip) == IT_NONE)
                 return false;
 
-            float da = dot(ip - a.p1, a.endDir);
-            float db = dot(ip - b.p0, b.startDir);
+            float da = dot(ip - a.p_1, a.endDir);
+            float db = dot(ip - b.p_0, b.startDir);
 
             if (!(da > 0 && db < 0))
                 return false;
 
-            b.p0 = ip;
+            b.p_0 = ip;
             update_vectors(b);
 
-            make_line(a.p1, ip);
+            make_line(a.p_1, ip);
             return true;
         }
 
@@ -640,8 +683,8 @@ private:
                     if (dot(tdir, tanA) <= 0.0f || dot(tdir, tanB) <= 0.0f)
                         continue;
 
-                    float da = dot(p0 - a.p1, a.endDir);
-                    float db = dot(p1 - b.p0, b.startDir);
+                    float da = dot(p0 - a.p_1, a.endDir);
+                    float db = dot(p1 - b.p_0, b.startDir);
                     if (!(da > 0 && db < 0))
                         continue;
 
@@ -661,8 +704,8 @@ private:
             if (!found)
                 return false;
 
-            a.p1 = bestP0;
-            b.p0 = bestP1;
+            a.p_1 = bestP0;
+            b.p_0 = bestP1;
             update_vectors(a);
             update_vectors(b);
             make_line(bestP0, bestP1);
@@ -675,7 +718,7 @@ private:
     void applyLogic(Move2D &a, Move2D &b, bool forceRoll, Move2D inserts[2], int &insertCount)
     {
         insertCount = 0;
-        update_vectors(a);
+        update_vectors(a); // TODO: consider if we can avoid some of these updates by being smarter about when we modify the moves (e.g. only update after deciding on roll vs bevel)
         update_vectors(b);
 
         // Determine if corner is acute (used in multiple branches, and forces roll if true)
@@ -702,7 +745,7 @@ private:
     void handleLineLine(Move2D &a, Move2D &b, bool acute, bool forceRoll, bool comping, Move2D inserts[2], int &insertCount)
     {
         // Keep directions up to date
-        update_vectors(a);
+        update_vectors(a); // TODO: consider if we can avoid some of these updates by being smarter about when we modify the moves (e.g. only update after deciding on roll vs bevel)
         update_vectors(b);
 
         Vec2 ip;
@@ -719,15 +762,15 @@ private:
         }
 
         // direction gate (same condition used inside ExtendToCommonFIP)
-        float fipDir1 = dot(ip - a.p1, a.endDir);
-        float fipDir2 = dot(ip - b.p0, b.startDir);
+        float fipDir1 = dot(ip - a.p_1, a.endDir);
+        float fipDir2 = dot(ip - b.p_0, b.startDir);
         bool dirOK = (fipDir1 > 0 && fipDir2 < 0);
 
         // 2) Roll path: (acute OR forceRoll)
         if (acute || forceRoll)
         {
             // If Convex then InsertArcBetweenElements
-            if (convex(a, b))
+            if (is_convex(a, b))
             {
                 inserts[insertCount++] = makeRollArc(a, b);
                 return;
@@ -762,7 +805,7 @@ private:
 
     void handleArcArc(Move2D &a, Move2D &b, bool acute, bool forceRoll, Move2D inserts[2], int &insertCount)
     {
-        if (is_near(a.p1, b.p0) || is_near(a.center, b.center))
+        if (is_near(a.p_1, b.p_0) || is_near(a.center, b.center))
         {
             return; // connected and concentric arcs are already tangent. No need to roll or trim.
         }
@@ -792,7 +835,7 @@ private:
         {
             Vec2 tip = tip1 ? p1 : p2;
             if (tip1 && tip2)
-                tip = pickClosest(a.p1, p1, p2);
+                tip = pickClosest(a.p_1, p1, p2);
             trimToTIP(a, b, tip);
             return;
         }
@@ -802,7 +845,7 @@ private:
         {
             Move2D roll = makeRollArc(a, b);
             float sw = arcSweep(roll);
-            if (sw > PI*1.5)
+            if (sw > PI * 1.5)
             {
                 // likely long-way-around loop
                 // reject this roll or try the other intersection
@@ -813,7 +856,7 @@ private:
         else
         {
             // FIP(false intersection point): choose point closest to prev end, then extend test
-            Vec2 fip = (count == 2) ? pickClosest(a.p1, p1, p2) : p1;
+            Vec2 fip = (count == 2) ? pickClosest(a.p_1, p1, p2) : p1;
             (void)extendToFIP(a, b, fip);
         }
     }
@@ -837,7 +880,7 @@ private:
         }
 
         // trivial check for chained elements
-        if (is_near(a.p1, b.p0))
+        if (is_near(a.p_1, b.p_0))
         {
             return; // already connected, no need to roll or trim.
         }
@@ -845,12 +888,12 @@ private:
         // Intersect infinite line with circle
         Vec2 p1{}, p2{};
         int count = 0;
-        IntersectType it = intersectLineCircle(lin->p0, lin->p1, arc->center, arc->radius, p1, p2, count);
+        IntersectType it = intersectLineCircle(lin->p_0, lin->p_1, arc->center, arc->radius, p1, p2, count);
 
         if (it == IT_NONE)
         {
-            // only if convex or forced, otherwise just leave it (matches VB which does nothing here)
-            if (convex(a, b))
+            // only if convex or forced, otherwise just leave it
+            if (was_convex(a, b))
             {
                 inserts[insertCount++] = makeRollArc(a, b);
             }
@@ -860,9 +903,9 @@ private:
         // Evaluate TIP: point must lie on finite line segment and on arc sweep
         bool tip1 = false, tip2 = false;
         if (count >= 1)
-            tip1 = pointOnSegment(lin->p0, lin->p1, p1) && pointOnArc(*arc, p1);
+            tip1 = pointOnSegment(lin->p_0, lin->p_1, p1) && pointOnArc(*arc, p1);
         if (count == 2)
-            tip2 = pointOnSegment(lin->p0, lin->p1, p2) && pointOnArc(*arc, p2);
+            tip2 = pointOnSegment(lin->p_0, lin->p_1, p2) && pointOnArc(*arc, p2);
 
         if (it == IT_TANGENT)
         {
@@ -872,13 +915,13 @@ private:
                 if (arcFirst)
                 {
                     // a is arc: extend start of b to a end
-                    b.p0 = a.p1;
+                    b.p_0 = a.p_1;
                     update_vectors(b);
                 }
                 else
                 {
                     // a is line: extend end of a to b start
-                    a.p1 = b.p0;
+                    a.p_1 = b.p_0;
                     update_vectors(a);
                 }
             }
@@ -895,14 +938,14 @@ private:
         {
             Vec2 tip = tip1 ? p1 : p2;
             if (tip1 && tip2)
-                tip = pickClosest(a.p1, p1, p2);
+                tip = pickClosest(a.p_1, p1, p2);
             trimToTIP(a, b, tip);
             return;
         }
 
         if (acute || forceRoll)
         {
-            if (cornerRolling && convex(a, b))
+            if (cornerRolling && is_convex(a, b))
             {
                 inserts[insertCount++] = makeRollArc(a, b);
             }
@@ -910,7 +953,7 @@ private:
         else
         {
             // FIP exists (line-circle intersection points). Pick closest and attempt extend
-            Vec2 fip = (count == 2) ? pickClosest(a.p1, p1, p2) : p1;
+            Vec2 fip = (count == 2) ? pickClosest(a.p_1, p1, p2) : p1;
             (void)extendToFIP(a, b, fip);
         }
     }
@@ -943,14 +986,14 @@ private:
 
             Vec2 p1{}, p2{};
             int count = 0;
-            IntersectType it = intersectLineCircle(L.p0, L.p1, C.center, C.radius, p1, p2, count);
+            IntersectType it = intersectLineCircle(L.p_0, L.p_1, C.center, C.radius, p1, p2, count);
             if (it == IT_NONE)
                 return 0;
 
             int n = 0;
-            if (count >= 1 && pointOnSegment(L.p0, L.p1, p1) && pointOnArc(C, p1))
+            if (count >= 1 && pointOnSegment(L.p_0, L.p_1, p1) && pointOnArc(C, p1))
                 tip1 = p1, n++;
-            if (count == 2 && pointOnSegment(L.p0, L.p1, p2) && pointOnArc(C, p2))
+            if (count == 2 && pointOnSegment(L.p_0, L.p_1, p2) && pointOnArc(C, p2))
             {
                 if (n == 0)
                     tip1 = p2;
@@ -965,7 +1008,7 @@ private:
         if (A.type == MOT_ARC && B.type == MOT_ARC)
         {
             // early-out for chained or concentric arcs (important)
-            if (is_near(A.p1, B.p0) || is_near(A.center, B.center))
+            if (is_near(A.p_1, B.p_0) || is_near(A.center, B.center))
                 return 0;
 
             Vec2 p1{}, p2{};
@@ -1067,7 +1110,7 @@ public:
         {
             if (!moves[i].valid)
                 continue;
-            if (moves[i].type == MOT_ARC && !radiusConsistent(moves[i]))
+            if (moves[i].type == MOT_ARC && !is_radius_consistent(moves[i]))
                 allRadiusConsistent = false;
         }
 
@@ -1122,6 +1165,7 @@ public:
 
         int src = 1; // skip the first element since it has no previous neighbor to cross with
 
+        // find the first and last cutting moves to check for the bowtie edge case that cannot be resolved by trimming.
         int firstIdx = first_cutting_move(moves, numMoves);
         if (firstIdx < 0)
             return false;
@@ -1133,7 +1177,8 @@ public:
         // if the first cutting move and the last cutting move cross
         // we have a bowtie shape that cannot be resolved by trimming,
         Vec2 tip1, tip2;
-        // test for crossing between first and last cutting moves, but only if they are not adjacent (to avoid trivial shared endpoint case)
+        // test for crossing between first and last cutting moves
+        // but only if they are not adjacent (to avoid trivial shared endpoint case)
         if (lastIdx > firstIdx + 1)
         {
             if (commonTIP_any(moves[firstIdx], moves[lastIdx], tip1, tip2) > 0)
@@ -1146,7 +1191,7 @@ public:
                     // This allows us to still trim any other crossings that may exist in the middle of the path, while avoiding the unresolvable bowtie crossing at the end.
                     // Note: this means we will leave the bowtie crossing untrimmed, but at least we can clean up any other crossings in the middle of the path.
                     src = firstIdx + 1; // start src from the element after the first cutting move to continue processing any other crossings that may exist in the middle of the path.
-                    numMoves--;         // effectively exclude the last element from processing since we know it crosses with the first and we are skipping trimming in this case.
+                    numMoves = lastIdx; // end-exclusive scan bound is now the last cutting move, so we won't look for crossings beyond it (including the known bowtie crossing at the end).
                 }
                 else
                 {
@@ -1185,7 +1230,12 @@ public:
             // Re-calc is not needed here because our geometry isn't mutating intersection cache like VB;
             // but if you later add caching, this is where you'd "recalc".
 
-            trimToTIP(moves[src], moves[j], crossing.tip);
+            // this returns false!!!!
+            // verify the TIP and debug.
+            bool isValid = trimToTIP(moves[src], moves[j], crossing.tip);
+            // test the above now to see if either one is invalid after trimming,
+            // and if so invalidate the other as well since the crossing is resolved and we don't want to leave any tiny slivers that could cause more crossings or other issues downstream.
+
             invalidateRange(moves, src, j);
 
             trimmedAny = true;
@@ -1224,8 +1274,8 @@ public:
             if (isColinearWith(a, b))
             {
                 // Extend a to b end and invalidate b
-                a.p1 = b.p1;
-                a.initialEndPt = a.p1;
+                a.p_1 = b.p_1;
+                a.o_1 = a.p_1;
                 update_vectors(a);
 
                 b.valid = false;

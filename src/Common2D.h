@@ -12,12 +12,12 @@ static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? l
                                                                                              : x; }
 struct Vec3
 {
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
+  float x = 0.0f;
+  float y = 0.0f;
+  float z = 0.0f;
 
-    Vec3() = default;
-    Vec3(float X, float Y, float Z) : x(X), y(Y), z(Z) {}
+  Vec3() = default;
+  Vec3(float X, float Y, float Z) : x(X), y(Y), z(Z) {}
 };
 
 struct Vec2
@@ -93,28 +93,44 @@ struct AABB2
 
 struct Move2D
 {
-  // copy of codeline for testing only
   char gcode_line[160] = {0};
-  MotionType type = MOT_EMPTY;
-  uint32_t seqNum = 0; // for debugging
-  Vec2 p0{0, 0};       // start
-  Vec2 p1{0, 0};       // end
-  AABB2 bounds;        // precomputed bounding box for this move
-  float feed = 0.0f;
-  bool valid = true; // for output moves, indicates if move is valid
-  CompMode compMode = CM_NONE;
 
-  // Arc only:
-  ArcDir arcDir = ARC_CW;
+  Vec2 p_0{0, 0}; // working start
+  Vec2 p_1{0, 0}; // working end
   Vec2 center{0, 0};
-  float radius = 0.0f;
-  // Track original end before any trimming/extension
-  Vec2 initialStartPt{0, 0};
-  Vec2 initialEndPt{0, 0};
 
-  // Tangent directions
   Vec2 startDir{0, 0};
   Vec2 endDir{0, 0};
+  float radius = 0.0f;
+  float feed = 0.0f;
+
+  MotionType type = MOT_EMPTY;
+  ArcDir arcDir = ARC_CW;
+  CompMode compMode = CM_NONE;
+  bool valid = true; // for output moves, indicates if move is valid
+
+  AABB2 bounds;         // precomputed bounding box for this move
+  uint32_t seqNum = 0;  // for debugging
+
+  // Original move data before any modifications.
+  Vec2 src_0{0, 0}; // start
+  Vec2 src_1{0, 0}; // end
+  Vec2 src_c{0, 0}; // center for arcs
+
+  // Track original endpoints before any trimming/extension.
+  Vec2 o_0{0, 0};
+  Vec2 o_1{0, 0};
+
+  // Initial tangent directions.
+  Vec2 initialStartDir{0, 0};
+  Vec2 initialEndDir{0, 0};
+
+  // Corner metadata captured at logic entry (prev -> this move).
+  // windingAtStart: -1 CW, +1 CCW, 0 colinear/undefined.
+  int8_t windingAtStart = 0;
+  bool wasConvex = false;
+
+
 };
 static inline bool machine_is_lathe(MachineType mt)
 {
@@ -215,11 +231,11 @@ static inline Vec2 internal_xy_to_plot_xy(const Vec2 &p, MachineType mt)
   return v2(p.x, p.y);
 }
 
-inline void update_dirs(Move2D &m)
+static inline void update_vectors(Move2D &m)
 {
   if (m.type == MOT_LINE)
   {
-    Vec2 d = m.p1 - m.p0;
+    Vec2 d = m.p_1 - m.p_0;
     Vec2 u = normalize(d);
     m.startDir = u;
     m.endDir = u;
@@ -227,11 +243,8 @@ inline void update_dirs(Move2D &m)
   }
   if (m.type == MOT_ARC)
   {
-    // Tangent is +/- 90° from radius vector
-    Vec2 rs = normalize(m.p0 - m.center);
-    Vec2 re = normalize(m.p1 - m.center);
-
-    // For CCW, tangent = leftNormal(radius); for CW, tangent = rightNormal(radius)
+    Vec2 rs = normalize(m.p_0 - m.center);
+    Vec2 re = normalize(m.p_1 - m.center);
     if (m.arcDir == ARC_CCW)
     {
       m.startDir = leftNormal(rs);
@@ -248,14 +261,15 @@ inline void update_dirs(Move2D &m)
   m.endDir = {0, 0};
 }
 
-static inline bool radiusConsistent(const Move2D &m)
+
+static inline bool is_radius_consistent(const Move2D &m)
 {
-    float r0 = len(m.p0 - m.center);
-    float r1 = len(m.p1 - m.center);
-    return fabsf(r0 - r1) <= TOL;
+  float r0 = len(m.p_0 - m.center);
+  float r1 = len(m.p_1 - m.center);
+  return fabsf(r0 - r1) <= TOL;
 }
 
-static inline int WindingDirection(Vec2 a, Vec2 b)
+static inline int get_winding_dir(Vec2 a, Vec2 b)
 {
   // Implemented as sign of cross of normalized vectors.
   a = normalize(a);
@@ -279,27 +293,32 @@ static inline float angleNorm(float a)
 
 static inline float wrap2pi(float a)
 {
-    a = fmodf(a, TWO_PI);
-    if (a < 0) a += TWO_PI;
-    return a;
+  a = fmodf(a, TWO_PI);
+  if (a < 0)
+    a += TWO_PI;
+  return a;
 }
 
 static inline float arcSweep(const Move2D &m)
 {
-    float a0 = wrap2pi(atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x));
-    float a1 = wrap2pi(atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x));
+  float a0 = wrap2pi(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
+  float a1 = wrap2pi(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
 
-    if (m.arcDir == ARC_CCW) {
-        float sw = a1 - a0;
-        if (sw < 0) sw += TWO_PI;
-        return sw;                  // [0, 2π)
-    } else { // ARC_CW
-        float sw = a0 - a1;
-        if (sw < 0) sw += TWO_PI;
-        return sw;                  // [0, 2π)
-    }
+  if (m.arcDir == ARC_CCW)
+  {
+    float sw = a1 - a0;
+    if (sw < 0)
+      sw += TWO_PI;
+    return sw; // [0, 2π)
+  }
+  else
+  { // ARC_CW
+    float sw = a0 - a1;
+    if (sw < 0)
+      sw += TWO_PI;
+    return sw; // [0, 2π)
+  }
 }
-
 
 static inline float sweepCCW(float a0, float a1)
 {
@@ -320,10 +339,10 @@ static inline float sweepCW(float a0, float a1)
 static inline AABB2 aabb_of(const Move2D &m)
 {
   AABB2 b;
-  b.minx = fminf(m.p0.x, m.p1.x);
-  b.maxx = fmaxf(m.p0.x, m.p1.x);
-  b.miny = fminf(m.p0.y, m.p1.y);
-  b.maxy = fmaxf(m.p0.y, m.p1.y);
+  b.minx = fminf(m.p_0.x, m.p_1.x);
+  b.maxx = fmaxf(m.p_0.x, m.p_1.x);
+  b.miny = fminf(m.p_0.y, m.p_1.y);
+  b.maxy = fmaxf(m.p_0.y, m.p_1.y);
 
   if (m.type == MOT_ARC)
   {
@@ -332,8 +351,8 @@ static inline AABB2 aabb_of(const Move2D &m)
     Vec2 silhouettePoint = v2(m.center.x - m.radius, m.center.y);
     if (len(silhouettePoint - m.center) > TOL) // ensure valid point
     {
-      float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
-      float a1 = atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x);
+      float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
+      float a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
       float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
 
       bool onArc = (m.arcDir == ARC_CCW)
@@ -350,8 +369,8 @@ static inline AABB2 aabb_of(const Move2D &m)
     silhouettePoint = v2(m.center.x + m.radius, m.center.y);
     if (len(silhouettePoint - m.center) > TOL)
     {
-      float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
-      float a1 = atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x);
+      float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
+      float a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
       float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
 
       bool onArc = (m.arcDir == ARC_CCW)
@@ -368,8 +387,8 @@ static inline AABB2 aabb_of(const Move2D &m)
     silhouettePoint = v2(m.center.x, m.center.y + m.radius);
     if (len(silhouettePoint - m.center) > TOL)
     {
-      float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
-      float a1 = atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x);
+      float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
+      float a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
       float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
 
       bool onArc = (m.arcDir == ARC_CCW)
@@ -386,8 +405,8 @@ static inline AABB2 aabb_of(const Move2D &m)
     silhouettePoint = v2(m.center.x, m.center.y - m.radius);
     if (len(silhouettePoint - m.center) > TOL)
     {
-      float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
-      float a1 = atan2f(m.p1.y - m.center.y, m.p1.x - m.center.x);
+      float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
+      float a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
       float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
 
       bool onArc = (m.arcDir == ARC_CCW)
@@ -420,11 +439,11 @@ static inline bool aabb_intersects(const AABB2 &a, const AABB2 &b)
 // param along LINE (0..1 if on segment)
 static inline float line_t(const Move2D &m, Vec2 p)
 {
-  Vec2 d = m.p1 - m.p0;
+  Vec2 d = m.p_1 - m.p_0;
   float L2 = dot(d, d);
   if (L2 < 1e-12f)
     return 0.0f;
-  return dot(p - m.p0, d) / L2;
+  return dot(p - m.p_0, d) / L2;
 }
 
 // distance-along-source used for "nearest crossing" selection
@@ -434,11 +453,11 @@ static inline float distFromStart_along(const Move2D &m, Vec2 p)
   {
     float t = line_t(m, p);
     t = c2d_clamp(t, 0.0f, 1.0f);
-    return len(m.p1 - m.p0) * t;
+    return len(m.p_1 - m.p_0) * t;
   }
   if (m.type == MOT_ARC)
   {
-    float a0 = atan2f(m.p0.y - m.center.y, m.p0.x - m.center.x);
+    float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
     float ap = atan2f(p.y - m.center.y, p.x - m.center.x);
     float sw = (m.arcDir == ARC_CCW) ? sweepCCW(a0, ap) : sweepCW(a0, ap);
     return fabsf(m.radius) * sw;
@@ -533,8 +552,8 @@ static inline bool lines_colinear(const Move2D &a, const Move2D &b,
   if (a.type != MOT_LINE || b.type != MOT_LINE)
     return false;
 
-  Vec2 da = a.p1 - a.p0;
-  Vec2 db = b.p1 - b.p0;
+  Vec2 da = a.p_1 - a.p_0;
+  Vec2 db = b.p_1 - b.p_0;
 
   float la = len(da);
   float lb = len(db);
@@ -551,7 +570,7 @@ static inline bool lines_colinear(const Move2D &a, const Move2D &b,
     return false;
 
   // point-to-line distance: |(p - a0) x ua|
-  float d = fabsf(cross(b.p0 - a.p0, ua));
+  float d = fabsf(cross(b.p_0 - a.p_0, ua));
   return d <= distTol;
 }
 

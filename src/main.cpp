@@ -60,7 +60,7 @@ static bool profile_push(const Move2D &m)
 static void emit_move_as_gcode(const Move2D &m)
 {
   const bool latheMode = machine_is_lathe(MACHINE_TYPE);
-  Vec3 p1m = internal_xy_to_machine(m.p1, MACHINE_TYPE);
+  Vec3 p1m = internal_xy_to_machine(m.p_1, MACHINE_TYPE);
 
   if (m.type == MOT_LINE)
   {
@@ -77,7 +77,7 @@ static void emit_move_as_gcode(const Move2D &m)
 
   if (m.type == MOT_ARC)
   {
-    Vec2 dInternal = m.center - m.p0;
+    Vec2 dInternal = m.center - m.p_0;
     Vec3 dMachine = internal_delta_xy_to_machine(dInternal, MACHINE_TYPE);
 
     DBG_PRINT("N");

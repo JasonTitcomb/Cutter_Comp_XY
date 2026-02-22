@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <vector>
 #include <string>
+#include <cstring>
 #include <fstream>
 #include <sstream>
 //#include <algorithm>
@@ -33,7 +34,7 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.05f;
+static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr bool ENABLE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
@@ -62,6 +63,16 @@ static void profile_push(const Move2D &m)
   profileCount++;
 }
 
+static inline void copy_gcode_line(char *dst, size_t dstSize, const char *src)
+{
+#ifdef _MSC_VER
+  strncpy_s(dst, dstSize, src, _TRUNCATE);
+#else
+  std::strncpy(dst, src, dstSize - 1);
+  dst[dstSize - 1] = '\0';
+#endif
+}
+
 // -------------------- Pipeline --------------------
 static void process_one_gcode_line(const char *raw)
 {
@@ -80,7 +91,7 @@ static void process_one_gcode_line(const char *raw)
   Move2D mv = interpret_to_move(s, modal, MACHINE_TYPE);
 
   // copy raw line for testing only
-  strncpy_s(mv.gcode_line, sizeof(mv.gcode_line), raw, _TRUNCATE);
+  copy_gcode_line(mv.gcode_line, sizeof(mv.gcode_line), raw);
 
   if ((s.sawG41 || s.sawG42))
   {
@@ -177,12 +188,12 @@ int main()
   //const char *default_file = "../../data/RapidComp.nc";
   //const char *default_file = "../../data/G41_1.nc";
   //const char *default_file = "../../data/G41_2.nc";
-  //const char *default_file = "../../data/TortureTestG90.nc";
+  const char *default_file = "../../data/TortureTestG90.nc";
   //const char *default_file = "../../data/TortureTestG91.nc";
   //const char *default_file = "../../data/LatheDia.nc";
   //const char *default_file = "../../data/LatheRad.nc";
   //const char *default_file = "../../data/TortureTestG90.nc";
-  const char *default_file = "../../data/Sample2.nc";
+  //const char *default_file = "../../data/Sample2.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 
@@ -248,7 +259,7 @@ int main()
   // Write outputs for testing/visualization
   auto orig = build_original_moves(program);
 
-  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, TOOL_RADIUS * 2.0f); // mirror for better visualization
+  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, TOOL_RADIUS * 2.0f,false,false); // mirror for better visualization
   write_gcode("out.ngc", profile, MACHINE_TYPE);
 
   std::puts("Wrote: out.svg, out.ngc, out.csv");

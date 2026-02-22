@@ -397,8 +397,8 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
     if (s.hasN)
         out.seqNum = s.N;
 
-    out.p0 = p0;
-    out.p1 = p1;
+    out.p_0 = p0;
+    out.p_1 = p1;
     out.feed = modeState.feed;
 
     if (modeState.compMode == CM_IN || modeState.compMode == CM_OUT)

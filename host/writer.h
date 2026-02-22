@@ -20,13 +20,25 @@ struct Bounds
     }
 };
 
+static inline FILE *open_file_write_binary(const char *path)
+{
+#ifdef _MSC_VER
+    FILE *f = nullptr;
+    if (fopen_s(&f, path, "wb") != 0)
+        return nullptr;
+    return f;
+#else
+    return std::fopen(path, "wb");
+#endif
+}
+
 // -------------------- Emit helpers (host files) --------------------
 static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType)
 {
     const bool latheMode = machine_is_lathe(machineType);
     // Reverse of parser mapping: internal milling-like XY -> machine turning axes.
     // (VB parity with ConvertToTurning)
-    Vec3 p1m = internal_xy_to_machine(m.p1, machineType);
+    Vec3 p1m = internal_xy_to_machine(m.p_1, machineType);
 
     if (m.type == MOT_LINE || m.type == MOT_RAPID)
     {
@@ -45,7 +57,7 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
 
     if (m.type == MOT_ARC)
     {
-        Vec2 dInternal = m.center - m.p0;
+        Vec2 dInternal = m.center - m.p_0;
         // Internal center deltas converted back to machine deltas:
         // mill => I/J, lathe => I/K.
         Vec3 dMachine = internal_delta_xy_to_machine(dInternal, machineType);
@@ -69,8 +81,7 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
 void write_gcode(const char *path, const std::vector<Move2D> &moves, MachineType machineType = MAC_MILL)
 {
     // G-code file
-    FILE *f = nullptr;
-    if (::fopen_s(&f, path, "wb") == 0 && f)
+    if (FILE *f = open_file_write_binary(path))
     {
         for (auto &m : moves)
         {
@@ -97,14 +108,14 @@ static std::vector<Vec2> approx_move_points(const Move2D &m, int arcSegments = 2
     std::vector<Vec2> pts;
     if (m.type == MOT_LINE || m.type == MOT_RAPID)
     {
-        pts.push_back(m.p0);
-        pts.push_back(m.p1);
+        pts.push_back(m.p_0);
+        pts.push_back(m.p_1);
         return pts;
     }
     if (m.type == MOT_ARC)
     {
-        float a0 = std::atan2(m.p0.y - m.center.y, m.p0.x - m.center.x);
-        float a1 = std::atan2(m.p1.y - m.center.y, m.p1.x - m.center.x);
+        float a0 = std::atan2(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
+        float a1 = std::atan2(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
         auto norm = [](float a)
         {
             while (a < 0)
@@ -144,6 +155,49 @@ static std::vector<Vec2> approx_move_points(const Move2D &m, int arcSegments = 2
     return pts;
 }
 
+static Vec2 move_label_pos(const Move2D &m)
+{
+    if (m.type == MOT_LINE || m.type == MOT_RAPID)
+    {
+        return v2(0.5f * (m.p_0.x + m.p_1.x), 0.5f * (m.p_0.y + m.p_1.y));
+    }
+    if (m.type == MOT_ARC)
+    {
+        float a0 = std::atan2(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
+        float a1 = std::atan2(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
+        auto norm = [](float a)
+        {
+            while (a < 0)
+                a += 2.0f * (float)M_PI;
+            while (a >= 2.0f * (float)M_PI)
+                a -= 2.0f * (float)M_PI;
+            return a;
+        };
+        a0 = norm(a0);
+        a1 = norm(a1);
+
+        float sweep;
+        if (m.arcDir == ARC_CCW)
+        {
+            sweep = a1 - a0;
+            if (sweep < 0)
+                sweep += 2.0f * (float)M_PI;
+        }
+        else
+        {
+            sweep = a0 - a1;
+            if (sweep < 0)
+                sweep += 2.0f * (float)M_PI;
+            sweep = -sweep;
+        }
+
+        float amid = a0 + 0.5f * sweep;
+        return v2(m.center.x + m.radius * std::cos(amid),
+                  m.center.y + m.radius * std::sin(amid));
+    }
+    return m.p_0;
+}
+
 static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke)
 {
     if (pts.size() < 2)
@@ -160,7 +214,9 @@ static void write_svg(const char *path,
                       MachineType machineType = MAC_MILL,
                       bool mirror_x = false,
                       bool mirror_y = false,
-                      float tool_diameter = 0.0f)
+                      float tool_diameter = 0.0f,
+                      bool show_tool_circles = true,
+                      bool show_seq_numbers = true)
 {
     Bounds b;
     auto accumulate_bounds = [&](const std::vector<Move2D> &mv, bool onlyValid)
@@ -189,6 +245,8 @@ static void write_svg(const char *path,
        << minx << " " << miny << " " << w << " " << h << "\">\n";
     ss << "<rect x=\"" << minx << "\" y=\"" << miny << "\" width=\"" << w
        << "\" height=\"" << h << "\" fill=\"white\" />\n";
+    const float textSize = 0.012f * std::max(w, h);
+    const float textNudge = 0.006f * std::max(w, h);
     if (original)
     {
         for (auto &m : *original)
@@ -219,10 +277,23 @@ static void write_svg(const char *path,
                 ss << "<circle cx=\"" << pts.front().x << "\" cy=\"" << pts.front().y << "\" r=\"" << r << "\" fill=\"#1f77b4\" />\n";
                 ss << "<circle cx=\"" << pts.back().x << "\" cy=\"" << pts.back().y << "\" r=\"" << r << "\" fill=\"#1f77b4\" />\n";
             }
+            if (show_seq_numbers)
+            {
+                Vec2 tp = move_label_pos(m);
+                tp = internal_xy_to_plot_xy(tp, machineType);
+                if (mirror_x)
+                    tp.x = b.maxx + b.minx - tp.x;
+                if (mirror_y)
+                    tp.y = b.maxy + b.miny - tp.y;
+                ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
+                   << "\" fill=\"#1f77b4\" font-size=\"" << textSize
+                   << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
+                   << m.seqNum << "</text>\n";
+            }
         }
     }
     // Draw tool diameter circles along the offset profile (moves)
-    if (tool_diameter > 0.0f)
+    if (show_tool_circles && tool_diameter > 0.0f)
     {
         float step = 0.50f * tool_diameter; // step size for lerping, 50% of tool diameter
         for (auto &m : moves)
@@ -285,6 +356,19 @@ static void write_svg(const char *path,
             float r = 0.001f * std::max(w, h);
             ss << "<circle cx=\"" << pts.front().x << "\" cy=\"" << pts.front().y << "\" r=\"" << r << "\" fill=\"#d62728\" />\n";
             ss << "<circle cx=\"" << pts.back().x << "\" cy=\"" << pts.back().y << "\" r=\"" << r << "\" fill=\"#d62728\" />\n";
+        }
+        if (show_seq_numbers)
+        {
+            Vec2 tp = move_label_pos(m);
+            tp = internal_xy_to_plot_xy(tp, machineType);
+            if (mirror_x)
+                tp.x = b.maxx + b.minx - tp.x;
+            if (mirror_y)
+                tp.y = b.maxy + b.miny - tp.y;
+            ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
+               << "\" fill=\"#d62728\" font-size=\"" << textSize
+               << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
+               << m.seqNum << "</text>\n";
         }
     }
     ss << "</svg>\n";

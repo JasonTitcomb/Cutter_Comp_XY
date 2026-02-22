@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="Vec2">
+    <DisplayString>({x,g}, {y,g})</DisplayString>
+    <Expand>
+      <Item Name="x">x</Item>
+      <Item Name="y">y</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="AABB2">
+    <DisplayString>[{minx,g},{miny,g}]..[{maxx,g},{maxy,g}]</DisplayString>
+    <Expand>
+      <Item Name="minx">minx</Item>
+      <Item Name="miny">miny</Item>
+      <Item Name="maxx">maxx</Item>
+      <Item Name="maxy">maxy</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="Move2D">
+    <DisplayString Condition="type==2">line=\"{gcode_line,s}\" LINE p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) feed={feed,g} valid={valid}</DisplayString>
+    <DisplayString Condition="type==3">line=\"{gcode_line,s}\" ARC p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) c=({center.x,g},{center.y,g}) r={radius,g} dir={arcDir} valid={valid}</DisplayString>
+    <DisplayString>line=\"{gcode_line,s}\" type={type} valid={valid} comp={compMode}</DisplayString>
+    <Expand>
+      <Item Name="gcode_line">gcode_line,s</Item>
+      <Item Name="type">type</Item>
+      <Item Name="compMode">compMode</Item>
+      <Item Name="valid">valid</Item>
+      <Item Name="seqNum">seqNum</Item>
+      <Item Name="feed">feed</Item>
+      <Item Name="arcDir">arcDir</Item>
+      <Item Name="radius">radius</Item>
+
+      <Item Name="p0">p_0</Item>
+      <Item Name="p1">p_1</Item>
+      <Item Name="center">center</Item>
+      <Item Name="startDir">startDir</Item>
+      <Item Name="endDir">endDir</Item>
+      <Item Name="bounds">bounds</Item>
+
+      <Item Name="src_0">src_0</Item>
+      <Item Name="src_1">src_1</Item>
+      <Item Name="src_c">src_c</Item>
+      <Item Name="o_0">o_0</Item>
+      <Item Name="o_1">o_1</Item>
+      <Item Name="initialStartDir">initialStartDir</Item>
+      <Item Name="initialEndDir">initialEndDir</Item>
+      <Item Name="windingAtStart">windingAtStart</Item>
+      <Item Name="wasConvex">wasConvex</Item>
+    </Expand>
+  </Type>
+</AutoVisualizer>

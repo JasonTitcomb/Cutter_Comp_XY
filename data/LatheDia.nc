@@ -1,4 +1,4 @@
-%
+(LATHE_DIA)
 O0001
 N1 G0 G28 U0
 N2 T1

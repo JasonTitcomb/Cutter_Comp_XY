@@ -1,3 +1,7 @@
 {
-    "cmake.sourceDirectory": "D:/Repos/Cutter_Comp_XY/host"
+    "cmake.sourceDirectory": "D:/Repos/Cutter_Comp_XY/host",
+    "C_Cpp.default.visualizerFile": "${workspaceFolder}/Move2D.natvis",
+    "cmake.debugConfig": {
+        "visualizerFile": "${workspaceFolder}/Move2D.natvis"
+    }
 }
