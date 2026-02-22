@@ -10,7 +10,7 @@ public:
     float cornerAngleToleranceDeg = 30.0f; // CornerAngleTolerance
     bool cornerRolling = true;             // rollAround flag
     bool performTrim = true;               // performTrim flag
-    bool tryArcExtension = true;            // tryArcExtension flag
+    bool tryArcExtension = true;           // tryArcExtension flag
     MachineType machineType = MAC_MILL;    // machine type
     // Buffers
     static constexpr int IN_CAP = 16;
@@ -580,6 +580,184 @@ public:
         return roll;
     }
 
+    Move2D makeTransitionLine(const Vec2 &p0, const Vec2 &p1, float feedA, float feedB) const
+    {
+        Move2D m;
+        m.type = MOT_LINE;
+        m.compMode = CM_STEADY;
+        m.feed = (feedA > 0) ? feedA : feedB;
+        m.p_0 = p0;
+        m.p_1 = p1;
+        m.o_0 = m.p_0;
+        m.o_1 = m.p_1;
+        update_vectors(m);
+        check_validity(m);
+        return m;
+    }
+
+    bool intersectMoveWithGuideLine(const Move2D &m,
+                                    const Vec2 &lineP0,
+                                    const Vec2 &lineP1,
+                                    bool atEnd,
+                                    Vec2 &hit) const
+    {
+        if (m.type == MOT_LINE || m.type == MOT_RAPID)
+        {
+            Move2D seg = m;
+            seg.o_0 = seg.p_0;
+            seg.o_1 = seg.p_1;
+
+            Move2D guide;
+            guide.type = MOT_LINE;
+            guide.p_0 = lineP0;
+            guide.p_1 = lineP1;
+            guide.o_0 = guide.p_0;
+            guide.o_1 = guide.p_1;
+
+            bool tip = false;
+            if (intersectLineLine(seg, guide, hit, tip) == IT_NONE)
+                return false;
+
+            if (atEnd)
+            {
+                float d = dot(hit - m.p_1, m.endDir);
+                return d >= -TOL;
+            }
+
+            float d = dot(hit - m.p_0, m.startDir);
+            return d <= TOL;
+        }
+
+        if (m.type == MOT_ARC)
+        {
+            Vec2 p1{}, p2{};
+            int count = 0;
+            IntersectType it = intersectLineCircle(lineP0, lineP1, m.center, m.radius, p1, p2, count);
+            if (it == IT_NONE)
+                return false;
+
+            bool have = false;
+            float best = 1e30f;
+            Vec2 bestP{};
+
+            if (count >= 1 && pointOnArc(m, p1))
+            {
+                float d = atEnd ? dot(p1 - m.p_1, m.endDir) : dot(p1 - m.p_0, m.startDir);
+                bool ok = atEnd ? (d >= -TOL) : (d <= TOL);
+                if (ok)
+                {
+                    float score = fabsf(d);
+                    if (score < best)
+                    {
+                        best = score;
+                        bestP = p1;
+                        have = true;
+                    }
+                }
+            }
+
+            if (count == 2 && pointOnArc(m, p2))
+            {
+                float d = atEnd ? dot(p2 - m.p_1, m.endDir) : dot(p2 - m.p_0, m.startDir);
+                bool ok = atEnd ? (d >= -TOL) : (d <= TOL);
+                if (ok)
+                {
+                    float score = fabsf(d);
+                    if (score < best)
+                    {
+                        best = score;
+                        bestP = p2;
+                        have = true;
+                    }
+                }
+            }
+
+            if (!have)
+                return false;
+
+            hit = bestP;
+            return true;
+        }
+
+        return false;
+    }
+
+    // Chamfer-style corner transition based on angle bisector construction.
+    // Modifies a/b endpoints to the guide-line intersections and emits up to 2 transition lines.
+    // Returns true if a valid chamfer transition was produced.
+    //
+    // Expected call pattern:
+    //   Move2D extra[2];
+    //   int extraCount = 0;
+    //   if (makeChamferTransitionByBisector(a, b, extra, extraCount)) {
+    //       // push trimmed a
+    //       // push extra[0..extraCount-1]
+    //       // then continue with trimmed b
+    //   }
+    bool makeChamferTransitionByBisector(Move2D &a, Move2D &b, Move2D inserts[2], int &insertCount) const
+    {
+        insertCount = 0;
+
+        Vec2 vIn = normalize(a.endDir * -1.0f);
+        Vec2 vOut = normalize(b.startDir);
+        if (len(vIn) < TOL || len(vOut) < TOL)
+            return false;
+
+        float c = c2d_clamp(dot(vIn, vOut), -1.0f, 1.0f);
+        float alpha = acosf(c);
+        if (alpha <= 1e-4f || alpha >= (PI - 1e-4f))
+            return false;
+
+        float s = sinf(0.5f * alpha);
+        if (fabsf(s) < 1e-6f)
+            return false;
+
+        Vec2 bis = normalize(vIn + vOut);
+        if (len(bis) < TOL)
+            return false;
+
+        Vec2 corner = (a.p_1 + b.p_0) * 0.5f;
+        float ds = toolR / s;
+        Vec2 S = corner + bis * ds;
+
+        Vec2 n = leftNormal(bis);
+        float ln = len(n);
+        if (ln < TOL)
+            return false;
+        n = n * (1.0f / ln);
+
+        const float guideExtent = 1000.0f;
+        Vec2 g0 = S - n * guideExtent;
+        Vec2 g1 = S + n * guideExtent;
+
+        Vec2 hitA{}, hitB{};
+        if (!intersectMoveWithGuideLine(a, g0, g1, true, hitA))
+            return false;
+        if (!intersectMoveWithGuideLine(b, g0, g1, false, hitB))
+            return false;
+
+        a.p_1 = hitA;
+        b.p_0 = hitB;
+        update_vectors(a);
+        update_vectors(b);
+        if (!check_validity(a) || !check_validity(b))
+            return false;
+
+        if (len(S - hitA) > TOL && insertCount < 2)
+            inserts[insertCount++] = makeTransitionLine(hitA, S, a.feed, b.feed);
+        if (len(hitB - S) > TOL && insertCount < 2)
+            inserts[insertCount++] = makeTransitionLine(S, hitB, a.feed, b.feed);
+
+        if (insertCount == 0)
+        {
+            if (len(hitB - hitA) <= TOL)
+                return false;
+            inserts[insertCount++] = makeTransitionLine(hitA, hitB, a.feed, b.feed);
+        }
+
+        return true;
+    }
+
     bool try_arc_arc_tangents(const Move2D &a, const Move2D &b,
                               float r1prime,
                               float dist,
@@ -851,6 +1029,15 @@ public:
         IntersectType it = intersectCircleCircle(a, b, p1, p2, count);
         if (it == IT_NONE)
         {
+            // Concrete swap-in point (comment-only):
+            // Move2D chamferExtra[2];
+            // int chamferCount = 0;
+            // if (makeChamferTransitionByBisector(a, b, chamferExtra, chamferCount)) {
+            //     for (int i = 0; i < chamferCount && insertCount < 2; ++i)
+            //         inserts[insertCount++] = chamferExtra[i];
+            //     return;
+            // }
+
             if (!acute &&  makeArcExtension(a, b, inserts[insertCount]))
             {
                 insertCount++;
