@@ -25,7 +25,7 @@ static constexpr uint32_t BAUD = 115200;
 
 // IMPORTANT: Tool radius must match the units of your G-code.
 static constexpr float TOOL_RADIUS = 0.0625f;
-static constexpr bool ENABLE_ROLL_AROUND = true;
+static constexpr bool FORCE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
 static constexpr bool ENABLE_MERGE = true;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
@@ -149,7 +149,7 @@ static void process_one_gcode_line(const char *raw)
   }
 
   // Force rolling (VB rollAround => forceRoll). You can change to false later.
-  cc.process(ENABLE_ROLL_AROUND);
+  cc.process(FORCE_ROLL_AROUND);
 
   Move2D out;
   while (cc.popOut(out))
@@ -235,7 +235,7 @@ void setup()
   Serial.println("Demo: TinyGCodeScan + CutterComp2D + PostTrimCrossings");
   
   DBG_PRINT("Fillet: ");
-  DBG_PRINTLN(ENABLE_ROLL_AROUND ? "ON" : "OFF");
+  DBG_PRINTLN(FORCE_ROLL_AROUND ? "ON" : "OFF");
   DBG_PRINT("Crossing trim: ");
   DBG_PRINTLN(ENABLE_TRIM_CROSSINGS ? "ON" : "OFF");
   DBG_PRINT("Tool radius: ");
@@ -255,7 +255,7 @@ void setup()
   // Init cutter comp engine
   cc.setToolRadius(TOOL_RADIUS);
   cc.setMachineType(MACHINE_TYPE);
-  cc.setCornerRolling(ENABLE_ROLL_AROUND);
+  cc.setCornerRolling(FORCE_ROLL_AROUND);
   cc.setComp(COMP_OFF);
 
   // Reset profile buffer

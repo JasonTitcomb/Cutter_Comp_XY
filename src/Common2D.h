@@ -79,6 +79,12 @@ enum ArcDir : uint8_t
   ARC_CW = 0,
   ARC_CCW = 1
 };
+enum IntersectType : uint8_t
+{
+  IT_NONE = 0,
+  IT_TANGENT = 1,
+  IT_INTERSECT = 2
+};
 enum CompSide : int8_t
 {
   COMP_OFF = 0,
@@ -93,7 +99,9 @@ struct AABB2
 
 struct Move2D
 {
+#ifndef NDEBUG
   char gcode_line[160] = {0};
+#endif
 
   Vec2 p_0{0, 0}; // working start
   Vec2 p_1{0, 0}; // working end
@@ -109,13 +117,13 @@ struct Move2D
   CompMode compMode = CM_NONE;
   bool valid = true; // for output moves, indicates if move is valid
 
-  AABB2 bounds;         // precomputed bounding box for this move
-  uint32_t seqNum = 0;  // for debugging
+  AABB2 bounds;        // precomputed bounding box for this move
+  uint32_t seqNum = 0; // for debugging
 
-  // Original move data before any modifications.
-  Vec2 src_0{0, 0}; // start
-  Vec2 src_1{0, 0}; // end
-  Vec2 src_c{0, 0}; // center for arcs
+  // Legacy/original move snapshot fields (kept for compatibility/debugging).
+  Vec2 src_0{0, 0}; // original start (currently not used by core logic)
+  Vec2 src_1{0, 0}; // original end (used by roll-arc center logic)
+  Vec2 src_c{0, 0}; // original arc center (currently not used by core logic)
 
   // Track original endpoints before any trimming/extension.
   Vec2 o_0{0, 0};
@@ -127,10 +135,8 @@ struct Move2D
 
   // Corner metadata captured at logic entry (prev -> this move).
   // windingAtStart: -1 CW, +1 CCW, 0 colinear/undefined.
-  int8_t windingAtStart = 0;
-  bool wasConvex = false;
-
-
+  // int8_t windingAtStart = 0;
+  // bool wasConvex = false;
 };
 static inline bool machine_is_lathe(MachineType mt)
 {
@@ -261,7 +267,6 @@ static inline void update_vectors(Move2D &m)
   m.endDir = {0, 0};
 }
 
-
 static inline bool is_radius_consistent(const Move2D &m)
 {
   float r0 = len(m.p_0 - m.center);
@@ -336,6 +341,18 @@ static inline float sweepCW(float a0, float a1)
   return sweepCCW(a1, a0);
 }
 
+static inline bool angle_on_arc_norm(float a0n, float a1n, float apn, ArcDir dir)
+{
+  if (dir == ARC_CCW)
+  {
+    return (apn >= a0n - EPS && apn <= a1n + EPS) ||
+           (a0n > a1n && (apn >= a0n - EPS || apn <= a1n + EPS));
+  }
+
+  return (apn >= a1n - EPS && apn <= a0n + EPS) ||
+         (a1n > a0n && (apn >= a1n - EPS || apn <= a0n + EPS));
+}
+
 static inline AABB2 aabb_of(const Move2D &m)
 {
   AABB2 b;
@@ -344,80 +361,31 @@ static inline AABB2 aabb_of(const Move2D &m)
   b.miny = fminf(m.p_0.y, m.p_1.y);
   b.maxy = fmaxf(m.p_0.y, m.p_1.y);
 
-  if (m.type == MOT_ARC)
+  if (m.type == MOT_ARC && fabsf(m.radius) > TOL)
   {
-    // Check silhouette points to get tighter bounds
-    // Left point (180 degrees, -X direction)
-    Vec2 silhouettePoint = v2(m.center.x - m.radius, m.center.y);
-    if (len(silhouettePoint - m.center) > TOL) // ensure valid point
-    {
-      float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
-      float a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
-      float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
+    // Check silhouette points to get tighter bounds.
+    float a0n = angleNorm(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
+    float a1n = angleNorm(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
 
-      bool onArc = (m.arcDir == ARC_CCW)
-                       ? (angleNorm(ap) >= angleNorm(a0) - EPS && angleNorm(ap) <= angleNorm(a1) + EPS) ||
-                             (angleNorm(a0) > angleNorm(a1) && (angleNorm(ap) >= angleNorm(a0) - EPS || angleNorm(ap) <= angleNorm(a1) + EPS))
-                       : (angleNorm(ap) >= angleNorm(a1) - EPS && angleNorm(ap) <= angleNorm(a0) + EPS) ||
-                             (angleNorm(a1) > angleNorm(a0) && (angleNorm(ap) >= angleNorm(a1) - EPS || angleNorm(ap) <= angleNorm(a0) + EPS));
+    Vec2 leftPoint = v2(m.center.x - m.radius, m.center.y);
+    float leftAngle = angleNorm(atan2f(leftPoint.y - m.center.y, leftPoint.x - m.center.x));
+    if (angle_on_arc_norm(a0n, a1n, leftAngle, m.arcDir))
+      b.minx = leftPoint.x;
 
-      if (onArc)
-        b.minx = silhouettePoint.x;
-    }
+    Vec2 rightPoint = v2(m.center.x + m.radius, m.center.y);
+    float rightAngle = angleNorm(atan2f(rightPoint.y - m.center.y, rightPoint.x - m.center.x));
+    if (angle_on_arc_norm(a0n, a1n, rightAngle, m.arcDir))
+      b.maxx = rightPoint.x;
 
-    // Right point (0 degrees, +X direction)
-    silhouettePoint = v2(m.center.x + m.radius, m.center.y);
-    if (len(silhouettePoint - m.center) > TOL)
-    {
-      float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
-      float a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
-      float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
+    Vec2 topPoint = v2(m.center.x, m.center.y + m.radius);
+    float topAngle = angleNorm(atan2f(topPoint.y - m.center.y, topPoint.x - m.center.x));
+    if (angle_on_arc_norm(a0n, a1n, topAngle, m.arcDir))
+      b.maxy = topPoint.y;
 
-      bool onArc = (m.arcDir == ARC_CCW)
-                       ? (angleNorm(ap) >= angleNorm(a0) - EPS && angleNorm(ap) <= angleNorm(a1) + EPS) ||
-                             (angleNorm(a0) > angleNorm(a1) && (angleNorm(ap) >= angleNorm(a0) - EPS || angleNorm(ap) <= angleNorm(a1) + EPS))
-                       : (angleNorm(ap) >= angleNorm(a1) - EPS && angleNorm(ap) <= angleNorm(a0) + EPS) ||
-                             (angleNorm(a1) > angleNorm(a0) && (angleNorm(ap) >= angleNorm(a1) - EPS || angleNorm(ap) <= angleNorm(a0) + EPS));
-
-      if (onArc)
-        b.maxx = silhouettePoint.x;
-    }
-
-    // Top point (90 degrees, +Y direction)
-    silhouettePoint = v2(m.center.x, m.center.y + m.radius);
-    if (len(silhouettePoint - m.center) > TOL)
-    {
-      float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
-      float a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
-      float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
-
-      bool onArc = (m.arcDir == ARC_CCW)
-                       ? (angleNorm(ap) >= angleNorm(a0) - EPS && angleNorm(ap) <= angleNorm(a1) + EPS) ||
-                             (angleNorm(a0) > angleNorm(a1) && (angleNorm(ap) >= angleNorm(a0) - EPS || angleNorm(ap) <= angleNorm(a1) + EPS))
-                       : (angleNorm(ap) >= angleNorm(a1) - EPS && angleNorm(ap) <= angleNorm(a0) + EPS) ||
-                             (angleNorm(a1) > angleNorm(a0) && (angleNorm(ap) >= angleNorm(a1) - EPS || angleNorm(ap) <= angleNorm(a0) + EPS));
-
-      if (onArc)
-        b.maxy = silhouettePoint.y;
-    }
-
-    // Bottom point (270 degrees, -Y direction)
-    silhouettePoint = v2(m.center.x, m.center.y - m.radius);
-    if (len(silhouettePoint - m.center) > TOL)
-    {
-      float a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
-      float a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
-      float ap = atan2f(silhouettePoint.y - m.center.y, silhouettePoint.x - m.center.x);
-
-      bool onArc = (m.arcDir == ARC_CCW)
-                       ? (angleNorm(ap) >= angleNorm(a0) - EPS && angleNorm(ap) <= angleNorm(a1) + EPS) ||
-                             (angleNorm(a0) > angleNorm(a1) && (angleNorm(ap) >= angleNorm(a0) - EPS || angleNorm(ap) <= angleNorm(a1) + EPS))
-                       : (angleNorm(ap) >= angleNorm(a1) - EPS && angleNorm(ap) <= angleNorm(a0) + EPS) ||
-                             (angleNorm(a1) > angleNorm(a0) && (angleNorm(ap) >= angleNorm(a1) - EPS || angleNorm(ap) <= angleNorm(a0) + EPS));
-
-      if (onArc)
-        b.miny = silhouettePoint.y;
-    }
+    Vec2 bottomPoint = v2(m.center.x, m.center.y - m.radius);
+    float bottomAngle = angleNorm(atan2f(bottomPoint.y - m.center.y, bottomPoint.x - m.center.x));
+    if (angle_on_arc_norm(a0n, a1n, bottomAngle, m.arcDir))
+      b.miny = bottomPoint.y;
   }
   return b;
 }
@@ -624,6 +592,139 @@ static inline bool angleOnSweepCW(float a0, float a1, float ap)
 {
   // CW sweep from a0 down to a1 is CCW from a1 to a0
   return angleOnSweepCCW(a1, a0, ap);
+}
+
+static inline bool pointOnSegment(Vec2 a, Vec2 b, Vec2 p)
+{
+  Vec2 ab = b - a;
+  float lab2 = dot(ab, ab);
+  if (lab2 < TOL)
+    return (len(p - a) < TOL);
+
+  float t = dot(p - a, ab) / lab2;
+  if (t < -TOL || t > 1.0f + TOL)
+    return false;
+  float d = fabsf(cross(p - a, ab)) / sqrtf(lab2);
+  return d < TOL;
+}
+
+static inline bool pointOnArc(const Move2D &a, Vec2 p)
+{
+  float rp = len(p - a.center);
+  if (fabsf(rp - a.radius) > TOL)
+    return false;
+
+  float a0 = atan2f(a.p_0.y - a.center.y, a.p_0.x - a.center.x);
+  float a1 = atan2f(a.p_1.y - a.center.y, a.p_1.x - a.center.x);
+  float ap = atan2f(p.y - a.center.y, p.x - a.center.x);
+
+  if (a.arcDir == ARC_CCW)
+    return angleOnSweepCCW(a0, a1, ap);
+  else
+    return angleOnSweepCW(a0, a1, ap);
+}
+
+static inline IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
+{
+  Vec2 p = ln1.o_0;
+  Vec2 r = ln1.o_1 - ln1.o_0;
+  Vec2 q = ln2.o_0;
+  Vec2 s = ln2.o_1 - ln2.o_0;
+
+  float den = cross(r, s);
+  if (fabsf(den) < TOL)
+  {
+    tip = false;
+    return IT_NONE;
+  }
+
+  float t = cross(q - p, s) / den;
+  float u = cross(q - p, r) / den;
+  ip = p + r * t;
+
+  tip = (t >= -TOL && t <= 1.0f + TOL && u >= -TOL && u <= 1.0f + TOL);
+  return IT_INTERSECT;
+}
+
+static inline IntersectType intersectCircleCircle(const Move2D &a1, const Move2D &a2, Vec2 &p1, Vec2 &p2, int &count)
+{
+  Vec2 c0 = a1.center, c1 = a2.center;
+  float r0 = a1.radius, r1 = a2.radius;
+  Vec2 d = c1 - c0;
+  float distc = len(d);
+  count = 0;
+
+  if (distc < TOL)
+    return IT_NONE;
+  if (distc > r0 + r1 + TOL)
+    return IT_NONE;
+  if (distc < fabsf(r0 - r1) - TOL)
+    return IT_NONE;
+
+  float a = (r0 * r0 - r1 * r1 + distc * distc) / (2.0f * distc);
+  float h2 = r0 * r0 - a * a;
+  Vec2 u = d * (1.0f / distc);
+  Vec2 mid = c0 + u * a;
+
+  if (fabsf(h2) < TOL)
+  {
+    p1 = mid;
+    count = 1;
+    return IT_TANGENT;
+  }
+
+  float h = sqrtf(fmaxf(0.0f, h2));
+  Vec2 perp = leftNormal(u);
+  p1 = mid + perp * h;
+  p2 = mid - perp * h;
+  count = 2;
+  return IT_INTERSECT;
+}
+
+static inline IntersectType intersectLineCircle(Vec2 l1, Vec2 a1, Vec2 ctr, float r, Vec2 &p1, Vec2 &p2, int &count)
+{
+  Vec2 d = a1 - l1;
+  float dd = dot(d, d);
+  count = 0;
+  if (dd < 1e-20f)
+    return IT_NONE;
+
+  Vec2 f = l1 - ctr;
+  float t0 = -dot(f, d) / dd;
+  Vec2 q = l1 + d * t0;
+
+  Vec2 qc = q - ctr;
+  float dist2 = dot(qc, qc);
+
+  float r2 = r * r;
+  const float eps = 1e-5f;
+  const float eps2 = eps * eps;
+
+  float h2 = r2 - dist2;
+
+  if (h2 < -eps2)
+    return IT_NONE;
+
+  if (fabsf(h2) <= eps2)
+  {
+    p1 = q;
+    count = 1;
+    return IT_TANGENT;
+  }
+
+  float h = sqrtf(h2);
+  float invLen = 1.0f / sqrtf(dd);
+  Vec2 u = d * invLen;
+
+  p1 = q - u * h;
+  p2 = q + u * h;
+  count = 2;
+  return IT_INTERSECT;
+}
+
+static inline Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
+{
+  return (len(a - ref) <= len(b - ref)) ? a : b;
 }
 
 static inline float includedAngleDeg(Vec2 v1, Vec2 v2)

@@ -7,11 +7,12 @@ class CutterComp2D
 {
 public:
     // Tune these to taste
-    float cornerAngleToleranceDeg = 30.0f; // CornerAngleTolerance
-    bool cornerRolling = true;             // rollAround flag
-    bool performTrim = true;               // performTrim flag
-    bool tryArcExtension = true;           // tryArcExtension flag
-    MachineType machineType = MAC_MILL;    // machine type
+    float acuteCornerAngleThresholdDeg = 30.0f; // AcuteCornerAngleThreshold
+    bool cornerRolling = true;                  // rollAround flag
+    bool performTrim = true;                    // performTrim flag
+    bool tryArcExtension = true;                // tryArcExtension flag
+    bool enableChamferTransitions = true;       // enableChamferTransitions flag
+    MachineType machineType = MAC_MILL;         // machine type
     // Buffers
     static constexpr int IN_CAP = 16;
     static constexpr int OUT_CAP = 32;
@@ -35,16 +36,9 @@ public:
     void setMachineType(MachineType mt) { machineType = mt; }
     void setCornerRolling(bool en) { cornerRolling = en; }
     void setTryArcExtension(bool en) { tryArcExtension = en; }
-    void setCornerAngleTolerance(float deg) { cornerAngleToleranceDeg = deg; }
+    void setAcuteCornerAngleThreshold(float deg) { acuteCornerAngleThresholdDeg = deg; }
     void setPerformTrim(bool en) { performTrim = en; }
-
-    // ---------- intersection tests producing TIP/FIP ----------
-    enum IntersectType : uint8_t
-    {
-        IT_NONE = 0,
-        IT_TANGENT = 1,
-        IT_INTERSECT = 2
-    };
+    void setEnableChamferTransitions(bool en) { enableChamferTransitions = en; }
 
     void setToolRadius(float r)
     {
@@ -347,155 +341,6 @@ public:
         return m.valid;
     }
 
-    static inline bool pointOnSegment(Vec2 a, Vec2 b, Vec2 p)
-    {
-        Vec2 ab = b - a;
-        float lab2 = dot(ab, ab);
-        if (lab2 < TOL)
-            return (len(p - a) < TOL);
-
-        float t = dot(p - a, ab) / lab2;
-        if (t < -TOL || t > 1.0f + TOL)
-            return false;
-        // distance to line
-        float d = fabsf(cross(p - a, ab)) / sqrtf(lab2);
-        return d < TOL;
-    }
-
-    static inline bool pointOnArc(const Move2D &a, Vec2 p)
-    {
-        // radius match
-        float rp = len(p - a.center);
-        if (fabsf(rp - a.radius) > TOL)
-            return false;
-
-        float a0 = atan2f(a.p_0.y - a.center.y, a.p_0.x - a.center.x);
-        float a1 = atan2f(a.p_1.y - a.center.y, a.p_1.x - a.center.x);
-        float ap = atan2f(p.y - a.center.y, p.x - a.center.x);
-
-        if (a.arcDir == ARC_CCW)
-            return angleOnSweepCCW(a0, a1, ap);
-        else
-            return angleOnSweepCW(a0, a1, ap);
-    }
-
-    static IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
-    {
-        // Vec2 p = ln1.p_0;
-        // Vec2 r = ln1.p_1 - ln1.p_0;
-        // Vec2 q = ln2.p_0;
-        // Vec2 s = ln2.p_1 - ln2.p_0;
-        // using original offset points.
-        // This is important for consistent TIP/FIP decisions based on the original geometry,
-        // not the modified one after trim/extend operations.
-
-        Vec2 p = ln1.o_0;
-        Vec2 r = ln1.o_1 - ln1.o_0;
-        Vec2 q = ln2.o_0;
-        Vec2 s = ln2.o_1 - ln2.o_0;
-
-        float den = cross(r, s);
-        if (fabsf(den) < TOL)
-        {
-            tip = false;
-            return IT_NONE;
-        }
-
-        float t = cross(q - p, s) / den;
-        float u = cross(q - p, r) / den;
-        ip = p + r * t;
-
-        tip = (t >= -TOL && t <= 1.0f + TOL && u >= -TOL && u <= 1.0f + TOL);
-        return IT_INTERSECT;
-    }
-
-    static IntersectType intersectCircleCircle(const Move2D &a1, const Move2D &a2, Vec2 &p1, Vec2 &p2, int &count)
-    {
-        // circles defined by center/radius
-        Vec2 c0 = a1.center, c1 = a2.center;
-        float r0 = a1.radius, r1 = a2.radius;
-        Vec2 d = c1 - c0;
-        float distc = len(d);
-        count = 0;
-
-        if (distc < TOL)
-            return IT_NONE;
-        if (distc > r0 + r1 + TOL)
-            return IT_NONE;
-        if (distc < fabsf(r0 - r1) - TOL)
-            return IT_NONE;
-
-        float a = (r0 * r0 - r1 * r1 + distc * distc) / (2.0f * distc);
-        float h2 = r0 * r0 - a * a;
-        Vec2 u = d * (1.0f / distc);
-        Vec2 mid = c0 + u * a;
-
-        if (fabsf(h2) < TOL)
-        {
-            p1 = mid;
-            count = 1;
-            return IT_TANGENT;
-        }
-
-        float h = sqrtf(fmaxf(0.0f, h2));
-        Vec2 perp = leftNormal(u);
-        p1 = mid + perp * h;
-        p2 = mid - perp * h;
-        count = 2;
-        return IT_INTERSECT;
-    }
-
-    static IntersectType intersectLineCircle(Vec2 l1, Vec2 a1, Vec2 ctr, float r, Vec2 &p1, Vec2 &p2, int &count)
-    {
-        Vec2 d = a1 - l1;
-        float dd = dot(d, d);
-        count = 0;
-        if (dd < 1e-20f)
-            return IT_NONE; // degenerate
-
-        // Closest point from center to the infinite line
-        Vec2 f = l1 - ctr;
-        float t0 = -dot(f, d) / dd;
-        Vec2 q = l1 + d * t0;
-
-        // distance^2 from center to line
-        Vec2 qc = q - ctr;
-        float dist2 = dot(qc, qc);
-
-        float r2 = r * r;
-
-        // tolerance in inches:
-        const float eps = 1e-5f; // 0.00001"
-        const float eps2 = eps * eps;
-
-        float h2 = r2 - dist2;
-
-        if (h2 < -eps2)
-            return IT_NONE;
-
-        if (fabsf(h2) <= eps2)
-        {
-            p1 = q;
-            count = 1;
-            return IT_TANGENT;
-        }
-
-        float h = sqrtf(h2);
-        float invLen = 1.0f / sqrtf(dd);
-        Vec2 u = d * invLen;
-
-        p1 = q - u * h;
-        p2 = q + u * h;
-        count = 2;
-        return IT_INTERSECT;
-    }
-
-    // Choose point closer to prev end
-    static Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
-    {
-        return (len(a - ref) <= len(b - ref)) ? a : b;
-    }
-
     bool trimToTIP(Move2D &a, Move2D &b, Vec2 tip)
     {
         if (!performTrim)
@@ -542,7 +387,7 @@ public:
         roll.p_1 = b.p_0;
         roll.center = a.src_1; // original non-offset end point to compute the center correctly
 
-        // Find the best arc center for the roll. 
+        // Find the best arc center for the roll.
         // We want to preserve the original radius as much as possible to avoid weird geometry changes
         // that could cause logic issues later.
         Vec2 v0 = roll.p_0 - roll.center;
@@ -682,6 +527,24 @@ public:
         return false;
     }
 
+    bool intersectChamferGuide(const Move2D &a,
+                               const Move2D &b,
+                               const Vec2 &guidePoint,
+                               const Vec2 &guideDir,
+                               Vec2 &hitA,
+                               Vec2 &hitB) const
+    {
+        const float guideExtent = 1000.0f;
+        Vec2 g0 = guidePoint - guideDir * guideExtent;
+        Vec2 g1 = guidePoint + guideDir * guideExtent;
+
+        if (!intersectMoveWithGuideLine(a, g0, g1, true, hitA))
+            return false;
+        if (!intersectMoveWithGuideLine(b, g0, g1, false, hitB))
+            return false;
+        return true;
+    }
+
     // Chamfer-style corner transition based on angle bisector construction.
     // Modifies a/b endpoints to the guide-line intersections and emits up to 2 transition lines.
     // Returns true if a valid chamfer transition was produced.
@@ -703,22 +566,22 @@ public:
         if (len(vIn) < TOL || len(vOut) < TOL)
             return false;
 
-        float c = c2d_clamp(dot(vIn, vOut), -1.0f, 1.0f);
-        float alpha = acosf(c);
-        if (alpha <= 1e-4f || alpha >= (PI - 1e-4f))
-            return false;
-
-        float s = sinf(0.5f * alpha);
-        if (fabsf(s) < 1e-6f)
-            return false;
-
         Vec2 bis = normalize(vIn + vOut);
         if (len(bis) < TOL)
             return false;
 
-        Vec2 corner = (a.p_1 + b.p_0) * 0.5f;
-        float ds = toolR / s;
-        Vec2 S = corner + bis * ds;
+        Vec2 lineAStart = a.src_1;
+        Vec2 lineAEndDir = normalize(a.initialEndDir);
+        Vec2 lineBStart = b.src_0;
+        Vec2 lineBStartDir = normalize(b.initialStartDir);
+
+        Vec2 corner = (a.src_1 + b.src_0) * 0.5f;
+        float den = cross(lineAEndDir, lineBStartDir);
+        if (fabsf(den) > TOL)
+        {
+            float t = cross(lineBStart - lineAStart, lineBStartDir) / den;
+            corner = lineAStart + lineAEndDir * t;
+        }
 
         Vec2 n = leftNormal(bis);
         float ln = len(n);
@@ -726,15 +589,39 @@ public:
             return false;
         n = n * (1.0f / ln);
 
-        const float guideExtent = 1000.0f;
-        Vec2 g0 = S - n * guideExtent;
-        Vec2 g1 = S + n * guideExtent;
+        float offset = toolR + TOL;
+        Vec2 sPos = corner + bis * offset;
+        Vec2 sNeg = corner - bis * offset;
 
-        Vec2 hitA{}, hitB{};
-        if (!intersectMoveWithGuideLine(a, g0, g1, true, hitA))
+        Vec2 hitApos{}, hitBpos{};
+        Vec2 hitAneg{}, hitBneg{};
+        bool havePos = intersectChamferGuide(a, b, sPos, n, hitApos, hitBpos);
+        bool haveNeg = intersectChamferGuide(a, b, sNeg, n, hitAneg, hitBneg);
+
+        if (!havePos && !haveNeg)
             return false;
-        if (!intersectMoveWithGuideLine(b, g0, g1, false, hitB))
-            return false;
+
+        Vec2 S = sPos;
+        Vec2 hitA = hitApos;
+        Vec2 hitB = hitBpos;
+
+        if (!havePos && haveNeg)
+        {
+            S = sNeg;
+            hitA = hitAneg;
+            hitB = hitBneg;
+        }
+        else if (havePos && haveNeg)
+        {
+            float spanPos = len(hitBpos - hitApos);
+            float spanNeg = len(hitBneg - hitAneg);
+            if (spanNeg > spanPos)
+            {
+                S = sNeg;
+                hitA = hitAneg;
+                hitB = hitBneg;
+            }
+        }
 
         a.p_1 = hitA;
         b.p_0 = hitB;
@@ -743,10 +630,29 @@ public:
         if (!check_validity(a) || !check_validity(b))
             return false;
 
-        if (len(S - hitA) > TOL && insertCount < 2)
-            inserts[insertCount++] = makeTransitionLine(hitA, S, a.feed, b.feed);
-        if (len(hitB - S) > TOL && insertCount < 2)
-            inserts[insertCount++] = makeTransitionLine(S, hitB, a.feed, b.feed);
+        bool haveAS = (len(S - hitA) > TOL);
+        bool haveSB = (len(hitB - S) > TOL);
+
+        bool colinear = false;
+        Vec2 ab = hitB - hitA;
+        float lab = len(ab);
+        if (lab > TOL)
+        {
+            float distToAB = fabsf(cross(S - hitA, ab)) / lab;
+            colinear = (distToAB <= TOL);
+        }
+
+        if (haveAS && haveSB && colinear)
+        {
+            inserts[insertCount++] = makeTransitionLine(hitA, hitB, a.feed, b.feed);
+        }
+        else
+        {
+            if (haveAS && insertCount < 2)
+                inserts[insertCount++] = makeTransitionLine(hitA, S, a.feed, b.feed);
+            if (haveSB && insertCount < 2)
+                inserts[insertCount++] = makeTransitionLine(S, hitB, a.feed, b.feed);
+        }
 
         if (insertCount == 0)
         {
@@ -822,10 +728,8 @@ public:
     }
 
     // Creates a line segment bridging arc<->line/arc when comping and no TIP.
-    bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extOut)
+    bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extLnOut)
     {
-        if(!tryArcExtension)
-            return false;
         // Case: a is LINE, b is ARC
         if (a.type == MOT_LINE && b.type == MOT_ARC)
         {
@@ -850,11 +754,11 @@ public:
             a.p_1 = ip;
             update_vectors(a);
 
-            extOut.type = MOT_LINE;
-            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extOut.p_0 = ip;
-            extOut.p_1 = b.p_0;
-            update_vectors(extOut);
+            extLnOut.type = MOT_LINE;
+            extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
+            extLnOut.p_0 = ip;
+            extLnOut.p_1 = b.p_0;
+            update_vectors(extLnOut);
             return true;
         }
 
@@ -882,11 +786,11 @@ public:
             b.p_0 = ip;
             update_vectors(b);
 
-            extOut.type = MOT_LINE;
-            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extOut.p_0 = a.p_1;
-            extOut.p_1 = ip;
-            update_vectors(extOut);
+            extLnOut.type = MOT_LINE;
+            extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
+            extLnOut.p_0 = a.p_1;
+            extLnOut.p_1 = ip;
+            update_vectors(extLnOut);
             return true;
         }
 
@@ -919,11 +823,11 @@ public:
             b.p_0 = bestP1;
             update_vectors(a);
             update_vectors(b);
-            extOut.type = MOT_LINE;
-            extOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extOut.p_0 = bestP0;
-            extOut.p_1 = bestP1;
-            update_vectors(extOut);
+            extLnOut.type = MOT_LINE;
+            extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
+            extLnOut.p_0 = bestP0;
+            extLnOut.p_1 = bestP1;
+            update_vectors(extLnOut);
             return true;
         }
 
@@ -938,7 +842,7 @@ public:
 
         // Determine if corner is acute (used in multiple branches, and forces roll if true)
         bool acute = false;
-        acute = includedAngleDeg(a.endDir, b.startDir) < cornerAngleToleranceDeg;
+        acute = includedAngleDeg(a.endDir, b.startDir) < acuteCornerAngleThresholdDeg;
 
         bool comping = (a.compMode == CM_IN || a.compMode == CM_OUT || b.compMode == CM_IN || b.compMode == CM_OUT);
 
@@ -958,10 +862,6 @@ public:
 
     void handleLineLine(Move2D &a, Move2D &b, bool acute, bool forceRoll, bool comping, Move2D inserts[2], int &insertCount)
     {
-        // Keep directions up to date
-        // update_vectors(a); // redundant here: a/b are already updated in applyLogic before dispatch
-        // update_vectors(b); // keep commented for quick debug toggling
-
         Vec2 ip;
         bool tip = false;
         IntersectType it = intersectLineLine(a, b, ip, tip);
@@ -983,18 +883,31 @@ public:
         // 2) Roll path: (acute OR forceRoll)
         if (acute || forceRoll)
         {
-            // If Convex then InsertArcBetweenElements
-            if (is_convex(a, b))
-            {
-                inserts[insertCount++] = makeRollArc(a, b);
-                return;
-            }
-
             // With transitions comping=true only for CM_IN/CM_OUT. Otherwise do NOT extend.
             if (comping && dirOK)
             {
                 if (extendToFIP(a, b, ip))
                 {
+                    return;
+                }
+            }
+
+            if (is_convex(a, b))
+            {
+                if (enableChamferTransitions)
+                {
+                    Move2D chamferExtra[2];
+                    int chamferCount = 0;
+                    if (makeChamferTransitionByBisector(a, b, chamferExtra, chamferCount))
+                    {
+                        for (int i = 0; i < chamferCount && insertCount < 2; ++i)
+                            inserts[insertCount++] = chamferExtra[i];
+                        return;
+                    }
+                }
+                else
+                {
+                    inserts[insertCount++] = makeRollArc(a, b);
                     return;
                 }
             }
@@ -1029,16 +942,8 @@ public:
         IntersectType it = intersectCircleCircle(a, b, p1, p2, count);
         if (it == IT_NONE)
         {
-            // Concrete swap-in point (comment-only):
-            // Move2D chamferExtra[2];
-            // int chamferCount = 0;
-            // if (makeChamferTransitionByBisector(a, b, chamferExtra, chamferCount)) {
-            //     for (int i = 0; i < chamferCount && insertCount < 2; ++i)
-            //         inserts[insertCount++] = chamferExtra[i];
-            //     return;
-            // }
-
-            if (!acute &&  makeArcExtension(a, b, inserts[insertCount]))
+            // only non-acute arc combos can be extended, otherwise just roll or leave it
+            if (tryArcExtension && !acute && makeArcExtension(a, b, inserts[insertCount]))
             {
                 insertCount++;
                 return;
@@ -1069,10 +974,10 @@ public:
             return;
         }
 
-        // No true intersection
+        // No true intersection. need a bridge. 
         if (acute || forceRoll)
         {
-            if (makeArcExtension(a, b, inserts[insertCount]))
+            if (tryArcExtension && makeArcExtension(a, b, inserts[insertCount]))
             {
                 insertCount++;
                 return;
@@ -1127,13 +1032,13 @@ public:
 
         if (it == IT_NONE)
         {
-            if (!acute &&  makeArcExtension(a, b, inserts[insertCount]))
+            if (tryArcExtension && !acute && makeArcExtension(a, b, inserts[insertCount]))
             {
                 insertCount++;
                 return;
             }
 
-            // only if convex or forced, otherwise just leave it
+            // only if convex
             if (was_convex(a, b))
             {
                 inserts[insertCount++] = makeRollArc(a, b);
@@ -1186,7 +1091,7 @@ public:
 
         if (acute || forceRoll)
         {
-            if (makeArcExtension(a, b, inserts[insertCount]))
+            if (tryArcExtension && makeArcExtension(a, b, inserts[insertCount]))
             {
                 insertCount++;
                 return;
@@ -1474,7 +1379,7 @@ public:
 
             int j = crossing.j;
 
-            bool isValid = trimToTIP(moves[src], moves[j], crossing.tip);
+            (void)trimToTIP(moves[src], moves[j], crossing.tip);
             // test the above now to see if either one is invalid after trimming,
             // and if so invalidate the other as well since the crossing is resolved and we don't want to leave any tiny slivers that could cause more crossings or other issues downstream.
 

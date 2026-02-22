@@ -35,7 +35,7 @@
 
 // -------------------- Config --------------------
 static constexpr float TOOL_RADIUS = 0.0625f;
-static constexpr bool ENABLE_ROLL_AROUND = true;
+static constexpr bool FORCE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
 static constexpr bool ENABLE_ARC_EXTENSION = false;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
@@ -91,9 +91,11 @@ static void process_one_gcode_line(const char *raw)
 
   Move2D mv = interpret_to_move(s, modal, MACHINE_TYPE);
 
+  #ifndef NDEBUG
   // copy raw line for testing only
   copy_gcode_line(mv.gcode_line, sizeof(mv.gcode_line), raw);
-
+#endif
+ 
   if ((s.sawG41 || s.sawG42))
   {
     // comp mode is now LEFT/RIGHT; set in cutter comp BEFORE processing this move.
@@ -113,7 +115,7 @@ static void process_one_gcode_line(const char *raw)
   }
 
   // main pump-----------------------------------------
-  cc.process(ENABLE_ROLL_AROUND); // force rolling for demo
+  cc.process(FORCE_ROLL_AROUND);
   //-------------------------------------------------
 
   Move2D out;
@@ -214,8 +216,9 @@ int main()
   // Init cutter comp
   cc.setToolRadius(TOOL_RADIUS);
   cc.setMachineType(MACHINE_TYPE);
-  cc.setCornerRolling(ENABLE_ROLL_AROUND);
+  cc.setCornerRolling(FORCE_ROLL_AROUND);
   cc.setTryArcExtension(ENABLE_ARC_EXTENSION);
+  cc.setEnableChamferTransitions(false);
   cc.setComp(COMP_OFF);
 
   profile_reset();
@@ -262,7 +265,7 @@ int main()
   // Write outputs for testing/visualization
   auto orig = build_original_moves(program);
 
-  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, TOOL_RADIUS * 2.0f,false,false); // mirror for better visualization
+  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, TOOL_RADIUS * 2.0f,true,false); // mirror for better visualization
   write_gcode("out.ngc", profile, MACHINE_TYPE);
 
   std::puts("Wrote: out.svg, out.ngc, out.csv");
