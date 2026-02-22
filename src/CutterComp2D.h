@@ -333,6 +333,15 @@ public:
             bool radius_ok = is_radius_consistent(m);
             m.valid = d >= TOL && radius_ok;
         }
+        // add a debugger break if m.valid is false
+        if (!m.valid)
+        {
+            DBG_PRINTLN("Invalid move detected!");
+            // You can set a breakpoint on the line below to catch invalid moves during debugging.
+            // This can help identify issues with the offset logic or edge cases.
+            // For example, if you see this triggered, check if the move is a very short line or a degenerate arc.
+            // You may want to log the move details here for further analysis.
+        }
         return m.valid;
     }
 
@@ -745,8 +754,8 @@ public:
     void handleLineLine(Move2D &a, Move2D &b, bool acute, bool forceRoll, bool comping, Move2D inserts[2], int &insertCount)
     {
         // Keep directions up to date
-        update_vectors(a); // TODO: consider if we can avoid some of these updates by being smarter about when we modify the moves (e.g. only update after deciding on roll vs bevel)
-        update_vectors(b);
+        // update_vectors(a); // redundant here: a/b are already updated in applyLogic before dispatch
+        // update_vectors(b); // keep commented for quick debug toggling
 
         Vec2 ip;
         bool tip = false;
@@ -1227,11 +1236,6 @@ public:
 
             int j = crossing.j;
 
-            // Re-calc is not needed here because our geometry isn't mutating intersection cache like VB;
-            // but if you later add caching, this is where you'd "recalc".
-
-            // this returns false!!!!
-            // verify the TIP and debug.
             bool isValid = trimToTIP(moves[src], moves[j], crossing.tip);
             // test the above now to see if either one is invalid after trimming,
             // and if so invalidate the other as well since the crossing is resolved and we don't want to leave any tiny slivers that could cause more crossings or other issues downstream.
