@@ -61,6 +61,12 @@ enum CompMode : uint8_t
   CM_OUT = 3
 };
 
+enum CornerType : uint8_t
+{
+  CORNER_ROLL = 0,
+  CORNER_CHAMFER= 1,
+};
+
 enum MachineType : uint8_t
 {
   MAC_MILL = 0,

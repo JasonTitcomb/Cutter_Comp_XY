@@ -255,7 +255,7 @@ void setup()
   // Init cutter comp engine
   cc.setToolRadius(TOOL_RADIUS);
   cc.setMachineType(MACHINE_TYPE);
-  cc.setCornerRolling(FORCE_ROLL_AROUND);
+  cc.setCornerTreatment(FORCE_ROLL_AROUND);
   cc.setComp(COMP_OFF);
 
   // Reset profile buffer

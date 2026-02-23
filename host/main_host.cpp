@@ -34,10 +34,8 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.05f;
-static constexpr bool FORCE_ROLL_AROUND = true;
-static constexpr bool ENABLE_TRIM_CROSSINGS = true;
-static constexpr bool ENABLE_ARC_EXTENSION = false;
+static constexpr float TOOL_RADIUS = 0.25f;
+static constexpr bool ENABLE_TRIM_CROSSINGS = false;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
 
 static constexpr int MAX_LOOKAHEAD_FOR_INTERSECTIONS = 25;
@@ -115,7 +113,7 @@ static void process_one_gcode_line(const char *raw)
   }
 
   // main pump-----------------------------------------
-  cc.process(FORCE_ROLL_AROUND);
+  cc.process();
   //-------------------------------------------------
 
   Move2D out;
@@ -195,11 +193,11 @@ int main()
   //const char *default_file = "../../data/TortureTestG91.nc";
   //const char *default_file = "../../data/LatheDia.nc";
   //const char *default_file = "../../data/LatheRad.nc";
-  //const char *default_file = "../../data/Sample2.nc";
+  const char *default_file = "../../data/Sample2.nc";
   //const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //const char *default_file = "../../data/TortureTestmm.nc";
   //const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc";
+  //const char *default_file = "../../data/TortureTestG90.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 
@@ -218,10 +216,8 @@ int main()
   // Init cutter comp
   cc.setToolRadius(TOOL_RADIUS);
   cc.setMachineType(MACHINE_TYPE);
-  cc.setCornerRolling(FORCE_ROLL_AROUND);
-  cc.setTryArcExtension(ENABLE_ARC_EXTENSION);
-  cc.setEnableChamferTransitions(false);
-  cc.setComp(COMP_OFF);
+  cc.setCornerTreatment(CORNER_ROLL);
+   cc.setComp(COMP_OFF);
 
   profile_reset();
 
@@ -267,7 +263,7 @@ int main()
   // Write outputs for testing/visualization
   auto orig = build_original_moves(program);
 
-  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, TOOL_RADIUS * 2.0f,true,false); // mirror for better visualization
+  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, TOOL_RADIUS * 2.0f,true,true); // mirror for better visualization
   write_gcode("out.ngc", profile, MACHINE_TYPE);
 
   std::puts("Wrote: out.svg, out.ngc, out.csv");
