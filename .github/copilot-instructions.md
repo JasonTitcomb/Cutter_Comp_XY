@@ -5,6 +5,7 @@
 - Prefer minimal, surgical changes in existing files over broad refactors.
 - Do not introduce new dependencies unless explicitly requested.
 - Avoid lambda functions unless necessary; prefer named functions for clarity and testability.
+- Keep compatibility with C99
 
 ## Coding style
 - Match existing formatting and naming in touched files.

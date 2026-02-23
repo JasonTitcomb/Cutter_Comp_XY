@@ -34,7 +34,7 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr float TOOL_RADIUS = 0.05f;
 static constexpr bool FORCE_ROLL_AROUND = true;
 static constexpr bool ENABLE_TRIM_CROSSINGS = true;
 static constexpr bool ENABLE_ARC_EXTENSION = false;
@@ -191,13 +191,15 @@ int main()
   //const char *default_file = "../../data/RapidComp.nc";
   //const char *default_file = "../../data/G41_1.nc";
   //const char *default_file = "../../data/G41_2.nc";
-  const char *default_file = "../../data/TortureTestG90.nc";
+  
   //const char *default_file = "../../data/TortureTestG91.nc";
   //const char *default_file = "../../data/LatheDia.nc";
   //const char *default_file = "../../data/LatheRad.nc";
   //const char *default_file = "../../data/Sample2.nc";
   //const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //const char *default_file = "../../data/TortureTestmm.nc";
+  //const char *default_file = "../../data/simple1.nc";
+  const char *default_file = "../../data/TortureTestG90.nc";
   std::vector<std::string> program = load_program_from_file(default_file); // warm up file loading (for better timing when we print later)
   // std::vector<std::string> program = load_program_from_demo();
 

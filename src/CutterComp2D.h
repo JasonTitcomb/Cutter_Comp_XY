@@ -90,9 +90,16 @@ public:
 
             Move2D curOff;
             // capture the original raw vectors before any comp modifications
-            offsetMove(raw, curOff);
+            bool offsetOk = offsetMove(raw, curOff);
             curOff.initialStartDir = raw.startDir;
             curOff.initialEndDir = raw.endDir;
+
+            if (!offsetOk)
+            {
+                // offset failed (e.g. arc radius too small after offset), pass through unmodified (but with updated vectors for downstream logic consistency).
+                // continue;
+            }
+
             update_vectors(curOff); // after offsetting.
 
             if (!havePrev)
@@ -237,7 +244,10 @@ public:
         Vec2 v = src.p_1 - src.p_0;
         float l = len(v);
         if (l < TOL)
+        {
+            dst.valid = false;
             return false;
+        }
         Vec2 u = v * (1.0f / l);
 
         // if comping in or out then offset should be zero.
@@ -275,6 +285,14 @@ public:
         if (r0 < TOL)
             return false;
 
+        // if the move rad = toolRad then
+        if (src.radius - toolR < TOL)
+        {
+            dst.valid = false; // mark as invalid so it gets removed later (degenerate geometry that causes issues in logic later)
+            // DBG_PRINTLN("Arc radius equals tool radius, treating as line");
+            return false;
+        }
+
         // complete copy.
         dst = src;
         // backups of original geometry.
@@ -305,7 +323,10 @@ public:
         Vec2 v1 = src.p_1 - src.center;
         float lv0 = len(v0), lv1 = len(v1);
         if (lv0 < TOL || lv1 < TOL)
+        {
+            dst.valid = false;
             return false;
+        }
 
         dst.type = MOT_ARC;
         dst.center = src.center;
@@ -727,9 +748,84 @@ public:
         return found;
     }
 
-    // Creates a line segment bridging arc<->line/arc when comping and no TIP.
-    bool makeArcExtension(Move2D &a, Move2D &b, Move2D &extLnOut)
+    bool makeCornerTreatment(Move2D &a, Move2D &b, Move2D &outLine)
     {
+        Move2D l1, l2;
+        int8_t side = (comp_state == COMP_LEFT) ? -1 : 1;
+
+        if (a.type == MOT_LINE)
+        {
+            l1 = a;
+        }
+        else
+        {
+            l1 = makeArcExtension(a, b);
+        }
+
+        if (b.type == MOT_LINE)
+        {
+            l2 = b;
+        }
+        else
+        {
+            l2 = makeArcExtension(a, b);
+        }
+
+        Vec2 dirA = l1.initialEndDir;
+        Vec2 dirB = l2.initialStartDir;
+
+        Vec2 partCorner = l1.src_1;
+        // create a bisector
+
+        Vec2 vIn = normalize(l1.endDir * -1.0f);
+        Vec2 vOut = normalize(l2.startDir);
+        Vec2 bisector = normalize(vIn + vOut);
+        if (len(bisector) < TOL)
+            return false;
+
+        Vec2 chamferDir = normalize(leftNormal(bisector));
+        Vec2 offsetCorner = partCorner + bisector * (side * toolR);
+        Move2D chamfer;
+        chamfer.type = MOT_LINE;
+        chamfer.compMode = CM_STEADY;
+        const float halfLen = 0.5f * (toolR + 2.0f);
+        chamfer.p_0 = offsetCorner - chamferDir * halfLen;
+        chamfer.p_1 = offsetCorner + chamferDir * halfLen;
+        chamfer.o_0 = chamfer.p_0;
+        chamfer.o_1 = chamfer.p_1;
+        
+
+        Vec2 ipForL1{0, 0};
+        Vec2 ipForL2{0, 0};
+        bool tip = false;
+        IntersectType it = intersectLineLine(l1, chamfer, ipForL1, tip);
+        if (it != IT_NONE)
+        {
+            l1.p_1 = ipForL1;
+        }
+
+       Vec2 ip2{0, 0};
+        it = intersectLineLine(l2, chamfer, ipForL2, tip);
+        if (it != IT_NONE)
+        {
+            l2.p_0 = ipForL2;
+        }
+        // chamfer end points
+        chamfer.p_0 = ipForL1;
+        chamfer.p_1 = ipForL2;
+
+        outLine=chamfer;
+        a=l1;
+        b=l2;
+         return false;
+    }
+
+    // Creates a line segment bridging arc<->line/arc when comping and no TIP.
+    Move2D makeArcExtension(Move2D &a, Move2D &b)
+    {
+        Move2D extLnOut;
+        extLnOut.valid = false;
+
         // Case: a is LINE, b is ARC
         if (a.type == MOT_LINE && b.type == MOT_ARC)
         {
@@ -743,13 +839,13 @@ public:
             Vec2 ip;
             bool tip = false;
             if (intersectLineLine(probe, a, ip, tip) == IT_NONE)
-                return false;
+                return extLnOut;
 
             float da = dot(ip - a.p_1, a.endDir);
             float db = dot(ip - b.p_0, b.startDir);
 
             if (!(da > 0 && db < 0))
-                return false;
+                return extLnOut;
 
             a.p_1 = ip;
             update_vectors(a);
@@ -758,8 +854,11 @@ public:
             extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
             extLnOut.p_0 = ip;
             extLnOut.p_1 = b.p_0;
+            extLnOut.o_0 = extLnOut.p_0;
+            extLnOut.o_1 = extLnOut.p_1;
             update_vectors(extLnOut);
-            return true;
+            check_validity(extLnOut);
+            return extLnOut;
         }
 
         // Case: a is ARC, b is LINE
@@ -775,13 +874,13 @@ public:
             Vec2 ip;
             bool tip = false;
             if (intersectLineLine(probe, b, ip, tip) == IT_NONE)
-                return false;
+                return extLnOut;
 
             float da = dot(ip - a.p_1, a.endDir);
             float db = dot(ip - b.p_0, b.startDir);
 
             if (!(da > 0 && db < 0))
-                return false;
+                return extLnOut;
 
             b.p_0 = ip;
             update_vectors(b);
@@ -790,8 +889,11 @@ public:
             extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
             extLnOut.p_0 = a.p_1;
             extLnOut.p_1 = ip;
+            extLnOut.o_0 = extLnOut.p_0;
+            extLnOut.o_1 = extLnOut.p_1;
             update_vectors(extLnOut);
-            return true;
+            check_validity(extLnOut);
+            return extLnOut;
         }
 
         // Case: a is ARC, b is ARC (true common tangent)
@@ -802,7 +904,7 @@ public:
             Vec2 d = c1 - c0;
             float dist = len(d);
             if (dist < TOL)
-                return false;
+                return extLnOut;
 
             Vec2 u = d * (1.0f / dist);
             Vec2 perp = leftNormal(u);
@@ -817,7 +919,7 @@ public:
                 found = true;
 
             if (!found)
-                return false;
+                return extLnOut;
 
             a.p_1 = bestP0;
             b.p_0 = bestP1;
@@ -827,11 +929,14 @@ public:
             extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
             extLnOut.p_0 = bestP0;
             extLnOut.p_1 = bestP1;
+            extLnOut.o_0 = extLnOut.p_0;
+            extLnOut.o_1 = extLnOut.p_1;
             update_vectors(extLnOut);
-            return true;
+            check_validity(extLnOut);
+            return extLnOut;
         }
 
-        return false;
+        return extLnOut;
     }
 
     void applyLogic(Move2D &a, Move2D &b, bool forceRoll, Move2D inserts[2], int &insertCount)
@@ -892,24 +997,14 @@ public:
                 }
             }
 
-            if (is_convex(a, b))
+            if (is_convex(a, b))// with gap
             {
-                if (enableChamferTransitions)
-                {
-                    Move2D chamferExtra[2];
-                    int chamferCount = 0;
-                    if (makeChamferTransitionByBisector(a, b, chamferExtra, chamferCount))
-                    {
-                        for (int i = 0; i < chamferCount && insertCount < 2; ++i)
-                            inserts[insertCount++] = chamferExtra[i];
-                        return;
-                    }
-                }
-                else
-                {
-                    inserts[insertCount++] = makeRollArc(a, b);
-                    return;
-                }
+                //inserts[insertCount++] = makeRollArc(a, b);
+                //return;
+                Move2D corner;
+                bool success = makeCornerTreatment(a, b, corner);
+                inserts[insertCount++] = corner;
+                return;
             }
 
             // If we get here: concave or no-good FIP -> bevel locally (prevents diagonals)
@@ -943,10 +1038,14 @@ public:
         if (it == IT_NONE)
         {
             // only non-acute arc combos can be extended, otherwise just roll or leave it
-            if (tryArcExtension && !acute && makeArcExtension(a, b, inserts[insertCount]))
+            if (tryArcExtension && !acute)
             {
-                insertCount++;
-                return;
+                Move2D ext = makeArcExtension(a, b);
+                if (ext.valid)
+                {
+                    inserts[insertCount++] = ext;
+                    return;
+                }
             }
 
             // fallback: roll to close gap
@@ -974,13 +1073,17 @@ public:
             return;
         }
 
-        // No true intersection. need a bridge. 
+        // No true intersection. need a bridge.
         if (acute || forceRoll)
         {
-            if (tryArcExtension && makeArcExtension(a, b, inserts[insertCount]))
+            if (tryArcExtension)
             {
-                insertCount++;
-                return;
+                Move2D ext = makeArcExtension(a, b);
+                if (ext.valid)
+                {
+                    inserts[insertCount++] = ext;
+                    return;
+                }
             }
 
             Move2D roll = makeRollArc(a, b);
@@ -1032,10 +1135,14 @@ public:
 
         if (it == IT_NONE)
         {
-            if (tryArcExtension && !acute && makeArcExtension(a, b, inserts[insertCount]))
+            if (tryArcExtension && !acute)
             {
-                insertCount++;
-                return;
+                Move2D ext = makeArcExtension(a, b);
+                if (ext.valid)
+                {
+                    inserts[insertCount++] = ext;
+                    return;
+                }
             }
 
             // only if convex
@@ -1091,10 +1198,14 @@ public:
 
         if (acute || forceRoll)
         {
-            if (tryArcExtension && makeArcExtension(a, b, inserts[insertCount]))
+            if (tryArcExtension)
             {
-                insertCount++;
-                return;
+                Move2D ext = makeArcExtension(a, b);
+                if (ext.valid)
+                {
+                    inserts[insertCount++] = ext;
+                    return;
+                }
             }
 
             if (cornerRolling && is_convex(a, b))

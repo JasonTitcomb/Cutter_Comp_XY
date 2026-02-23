@@ -727,7 +727,8 @@ static inline Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
   return (len(a - ref) <= len(b - ref)) ? a : b;
 }
 
-static inline float includedAngleDeg(Vec2 v1, Vec2 v2)
+
+static inline float includedAngleRad(Vec2 v1, Vec2 v2)
 {
   // VB does: v2 = -v2
   v1 = normalize(v1);
@@ -735,9 +736,13 @@ static inline float includedAngleDeg(Vec2 v1, Vec2 v2)
 
   float c = dot(v1, v2);
   c = c2d_clamp(c, -1.0f, 1.0f);
-  return rad2deg(acosf(c));
+  return acosf(c);
 }
 
+static inline float includedAngleDeg(Vec2 v1, Vec2 v2)
+{
+  return rad2deg(includedAngleRad(v1, v2));
+}
 static inline bool isNearDir(Vec2 a, Vec2 b)
 {
   a = normalize(a);
