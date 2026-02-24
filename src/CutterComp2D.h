@@ -290,14 +290,6 @@ public:
         if (r0 < TOL)
             return false;
 
-        // if the move rad = toolRad then
-        if (src.radius - toolR < TOL)
-        {
-            dst.valid = false; // mark as invalid so it gets removed later (degenerate geometry that causes issues in logic later)
-            // DBG_PRINTLN("Arc radius equals tool radius, treating as line");
-            return false;
-        }
-
         // complete copy.
         dst = src;
         // backups of original geometry.
@@ -451,308 +443,7 @@ public:
         return roll;
     }
 
-    Move2D makeTransitionLine(const Vec2 &p0, const Vec2 &p1, float feedA, float feedB) const
-    {
-        Move2D m;
-        m.type = MOT_LINE;
-        m.compMode = CM_STEADY;
-        m.feed = (feedA > 0) ? feedA : feedB;
-        m.p_0 = p0;
-        m.p_1 = p1;
-        m.o_0 = m.p_0;
-        m.o_1 = m.p_1;
-        update_vectors(m);
-        check_validity(m);
-        return m;
-    }
-
-    bool intersectMoveWithGuideLine(const Move2D &m,
-                                    const Vec2 &lineP0,
-                                    const Vec2 &lineP1,
-                                    bool atEnd,
-                                    Vec2 &hit) const
-    {
-        if (m.type == MOT_LINE || m.type == MOT_RAPID)
-        {
-            Move2D seg = m;
-            seg.o_0 = seg.p_0;
-            seg.o_1 = seg.p_1;
-
-            Move2D guide;
-            guide.type = MOT_LINE;
-            guide.p_0 = lineP0;
-            guide.p_1 = lineP1;
-            guide.o_0 = guide.p_0;
-            guide.o_1 = guide.p_1;
-
-            bool tip = false;
-            if (intersectLineLine(seg, guide, hit, tip) == IT_NONE)
-                return false;
-
-            if (atEnd)
-            {
-                float d = dot(hit - m.p_1, m.endDir);
-                return d >= -TOL;
-            }
-
-            float d = dot(hit - m.p_0, m.startDir);
-            return d <= TOL;
-        }
-
-        if (m.type == MOT_ARC)
-        {
-            Vec2 p1{}, p2{};
-            int count = 0;
-            IntersectType it = intersectLineCircle(lineP0, lineP1, m.center, m.radius, p1, p2, count);
-            if (it == IT_NONE)
-                return false;
-
-            bool have = false;
-            float best = 1e30f;
-            Vec2 bestP{};
-
-            if (count >= 1 && pointOnArc(m, p1))
-            {
-                float d = atEnd ? dot(p1 - m.p_1, m.endDir) : dot(p1 - m.p_0, m.startDir);
-                bool ok = atEnd ? (d >= -TOL) : (d <= TOL);
-                if (ok)
-                {
-                    float score = fabsf(d);
-                    if (score < best)
-                    {
-                        best = score;
-                        bestP = p1;
-                        have = true;
-                    }
-                }
-            }
-
-            if (count == 2 && pointOnArc(m, p2))
-            {
-                float d = atEnd ? dot(p2 - m.p_1, m.endDir) : dot(p2 - m.p_0, m.startDir);
-                bool ok = atEnd ? (d >= -TOL) : (d <= TOL);
-                if (ok)
-                {
-                    float score = fabsf(d);
-                    if (score < best)
-                    {
-                        best = score;
-                        bestP = p2;
-                        have = true;
-                    }
-                }
-            }
-
-            if (!have)
-                return false;
-
-            hit = bestP;
-            return true;
-        }
-
-        return false;
-    }
-
-    bool intersectChamferGuide(const Move2D &a,
-                               const Move2D &b,
-                               const Vec2 &guidePoint,
-                               const Vec2 &guideDir,
-                               Vec2 &hitA,
-                               Vec2 &hitB) const
-    {
-        const float guideExtent = 1000.0f;
-        Vec2 g0 = guidePoint - guideDir * guideExtent;
-        Vec2 g1 = guidePoint + guideDir * guideExtent;
-
-        if (!intersectMoveWithGuideLine(a, g0, g1, true, hitA))
-            return false;
-        if (!intersectMoveWithGuideLine(b, g0, g1, false, hitB))
-            return false;
-        return true;
-    }
-
-    // Chamfer-style corner transition based on angle bisector construction.
-    // Modifies a/b endpoints to the guide-line intersections and emits up to 2 transition lines.
-    // Returns true if a valid chamfer transition was produced.
-    //
-    // Expected call pattern:
-    //   Move2D extra[2];
-    //   int extraCount = 0;
-    //   if (makeChamferTransitionByBisector(a, b, extra, extraCount)) {
-    //       // push trimmed a
-    //       // push extra[0..extraCount-1]
-    //       // then continue with trimmed b
-    //   }
-    bool makeChamferTransitionByBisector(Move2D &a, Move2D &b, Move2D inserts[2], int &insertCount) const
-    {
-        insertCount = 0;
-
-        Vec2 vIn = normalize(a.endDir * -1.0f);
-        Vec2 vOut = normalize(b.startDir);
-        if (len(vIn) < TOL || len(vOut) < TOL)
-            return false;
-
-        Vec2 bis = normalize(vIn + vOut);
-        if (len(bis) < TOL)
-            return false;
-
-        Vec2 lineAStart = a.src_1;
-        Vec2 lineAEndDir = normalize(a.initialEndDir);
-        Vec2 lineBStart = b.src_0;
-        Vec2 lineBStartDir = normalize(b.initialStartDir);
-
-        Vec2 corner = (a.src_1 + b.src_0) * 0.5f;
-        float den = cross(lineAEndDir, lineBStartDir);
-        if (fabsf(den) > TOL)
-        {
-            float t = cross(lineBStart - lineAStart, lineBStartDir) / den;
-            corner = lineAStart + lineAEndDir * t;
-        }
-
-        Vec2 n = leftNormal(bis);
-        float ln = len(n);
-        if (ln < TOL)
-            return false;
-        n = n * (1.0f / ln);
-
-        float offset = toolR + TOL;
-        Vec2 sPos = corner + bis * offset;
-        Vec2 sNeg = corner - bis * offset;
-
-        Vec2 hitApos{}, hitBpos{};
-        Vec2 hitAneg{}, hitBneg{};
-        bool havePos = intersectChamferGuide(a, b, sPos, n, hitApos, hitBpos);
-        bool haveNeg = intersectChamferGuide(a, b, sNeg, n, hitAneg, hitBneg);
-
-        if (!havePos && !haveNeg)
-            return false;
-
-        Vec2 S = sPos;
-        Vec2 hitA = hitApos;
-        Vec2 hitB = hitBpos;
-
-        if (!havePos && haveNeg)
-        {
-            S = sNeg;
-            hitA = hitAneg;
-            hitB = hitBneg;
-        }
-        else if (havePos && haveNeg)
-        {
-            float spanPos = len(hitBpos - hitApos);
-            float spanNeg = len(hitBneg - hitAneg);
-            if (spanNeg > spanPos)
-            {
-                S = sNeg;
-                hitA = hitAneg;
-                hitB = hitBneg;
-            }
-        }
-
-        a.p_1 = hitA;
-        b.p_0 = hitB;
-        update_vectors(a);
-        update_vectors(b);
-        if (!check_validity(a) || !check_validity(b))
-            return false;
-
-        bool haveAS = (len(S - hitA) > TOL);
-        bool haveSB = (len(hitB - S) > TOL);
-
-        bool colinear = false;
-        Vec2 ab = hitB - hitA;
-        float lab = len(ab);
-        if (lab > TOL)
-        {
-            float distToAB = fabsf(cross(S - hitA, ab)) / lab;
-            colinear = (distToAB <= TOL);
-        }
-
-        if (haveAS && haveSB && colinear)
-        {
-            inserts[insertCount++] = makeTransitionLine(hitA, hitB, a.feed, b.feed);
-        }
-        else
-        {
-            if (haveAS && insertCount < 2)
-                inserts[insertCount++] = makeTransitionLine(hitA, S, a.feed, b.feed);
-            if (haveSB && insertCount < 2)
-                inserts[insertCount++] = makeTransitionLine(S, hitB, a.feed, b.feed);
-        }
-
-        if (insertCount == 0)
-        {
-            if (len(hitB - hitA) <= TOL)
-                return false;
-            inserts[insertCount++] = makeTransitionLine(hitA, hitB, a.feed, b.feed);
-        }
-
-        return true;
-    }
-
-    bool try_arc_arc_tangents(const Move2D &a, const Move2D &b,
-                              float r1prime,
-                              float dist,
-                              const Vec2 &u,
-                              const Vec2 &perp,
-                              float &bestLen,
-                              Vec2 &bestP0,
-                              Vec2 &bestP1) const
-    {
-        float c = (a.radius - r1prime) / dist;
-        if (c < -1.0f || c > 1.0f)
-            return false;
-
-        float h2 = 1.0f - c * c;
-        if (h2 < 0.0f)
-            return false;
-
-        float h = sqrtf(fmaxf(0.0f, h2));
-        bool found = false;
-
-        Vec2 c0 = a.center;
-        Vec2 c1 = b.center;
-
-        for (int s = -1; s <= 1; s += 2)
-        {
-            Vec2 n = u * c + perp * (h * (float)s);
-            Vec2 p0 = c0 + n * a.radius;
-            Vec2 p1 = c1 + n * r1prime;
-
-            if (!pointOnArc(a, p0) || !pointOnArc(b, p1))
-                continue;
-
-            Vec2 seg = p1 - p0;
-            float segLen = len(seg);
-            if (segLen < TOL)
-                continue;
-            Vec2 tdir = seg * (1.0f / segLen);
-
-            Vec2 ra = normalize(p0 - c0);
-            Vec2 rb = normalize(p1 - c1);
-            Vec2 tanA = (a.arcDir == ARC_CCW) ? leftNormal(ra) : rightNormal(ra);
-            Vec2 tanB = (b.arcDir == ARC_CCW) ? leftNormal(rb) : rightNormal(rb);
-
-            if (dot(tdir, tanA) <= 0.0f || dot(tdir, tanB) <= 0.0f)
-                continue;
-
-            float da = dot(p0 - a.p_1, a.endDir);
-            float db = dot(p1 - b.p_0, b.startDir);
-            if (!(da > 0 && db < 0))
-                continue;
-
-            if (segLen < bestLen)
-            {
-                bestLen = segLen;
-                bestP0 = p0;
-                bestP1 = p1;
-                found = true;
-            }
-        }
-
-        return found;
-    }
-
+ 
     uint16_t makeCornerTreatment(Move2D &a, Move2D &b, Move2D out[3])
     {
         uint16_t outCountLocal = 0;
@@ -760,7 +451,6 @@ public:
         Move2D extA, extB;
         bool haveExtA = false;
         bool haveExtB = false;
-        int8_t side = (comp_state == COMP_LEFT) ? -1 : 1;
 
         if (a.type == MOT_LINE)
         {
@@ -801,16 +491,17 @@ public:
         if (len(chamferDir) < TOL)
             return 0;
 
-        Vec2 offsetCorner = partCorner + bisector * (side * toolR);
+        Vec2 offsetCap = partCorner + bisector * (-toolR);
         Move2D cap;
         cap.type = MOT_LINE;
         cap.compMode = CM_STEADY;
         cap.feed = (a.feed > 0) ? a.feed : b.feed;
         const float halfLen = 0.5f * (toolR + 2.0f);
-        cap.p_0 = offsetCorner - chamferDir * halfLen;
-        cap.p_1 = offsetCorner + chamferDir * halfLen;
+        cap.p_0 = offsetCap - chamferDir * halfLen;
+        cap.p_1 = offsetCap + chamferDir * halfLen;
         cap.o_0 = cap.p_0;
         cap.o_1 = cap.p_1;
+        update_vectors(cap);
 
         // now create the intersections and trim the lines to the cap
         Vec2 ipForL1{0, 0};
@@ -829,8 +520,13 @@ public:
         cap.p_1 = ipForL2;
         cap.o_0 = cap.p_0;
         cap.o_1 = cap.p_1;
-        update_vectors(cap);
         check_validity(cap);
+
+        // if the cap length is smaller than the tolerance, we can't reliably intersect and trim to it, so just skip the chamfer and let it be a sharp corner.
+        float caplen = len(cap.p_1 - cap.p_0);
+        if (caplen < TOL)
+            return 0;
+
         if (!cap.valid)
             return 0;
 
@@ -915,122 +611,33 @@ public:
         return extLnOut;
     }
 
-    // Creates a line segment bridging arc<->line/arc when comping and no TIP.
-    Move2D makeArcExtension(Move2D &a, Move2D &b)
+ 
+    bool insertRollOrCorner(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
-        Move2D extLnOut;
+        int startCount = insertCount;
 
-        // Case: a is LINE, b is ARC
-        if (a.type == MOT_LINE && b.type == MOT_ARC)
+        if (cornerTreatment == CORNER_ROLL)
         {
-            Move2D probe;
-            probe.type = MOT_LINE;
-            probe.p_0 = b.p_0;
-            probe.p_1 = b.p_0 + b.startDir;
-            probe.o_0 = probe.p_0;
-            probe.o_1 = probe.p_1;
+            Move2D roll = makeRollArc(a, b);
+            float sw = arcSweep(roll);
+            if (sw > PI * 1.5)
+            {
+                return false;
+            }
+            if (insertCount >= 3)
+                return false;
 
-            Vec2 ip;
-            bool tip = false;
-            if (intersectLineLine(probe, a, ip, tip) == IT_NONE)
-                return extLnOut;
-
-            float da = dot(ip - a.p_1, a.endDir);
-            float db = dot(ip - b.p_0, b.startDir);
-
-            if (!(da > 0 && db < 0))
-                return extLnOut;
-
-            a.p_1 = ip;
-            update_vectors(a);
-
-            extLnOut.type = MOT_LINE;
-            extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extLnOut.p_0 = ip;
-            extLnOut.p_1 = b.p_0;
-            extLnOut.o_0 = extLnOut.p_0;
-            extLnOut.o_1 = extLnOut.p_1;
-            update_vectors(extLnOut);
-            check_validity(extLnOut);
-            return extLnOut;
+            inserts[insertCount++] = roll;
+            return true;
         }
 
-        // Case: a is ARC, b is LINE
-        if (a.type == MOT_ARC && b.type == MOT_LINE)
-        {
-            Move2D probe;
-            probe.type = MOT_LINE;
-            probe.p_0 = a.p_1;
-            probe.p_1 = a.p_1 + a.endDir;
-            probe.o_0 = probe.p_0;
-            probe.o_1 = probe.p_1;
+        Move2D cornerSegs[3];
+        int cornerCount = makeCornerTreatment(a, b, cornerSegs);
 
-            Vec2 ip;
-            bool tip = false;
-            if (intersectLineLine(probe, b, ip, tip) == IT_NONE)
-                return extLnOut;
+        for (int i = 0; i < cornerCount && insertCount < 3; ++i)
+            inserts[insertCount++] = cornerSegs[i];
 
-            float da = dot(ip - a.p_1, a.endDir);
-            float db = dot(ip - b.p_0, b.startDir);
-
-            if (!(da > 0 && db < 0))
-                return extLnOut;
-
-            b.p_0 = ip;
-            update_vectors(b);
-
-            extLnOut.type = MOT_LINE;
-            extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extLnOut.p_0 = a.p_1;
-            extLnOut.p_1 = ip;
-            extLnOut.o_0 = extLnOut.p_0;
-            extLnOut.o_1 = extLnOut.p_1;
-            update_vectors(extLnOut);
-            check_validity(extLnOut);
-            return extLnOut;
-        }
-
-        // Case: a is ARC, b is ARC (true common tangent)
-        if (a.type == MOT_ARC && b.type == MOT_ARC)
-        {
-            Vec2 c0 = a.center;
-            Vec2 c1 = b.center;
-            Vec2 d = c1 - c0;
-            float dist = len(d);
-            if (dist < TOL)
-                return extLnOut;
-
-            Vec2 u = d * (1.0f / dist);
-            Vec2 perp = leftNormal(u);
-
-            bool found = false;
-            float bestLen = 1e30f;
-            Vec2 bestP0{}, bestP1{};
-
-            if (try_arc_arc_tangents(a, b, b.radius, dist, u, perp, bestLen, bestP0, bestP1))
-                found = true;
-            if (try_arc_arc_tangents(a, b, -b.radius, dist, u, perp, bestLen, bestP0, bestP1))
-                found = true;
-
-            if (!found)
-                return extLnOut;
-
-            a.p_1 = bestP0;
-            b.p_0 = bestP1;
-            update_vectors(a);
-            update_vectors(b);
-            extLnOut.type = MOT_LINE;
-            extLnOut.feed = (a.feed > 0) ? a.feed : b.feed;
-            extLnOut.p_0 = bestP0;
-            extLnOut.p_1 = bestP1;
-            extLnOut.o_0 = extLnOut.p_0;
-            extLnOut.o_1 = extLnOut.p_1;
-            update_vectors(extLnOut);
-            check_validity(extLnOut);
-            return extLnOut;
-        }
-
-        return extLnOut;
+        return insertCount > startCount;
     }
 
     void applyLogic(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
@@ -1089,37 +696,26 @@ public:
             }
         }
 
+        if (a.compMode == CM_IN)
+        {
+            a.p_1 = b.p_0;
+            return;
+        }
+
+        if (b.compMode == CM_OUT)
+        {
+            b.p_0 = a.p_1;
+            return;
+        }
+
         if (is_convex(a, b)) // TODO: do i need a convex test? line to line non-convex would cross and should be handled above.
         {
-            if (cornerTreatment == CORNER_ROLL)
-            {
-                inserts[insertCount++] = makeRollArc(a, b); // 1 move case
-                return;
-            }
-
-            Move2D cornerSegs[3]; // up to 3 segments for chamfer-style corner treatment
-            int cornerCount = makeCornerTreatment(a, b, cornerSegs);
-
-            for (int i = 0; i < cornerCount && insertCount < 3; ++i)
-                inserts[insertCount++] = cornerSegs[i];
+           insertRollOrCorner(a, b, inserts, insertCount);
             return;
         }
 
         // If we get here: concave or no-good FIP -> bevel locally (prevents diagonals)
         inserts[insertCount++] = makeBevel(a, b);
-        return;
-
-        // // 3) Non-roll path:
-        // if (dirOK)
-        // {
-        //     if (extendToFIP(a, b, ip))
-        //     {
-        //         return;
-        //     }
-        // }
-
-        // Fallback: bevel
-        // inserts[insertCount++] = makeBevel(a, b);
     }
 
     void handleArcArc(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
@@ -1130,28 +726,18 @@ public:
         }
 
         Vec2 p1{}, p2{};
-        int count = 0;
-        IntersectType it = intersectCircleCircle(a, b, p1, p2, count);
+        int tipCt = 0;
+        IntersectType it = intersectCircleCircle(a, b, p1, p2, tipCt);
         if (it == IT_NONE) // no intersection so close the gap with a chamfer or roll.
         {
-            if (cornerTreatment == CORNER_ROLL)
-            {
-                inserts[insertCount++] = makeRollArc(a, b); // 1 move case
-                return;
-            }
-
-            Move2D cornerSegs[3]; // up to 3 segments for chamfer-style corner treatment
-            int cornerCount = makeCornerTreatment(a, b, cornerSegs);
-
-            for (int i = 0; i < cornerCount && insertCount < 3; ++i)
-                inserts[insertCount++] = cornerSegs[i];
-
-            return;
+              if (!insertRollOrCorner(a, b, inserts, insertCount))
+                    DBG_PRINTLN("handleArcArc unresolved gap (IT_NONE)");
+           return;
         }
 
         // Determine TIP(true intersection point) candidates
-        bool tip1 = (count >= 1) && pointOnArc(a, p1) && pointOnArc(b, p1);
-        bool tip2 = (count == 2) && pointOnArc(a, p2) && pointOnArc(b, p2);
+        bool tip1 = (tipCt >= 1) && pointOnArc(a, p1) && pointOnArc(b, p1);
+        bool tip2 = (tipCt == 2) && pointOnArc(a, p2) && pointOnArc(b, p2);
 
         if (it == IT_TANGENT)
         {
@@ -1169,35 +755,9 @@ public:
             return;
         }
 
-        // No true intersection. need a bridge.
-        // if (acute || forceRoll)
-        {
-            // if (tryArcExtension)
-            // {
-            //     Move2D ext = makeArcExtension(a, b);
-            //     if (ext.valid)
-            //     {
-            //         inserts[insertCount++] = ext;
-            //         return;
-            //     }
-            // }
+        if (!insertRollOrCorner(a, b, inserts, insertCount))
+            DBG_PRINTLN("handleArcArc unresolved gap (no TIP)");
 
-            Move2D roll = makeRollArc(a, b);
-            float sw = arcSweep(roll);
-            if (sw > PI * 1.5)
-            {
-                // likely long-way-around loop
-                // reject this roll or try the other intersection
-                return;
-            }
-            inserts[insertCount++] = roll;
-        }
-        // else
-        // {
-        //     // FIP(false intersection point): choose point closest to prev end, then extend test
-        //     Vec2 fip = (count == 2) ? pickClosest(a.p_1, p1, p2) : p1;
-        //     (void)extendToFIP(a, b, fip);
-        // }
     }
 
     void handleArcLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
@@ -1231,25 +791,9 @@ public:
 
         if (it == IT_NONE)
         {
-            if (cornerTreatment == CORNER_ROLL)
-            {
-                inserts[insertCount++] = makeRollArc(a, b); // 1 move case
-                return;
-            }
+            insertRollOrCorner(a, b, inserts, insertCount);
 
-            Move2D cornerSegs[3]; // up to 3 segments for chamfer-style corner treatment
-            int cornerCount = makeCornerTreatment(a, b, cornerSegs);
-
-            for (int i = 0; i < cornerCount && insertCount < 3; ++i)
-                inserts[insertCount++] = cornerSegs[i];
             return;
-
-            // only if convex
-            // if (was_convex(a, b))
-            // {
-            //     inserts[insertCount++] = makeRollArc(a, b);
-            // }
-            // return;
         }
 
         // Evaluate TIP: point must lie on finite line segment and on arc sweep
@@ -1295,17 +839,7 @@ public:
             return;
         }
 
-        if (cornerTreatment == CORNER_ROLL)
-        {
-            inserts[insertCount++] = makeRollArc(a, b); // 1 move case
-            return;
-        }
-
-        Move2D cornerSegs[3]; // up to 3 segments for chamfer-style corner treatment
-        int cornerCount = makeCornerTreatment(a, b, cornerSegs);
-
-        for (int i = 0; i < cornerCount && insertCount < 3; ++i)
-            inserts[insertCount++] = cornerSegs[i];
+        insertRollOrCorner(a, b, inserts, insertCount);
     }
 
     // Returns 0..2 TIPs that lie on BOTH finite elements

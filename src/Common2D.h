@@ -5,6 +5,7 @@
 
 #define TOL 0.00005f
 #define EPS 1e-7f
+#define PARALLEL_TOL 1e-3f
 #define PI 3.14159265358979323846f
 #define TWO_PI 6.2831853071795864769f
 
@@ -222,11 +223,6 @@ static inline Vec3 internal_delta_xy_to_machine(const Vec2 &d, MachineType mt)
   return v3(d.y, 0.0f, d.x);
 }
 
-// Convenience aliases requested for pre/post mapping around compensation.
-static inline Vec2 from_xz_to_xy(const Vec3 &machinePoint, MachineType mt)
-{
-  return machine_to_internal_xy(machinePoint, mt);
-}
 
 static inline Vec3 from_xy_to_xz(const Vec2 &internalPoint, MachineType mt)
 {
@@ -519,34 +515,6 @@ static int first_valid_index(const Move2D *moves, int count)
   return -1;
 }
 
-// colinear test: lines parallel + b.p0 lies on a's infinite line
-static inline bool lines_colinear(const Move2D &a, const Move2D &b,
-                                  float angleTolDeg, float distTol)
-{
-  if (a.type != MOT_LINE || b.type != MOT_LINE)
-    return false;
-
-  Vec2 da = a.p_1 - a.p_0;
-  Vec2 db = b.p_1 - b.p_0;
-
-  float la = len(da);
-  float lb = len(db);
-  if (la < TOL || lb < TOL)
-    return false;
-
-  Vec2 ua = da * (1.0f / la);
-  Vec2 ub = db * (1.0f / lb);
-
-  // parallel (ignore direction sign)
-  float c = c2d_clamp(dot(ua, ub), -1.0f, 1.0f);
-  float ang = rad2deg(acosf(fabsf(c)));
-  if (ang > angleTolDeg)
-    return false;
-
-  // point-to-line distance: |(p - a0) x ua|
-  float d = fabsf(cross(b.p_0 - a.p_0, ua));
-  return d <= distTol;
-}
 
 // Find the first move after a CM_IN move
 static int first_cutting_move(const Move2D *moves, int count)
@@ -637,10 +605,19 @@ static inline IntersectType intersectLineLine(const Move2D &ln1, const Move2D &l
   Vec2 q = ln2.o_0;
   Vec2 s = ln2.o_1 - ln2.o_0;
 
-  float den = cross(r, s);
-  if (fabsf(den) < TOL)
+  float lr = len(r);
+  float ls = len(s);
+  if (lr < TOL || ls < TOL)
   {
     tip = false;
+    return IT_NONE;
+  }
+
+  float den = cross(r, s);
+  float denTol = PARALLEL_TOL * lr * ls;
+  if (fabsf(den) <= denTol)
+  {
+    tip = false;// too parallel to reliably intersect
     return IT_NONE;
   }
 

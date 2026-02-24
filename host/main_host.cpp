@@ -34,8 +34,8 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.25f;
-static constexpr bool ENABLE_TRIM_CROSSINGS = false;
+static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr bool ENABLE_TRIM_CROSSINGS = true;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
 
 static constexpr int MAX_LOOKAHEAD_FOR_INTERSECTIONS = 25;
@@ -187,13 +187,13 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
 int main()
 {
   //const char *default_file = "../../data/RapidComp.nc";
-  //const char *default_file = "../../data/G41_1.nc";
+  const char *default_file = "../../data/G41_1.nc";
   //const char *default_file = "../../data/G41_2.nc";
   
   //const char *default_file = "../../data/TortureTestG91.nc";
   //const char *default_file = "../../data/LatheDia.nc";
   //const char *default_file = "../../data/LatheRad.nc";
-  const char *default_file = "../../data/Sample2.nc";
+  //const char *default_file = "../../data/Sample2.nc";
   //const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //const char *default_file = "../../data/TortureTestmm.nc";
   //const char *default_file = "../../data/simple1.nc";
@@ -263,7 +263,7 @@ int main()
   // Write outputs for testing/visualization
   auto orig = build_original_moves(program);
 
-  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, TOOL_RADIUS * 2.0f,true,true); // mirror for better visualization
+  write_svg("out.svg", profile, &orig, MACHINE_TYPE, false, true, fabs(TOOL_RADIUS * 2.0f), false, true,false); // mirror for better visualization
   write_gcode("out.ngc", profile, MACHINE_TYPE);
 
   std::puts("Wrote: out.svg, out.ngc, out.csv");

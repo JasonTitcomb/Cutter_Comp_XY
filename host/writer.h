@@ -216,6 +216,7 @@ static void write_svg(const char *path,
                       bool mirror_y = false,
                       float tool_diameter = 0.0f,
                       bool show_tool_circles = true,
+                      bool show_tool_sweep = false,
                       bool show_seq_numbers = true)
 {
     Bounds b;
@@ -292,8 +293,38 @@ static void write_svg(const char *path,
             }
         }
     }
+    // Draw smooth tool sweep as a continuous swath along each move.
+    if (show_tool_sweep && tool_diameter > 0.0f)
+    {
+        for (auto &m : moves)
+        {
+            if (!m.valid || m.type == MOT_EMPTY || m.type == MOT_RAPID)
+                continue;
+
+            auto pts = approx_move_points(m, 24);
+            if (pts.size() < 2)
+                continue;
+
+            for (auto &p : pts)
+            {
+                p = internal_xy_to_plot_xy(p, machineType);
+                if (mirror_x)
+                    p.x = b.maxx + b.minx - p.x;
+                if (mirror_y)
+                    p.y = b.maxy + b.miny - p.y;
+            }
+
+            ss << "<polyline fill=\"none\" stroke=\"#bbbbbb\" stroke-width=\""
+               << tool_diameter
+               << "\" stroke-linecap=\"round\" stroke-linejoin=\"round\" opacity=\"0.50\" points=\"";
+            for (auto &p : pts)
+                ss << p.x << "," << p.y << " ";
+            ss << "\" />\n";
+        }
+    }
+
     // Draw tool diameter circles along the offset profile (moves)
-    if (show_tool_circles && tool_diameter > 0.0f)
+    if (show_tool_circles && !show_tool_sweep && tool_diameter > 0.0f)
     {
         float step = 0.50f * tool_diameter; // step size for lerping, 50% of tool diameter
         for (auto &m : moves)
