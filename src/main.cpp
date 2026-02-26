@@ -26,11 +26,11 @@ static constexpr uint32_t BAUD = 115200;
 // IMPORTANT: Tool radius must match the units of your G-code.
 static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr bool FORCE_ROLL_AROUND = true;
-static constexpr bool ENABLE_TRIM_CROSSINGS = true;
+static constexpr bool FULL_TRIM_CROSSINGS = true;
 static constexpr bool ENABLE_MERGE = true;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
-static constexpr int MAX_LOOKAHEAD_FOR_INTERSECTIONS = 25; // MaxLookaheadForIntersections
-static constexpr int MAX_TRIM_PASSES = 6;                  // safety cap
+static constexpr int FULL_TRIM_MAX_LOOKAHEAD = 25; // MaxLookaheadForIntersections
+static constexpr int FULL_TRIM_MAX_PASSES = 6;                  // safety cap
 // ------------------------------------------------
 
 static ModalState modal;
@@ -148,8 +148,16 @@ static void process_one_gcode_line(const char *raw)
     return;
   }
 
-  // Force rolling (VB rollAround => forceRoll). You can change to false later.
-  cc.process(FORCE_ROLL_AROUND);
+ 
+  // main pump-----------------------------------------
+  bool success = cc.process();
+  if (!success)
+  {
+    Serial.println("(comp processing failed due to insufficient output buffer space)");
+    return;
+  }
+  //-------------------------------------------------
+
 
   Move2D out;
   while (cc.popOut(out))
@@ -197,12 +205,12 @@ static void flush_pipeline()
 static void post_trim_and_merge()
 {
   bool any = false;
-  if (ENABLE_TRIM_CROSSINGS)
+  if (FULL_TRIM_CROSSINGS)
   {
 
-    for (int pass = 0; pass < MAX_TRIM_PASSES; ++pass)
+    for (int pass = 0; pass < FULL_TRIM_MAX_PASSES; ++pass)
     {
-      bool changed = cc.trimCrossingElements(profile, profileCount, MAX_LOOKAHEAD_FOR_INTERSECTIONS);
+      bool changed = cc.trimCrossingElements(profile, profileCount, FULL_TRIM_MAX_LOOKAHEAD);
       if (!changed)
       {
         DBG_PRINTLN("No crossings found on pass " + String(pass));
@@ -237,7 +245,7 @@ void setup()
   DBG_PRINT("Fillet: ");
   DBG_PRINTLN(FORCE_ROLL_AROUND ? "ON" : "OFF");
   DBG_PRINT("Crossing trim: ");
-  DBG_PRINTLN(ENABLE_TRIM_CROSSINGS ? "ON" : "OFF");
+  DBG_PRINTLN(FULL_TRIM_CROSSINGS ? "ON" : "OFF");
   DBG_PRINT("Tool radius: ");
   DBG_PRINTLN(TOOL_RADIUS);
   DBG_PRINT("Profile buffer cap: ");
@@ -255,7 +263,7 @@ void setup()
   // Init cutter comp engine
   cc.setToolRadius(TOOL_RADIUS);
   cc.setMachineType(MACHINE_TYPE);
-  cc.setCornerTreatment(FORCE_ROLL_AROUND);
+  cc.setCornerTreatment(FORCE_ROLL_AROUND ? CORNER_ROLL : CORNER_CHAMFER);
   cc.setComp(COMP_OFF);
 
   // Reset profile buffer

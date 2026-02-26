@@ -4,10 +4,13 @@
 #include <math.h>
 
 #define TOL 0.00005f
+#define INPUT_ARC_TOL 0.001f
 #define EPS 1e-7f
 #define PARALLEL_TOL 1e-3f
 #define PI 3.14159265358979323846f
 #define TWO_PI 6.2831853071795864769f
+#define MAX_SWEEP_DEG 359.9f
+#define MIN_ARC_LEN 0.001f
 
 static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi
                                                                                              : x; }
@@ -128,9 +131,9 @@ struct Move2D
   uint32_t seqNum = 0; // for debugging
 
   // Legacy/original move snapshot fields (kept for compatibility/debugging).
-  Vec2 src_0{0, 0}; // original start (currently not used by core logic)
+  Vec2 src_0{0, 0}; // original start (currently not used by core logic; write-only)
   Vec2 src_1{0, 0}; // original end (used by roll-arc center logic)
-  Vec2 src_c{0, 0}; // original arc center (currently not used by core logic)
+  Vec2 src_c{0, 0}; // original arc center (currently not used by core logic; write-only)
 
   // Track original endpoints before any trimming/extension.
   Vec2 o_0{0, 0};
@@ -140,10 +143,6 @@ struct Move2D
   Vec2 initialStartDir{0, 0};
   Vec2 initialEndDir{0, 0};
 
-  // Corner metadata captured at logic entry (prev -> this move).
-  // windingAtStart: -1 CW, +1 CCW, 0 colinear/undefined.
-  // int8_t windingAtStart = 0;
-  // bool wasConvex = false;
 };
 static inline bool machine_is_lathe(MachineType mt)
 {
@@ -224,11 +223,6 @@ static inline Vec3 internal_delta_xy_to_machine(const Vec2 &d, MachineType mt)
 }
 
 
-static inline Vec3 from_xy_to_xz(const Vec2 &internalPoint, MachineType mt)
-{
-  return internal_xy_to_machine(internalPoint, mt);
-}
-
 // Plot-space mapping (SVG still draws in XY):
 // - Mill: plot X/Y
 // - Lathe: plot Z/radius (internal X/internal Y)
@@ -273,7 +267,21 @@ static inline bool is_radius_consistent(const Move2D &m)
 {
   float r0 = len(m.p_0 - m.center);
   float r1 = len(m.p_1 - m.center);
-  return fabsf(r0 - r1) <= TOL;
+  bool isValid = fabsf(r0 - r1) <= INPUT_ARC_TOL;
+  if (!isValid)
+  {
+    DBG_PRINT("Arc radius inconsistency detected! SeqNum: ");
+    DBG_PRINTLN(m.seqNum);
+    DBG_PRINT("r0: ");
+    DBG_PRINT("%.6f", r0);
+    DBG_PRINT(", r1: ");
+    DBG_PRINT("%.6f", r1);
+    // You can set a breakpoint on the line below to catch radius inconsistencies during debugging.
+    // This can help identify issues with arc moves that may cause problems for compensation logic.
+    // For example, if you see this triggered, check if the arc endpoints are very close together or if the center is far from both endpoints.
+    // You may want to log the move details here for further analysis.
+  }
+  return isValid;
 }
 
 static inline int get_winding_dir(Vec2 a, Vec2 b)
@@ -306,7 +314,7 @@ static inline float wrap2pi(float a)
   return a;
 }
 
-static inline float arcSweep(const Move2D &m)
+static inline float arcSweepDeg(const Move2D &m)
 {
   float a0 = wrap2pi(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
   float a1 = wrap2pi(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
@@ -316,14 +324,14 @@ static inline float arcSweep(const Move2D &m)
     float sw = a1 - a0;
     if (sw < 0)
       sw += TWO_PI;
-    return sw; // [0, 2π)
+    return sw * (180.0f / PI); // [0, 360)
   }
   else
   { // ARC_CW
     float sw = a0 - a1;
     if (sw < 0)
       sw += TWO_PI;
-    return sw; // [0, 2π)
+    return sw * (180.0f / PI); // [0, 360)
   }
 }
 
@@ -493,6 +501,7 @@ static inline bool isColinearWith(const Move2D &a, const Move2D &b)
   return false;
 }
 
+// Currently unused helper chain with includedAngle*.
 static inline float rad2deg(float r) { return r * (180.0f / (float)M_PI); }
 
 static int next_valid_index(const Move2D *moves, int count, int i)
@@ -531,11 +540,11 @@ static int first_cutting_move(const Move2D *moves, int count)
 }
 
 // Find the last move before a CM_OUT move
-static int last_cutting_move(const Move2D *moves, int count)
+static int last_cutting_move(const Move2D *moves, int count,int startAt)
 {
-  for (int i = 0; i < count; ++i)
+  for (int i = startAt; i < count; ++i)
   {
-    if (isMotionValid(moves[i]) && moves[i].compMode == CM_OUT)
+    if (moves[i].compMode == CM_OUT)
     {
       // Found a CM_OUT move, now find the last valid move before it
       for (int k = i - 1; k >= 0; --k)
@@ -710,22 +719,6 @@ static inline Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
   return (len(a - ref) <= len(b - ref)) ? a : b;
 }
 
-
-static inline float includedAngleRad(Vec2 v1, Vec2 v2)
-{
-  // VB does: v2 = -v2
-  v1 = normalize(v1);
-  v2 = normalize(v2) * -1.0f;
-
-  float c = dot(v1, v2);
-  c = c2d_clamp(c, -1.0f, 1.0f);
-  return acosf(c);
-}
-
-static inline float includedAngleDeg(Vec2 v1, Vec2 v2)
-{
-  return rad2deg(includedAngleRad(v1, v2));
-}
 static inline bool isNearDir(Vec2 a, Vec2 b)
 {
   a = normalize(a);

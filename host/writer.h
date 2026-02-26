@@ -78,11 +78,15 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
     }
 }
 
-void write_gcode(const char *path, const std::vector<Move2D> &moves, MachineType machineType = MAC_MILL)
+void write_gcode(const char *path,
+                 const std::vector<Move2D> &moves,
+                 MachineType machineType = MAC_MILL,
+                 float toolRadius = 0.0f)
 {
     // G-code file
     if (FILE *f = open_file_write_binary(path))
     {
+        std::fprintf(f, "(tool_radius=%.6f)\n", toolRadius);
         for (auto &m : moves)
         {
             if (!m.valid || m.type == MOT_EMPTY)
@@ -93,11 +97,11 @@ void write_gcode(const char *path, const std::vector<Move2D> &moves, MachineType
     }
 }
 
-static void svg_polyline(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke)
+static void svg_polyline(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke, float stroke_width = 0.002f)
 {
     if (pts.size() < 2)
         return;
-    ss << "<polyline fill=\"none\" stroke=\"" << stroke << "\" stroke-width=\"0.002\" points=\"";
+    ss << "<polyline fill=\"none\" stroke=\"" << stroke << "\" stroke-width=\"" << stroke_width << "\" points=\"";
     for (auto &p : pts)
         ss << p.x << "," << p.y << " ";
     ss << "\" />\n";
@@ -198,11 +202,11 @@ static Vec2 move_label_pos(const Move2D &m)
     return m.p_0;
 }
 
-static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke)
+static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke, float stroke_width = 0.002f)
 {
     if (pts.size() < 2)
         return;
-    ss << "<polyline fill=\"none\" stroke=\"" << stroke << "\" stroke-width=\"0.002\" stroke-dasharray=\"0.01,0.01\" points=\"";
+    ss << "<polyline fill=\"none\" stroke=\"" << stroke << "\" stroke-width=\"" << stroke_width << "\" stroke-dasharray=\"0.01,0.01\" points=\"";
     for (auto &p : pts)
         ss << p.x << "," << p.y << " ";
     ss << "\" />\n";
@@ -217,7 +221,10 @@ static void write_svg(const char *path,
                       float tool_diameter = 0.0f,
                       bool show_tool_circles = true,
                       bool show_tool_sweep = false,
-                      bool show_seq_numbers = true)
+                      bool show_seq_numbers = true,
+                      const char *input_base_name = nullptr,
+                      float tool_radius = 0.0f,
+                      bool plot_invalid_elements = false)
 {
     Bounds b;
     auto accumulate_bounds = [&](const std::vector<Move2D> &mv, bool onlyValid)
@@ -236,7 +243,7 @@ static void write_svg(const char *path,
     };
     if (original)
         accumulate_bounds(*original, false);
-    accumulate_bounds(moves, true);
+    accumulate_bounds(moves, !plot_invalid_elements);
     float pad = 0.05f * std::max((b.maxx - b.minx), (b.maxy - b.miny));
     float minx = b.minx - pad, miny = b.miny - pad;
     float w = (b.maxx - b.minx) + 2 * pad;
@@ -248,6 +255,15 @@ static void write_svg(const char *path,
        << "\" height=\"" << h << "\" fill=\"white\" />\n";
     const float textSize = 0.012f * std::max(w, h);
     const float textNudge = 0.006f * std::max(w, h);
+     if (input_base_name && input_base_name[0] != '\0')
+     {
+          const float headerX = minx + 0.5f * w;
+          const float headerY = miny + 1.5f * textSize;
+          ss << "<text x=\"" << headerX << "\" y=\"" << headerY
+              << "\" fill=\"#111111\" font-size=\"" << textSize
+              << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
+              << input_base_name << "  |  tool radius=" << tool_radius << "</text>\n";
+     }
     if (original)
     {
         for (auto &m : *original)
@@ -266,11 +282,11 @@ static void write_svg(const char *path,
             // Use dashed style for rapid moves, solid for others
             if (m.type == MOT_RAPID)
             {
-                svg_polyline_dashed(ss, pts, "#888888"); // Gray color for rapid moves
+                svg_polyline_dashed(ss, pts, "#888888", 0.003f); // Gray color for rapid moves
             }
             else
             {
-                svg_polyline(ss, pts, "#1f77b4");
+                svg_polyline(ss, pts, "#1f77b4", 0.005f);
             }
             if (!pts.empty())
             {
@@ -326,7 +342,7 @@ static void write_svg(const char *path,
     // Draw tool diameter circles along the offset profile (moves)
     if (show_tool_circles && !show_tool_sweep && tool_diameter > 0.0f)
     {
-        float step = 0.50f * tool_diameter; // step size for lerping, 50% of tool diameter
+        float step = 0.5f * tool_diameter; // step size for lerping, 50% of tool diameter
         for (auto &m : moves)
         {
             if (!m.valid || m.type == MOT_EMPTY)
@@ -359,11 +375,12 @@ static void write_svg(const char *path,
             }
         }
     }
-    // Then modify the final loop in write_svg (around line 169) to:
     for (auto &m : moves)
     {
-        if (!m.valid || m.type == MOT_EMPTY)
-            continue; // Remove m.rapid check
+        if (m.type == MOT_EMPTY)
+            continue;
+        if (!plot_invalid_elements && !m.valid)
+            continue;
         auto pts = approx_move_points(m);
         for (auto &p : pts)
         {
@@ -373,20 +390,21 @@ static void write_svg(const char *path,
             if (mirror_y)
                 p.y = b.maxy + b.miny - p.y;
         }
+        const char *moveColor = m.valid ? "#d62728" : "#000000";
         // Use dashed style for rapid moves, solid for others
-        if (m.type == MOT_RAPID)
+        if (m.type == MOT_RAPID && m.valid)
         {
             svg_polyline_dashed(ss, pts, "#888888"); // Gray color for rapid moves
         }
         else
         {
-            svg_polyline(ss, pts, "#d62728");
+            svg_polyline(ss, pts, moveColor);
         }
         if (!pts.empty())
         {
             float r = 0.001f * std::max(w, h);
-            ss << "<circle cx=\"" << pts.front().x << "\" cy=\"" << pts.front().y << "\" r=\"" << r << "\" fill=\"#d62728\" />\n";
-            ss << "<circle cx=\"" << pts.back().x << "\" cy=\"" << pts.back().y << "\" r=\"" << r << "\" fill=\"#d62728\" />\n";
+            ss << "<circle cx=\"" << pts.front().x << "\" cy=\"" << pts.front().y << "\" r=\"" << r << "\" fill=\"" << moveColor << "\" />\n";
+            ss << "<circle cx=\"" << pts.back().x << "\" cy=\"" << pts.back().y << "\" r=\"" << r << "\" fill=\"" << moveColor << "\" />\n";
         }
         if (show_seq_numbers)
         {
@@ -396,8 +414,8 @@ static void write_svg(const char *path,
                 tp.x = b.maxx + b.minx - tp.x;
             if (mirror_y)
                 tp.y = b.maxy + b.miny - tp.y;
-            ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
-               << "\" fill=\"#d62728\" font-size=\"" << textSize
+                ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
+                    << "\" fill=\"" << moveColor << "\" font-size=\"" << textSize
                << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
                << m.seqNum << "</text>\n";
         }

@@ -120,28 +120,43 @@ static inline const char *parse_int(const char *p, int32_t &out)
     return p;
 }
 
-// Remove comments: anything after ';' and any '(...)' blocks.
+// Remove comments while preserving non-comment text before/after comment spans.
+// Supported comments:
+// - '(...)' block comments
+// - ';...;' inline comment spans (if closing ';' exists)
+// - ';...' to end-of-line when no closing ';' exists
 // Writes into dst with maxLen, always null-terminated.
 static inline char *strip_comments(const char *src, char *dst, size_t maxLen)
 {
     size_t w = 0;
     bool inParen = false;
+    bool inSemi = false;
     for (size_t i = 0; src[i] && w + 1 < maxLen; ++i)
     {
         char c = src[i];
-        if (!inParen && c == ';')
-            break;
-        if (!inParen && c == '(')
+
+        if (!inParen && !inSemi && c == '(')
         {
             inParen = true;
             continue;
         }
+
         if (inParen)
         {
             if (c == ')')
                 inParen = false;
             continue;
         }
+
+        if (c == ';')
+        {
+            inSemi = !inSemi;
+            continue;
+        }
+
+        if (inSemi)
+            continue;
+
         dst[w++] = c;
     }
     dst[w] = 0;
@@ -388,12 +403,8 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
         }
     }
 
-    if (!anyXYZ)
-    {
-        return Move2D{}; // MOT_EMPTY
-    }
-
     Move2D out;
+
     if (s.hasN)
         out.seqNum = s.N;
 
@@ -421,21 +432,21 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
         modeState.compMode = CM_OUT;
     }
 
-    if (modeState.motionG == 0)
+    if (modeState.motionG == 0 && anyXYZ)
     {
         out.type = MOT_RAPID;
         modeState.pos = p1;
         return out;
     }
 
-    if (modeState.motionG == 1)
+    if (modeState.motionG == 1 && anyXYZ)
     {
         out.type = MOT_LINE;
         modeState.pos = p1;
         return out;
     }
 
-    if (modeState.motionG == 2 || modeState.motionG == 3)
+    if ((modeState.motionG == 2 || modeState.motionG == 3) && anyXYZ)
     {
         out.type = MOT_ARC;
         out.arcDir = (modeState.motionG == 2) ? ARC_CW : ARC_CCW;
@@ -478,8 +489,6 @@ static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState,
         return out;
     }
 
-    // Unknown motion: treat as line
-    out.type = MOT_LINE;
     modeState.pos = p1;
 
     return out;
