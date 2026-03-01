@@ -37,7 +37,6 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
 {
     const bool latheMode = machine_is_lathe(machineType);
     // Reverse of parser mapping: internal milling-like XY -> machine turning axes.
-    // (VB parity with ConvertToTurning)
     Vec3 p1m = internal_xy_to_machine(m.p_1, machineType);
 
     if (m.type == MOT_LINE || m.type == MOT_RAPID)

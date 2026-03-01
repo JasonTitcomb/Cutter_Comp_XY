@@ -26,7 +26,7 @@ public:
     CompSide comp_state = COMP_OFF;
 
     // Delayed output state
-    bool havePrev = false;
+    bool havePrevMove2D = false;
     Move2D prevOff;
 
     void setMachineType(MachineType mt) { machineType = mt; }
@@ -46,11 +46,13 @@ public:
         toolR = (r < 0) ? -r : r;
         toolSign = (r < 0) ? -1 : 1;
     }
+    
     void setComp(CompSide s)
     {
         comp_state = s;
         resetState();
     }
+
     bool pushIn(const Move2D &m)
     {
         if (inCount >= IN_CAP)
@@ -90,22 +92,24 @@ public:
 
             Move2D curOff;
 
-            bool offsetOk = offsetMove(raw, curOff);
+            //bool offsetOk = offsetMove(raw, curOff);
+
+            offsetMove(raw, curOff);
             curOff.initialStartDir = raw.startDir;
             curOff.initialEndDir = raw.endDir;
-            if (!offsetOk)
-            {
-                // offset failed (e.g. arc radius too small after offset)
-                DBG_PRINTLN("Offset failed for move, passing through unmodified");
-                return false;
-            }
+            // if (!offsetOk)
+            // {
+            //     // offset failed (e.g. arc radius too small after offset)
+            //     DBG_PRINTLN("Offset failed for move, passing through unmodified");
+            //     return false;
+            // }
 
-            update_vectors(curOff); // after offsetting.
+            //update_vectors(curOff); // after offsetting.
             // check_validity(curOff);
-            if (!havePrev)
+            if (!havePrevMove2D)
             {
                 prevOff = curOff;
-                havePrev = true;
+                havePrevMove2D = true;
                 continue;
             }
 
@@ -144,10 +148,10 @@ public:
     void flush()
     {
         process();
-        if (havePrev && outHasSpace(1))
+        if (havePrevMove2D && outHasSpace(1))
         {
             pushOut(prevOff);
-            havePrev = false;
+            havePrevMove2D = false;
         }
     }
 
@@ -183,7 +187,7 @@ public:
         outCount++;
     }
 
-    void resetState() { havePrev = false; }
+    void resetState() { havePrevMove2D = false; }
 
     Move2D makeBevel(const Move2D &a, const Move2D &b) const
     {
@@ -219,12 +223,7 @@ public:
         return convex_from_winding(cw);
     }
 
-    bool was_convex(const Move2D &a, const Move2D &b) const
-    {
-        int cw = get_winding_dir(a.initialEndDir, b.initialStartDir);
-        return convex_from_winding(cw);
-    }
-
+   
     // ---------- offset primitives ----------
     bool offsetMove(const Move2D &src, Move2D &dst)
     {
@@ -318,19 +317,20 @@ public:
         Vec2 v0 = src.p_0 - src.center;
         Vec2 v1 = src.p_1 - src.center;
         float lv0 = len(v0), lv1 = len(v1);
-        if (lv0 < TOL || lv1 < TOL)
-        {
-            dst.valid = false;
-            return false;
-        }
 
-        // determine if radius is consistent with endpoints.
-        bool radius_ok = is_radius_consistent(src);
-        if (!radius_ok)
-        {
-            dst.valid = false;
-            return false;
-        }
+        // if (lv0 < TOL || lv1 < TOL)
+        // {
+        //     dst.valid = false;//TODO:remove.
+        //     return false;
+        // }
+
+        // // determine if radius is consistent with endpoints.
+        // bool radius_ok = is_radius_consistent(src);
+        // if (!radius_ok)
+        // {
+        //     dst.valid = false;//TODO:remove.
+        //     return false;
+        // }
 
         dst.type = MOT_ARC;
         dst.center = src.center;
@@ -345,16 +345,21 @@ public:
 
     static inline bool validate(Move2D &m)
     {
+            float d = 0;
+            bool radius_ok = true;
+            float sw = 0;
+            bool sweepOk = true;
+
         if (m.type == MOT_LINE)
         {
             m.valid = (len(m.p_1 - m.p_0) >= TOL);
         }
         if (m.type == MOT_ARC)
         {
-            float d = distFromStart_along(m, m.p_1);
-            bool radius_ok = is_radius_consistent(m);
-            float sw = arcSweepDeg(m);
-            bool sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
+            d = distFromStart_along(m, m.p_1);
+            radius_ok = is_radius_consistent(m);
+            sw = arcSweepDeg(m);
+            sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
             m.valid = d >= TOL && radius_ok && sweepOk;
         }
         // add a debugger break if m.valid is false
@@ -446,7 +451,28 @@ public:
         if (toolSign < 0)
             useLeft = !useLeft;
 
-        roll.arcDir = useLeft ? ARC_CW : ARC_CCW;
+        ArcDir preferredDir = useLeft ? ARC_CW : ARC_CCW;
+
+        roll.arcDir = preferredDir;
+
+        // Fast path: choose minor-arc direction from normalized turn sign.
+        // Keep preferred direction when near-ambiguous (0 or 180 deg).
+        const float turnEps = 1.0e-4f;
+        if (r0 >= TOL && r1 >= TOL)
+        {
+            float turnSign = cross(v0, v1) / (r0 * r1);
+            if (turnSign > turnEps)
+            {
+                if (preferredDir != ARC_CCW)
+                    roll.arcDir = ARC_CCW;
+            }
+            else if (turnSign < -turnEps)
+            {
+                if (preferredDir != ARC_CW)
+                    roll.arcDir = ARC_CW;
+            }
+        }
+
         roll.o_0 = roll.p_0;
         roll.o_1 = roll.p_1;
         roll.valid = true;
@@ -461,6 +487,18 @@ public:
         Move2D extA, extB;
         bool haveExtA = false;
         bool haveExtB = false;
+
+        // nearly parallel
+        float turnSign0 = cross(a.endDir * -1.0f, b.startDir);
+        if (fabsf(turnSign0) <= BEVEL_VEC_TOL)
+        {
+            // we already know there is a gap > TOL because otherwise we wouldn't need corner treatment,
+            // so just do a simple bevel.
+            Move2D bevel = makeBevel(a, b);
+            //float l = len(bevel.p_1 - bevel.p_0);
+            out[outCountLocal++] = bevel;
+            return outCountLocal;
+        }
 
         if (a.type == MOT_LINE)
         {
@@ -493,6 +531,7 @@ public:
 
         Vec2 vIn = normalize(l1.endDir * -1.0f);
         Vec2 vOut = normalize(l2.startDir);
+
         Vec2 bisector = normalize(vIn + vOut);
         if (len(bisector) < TOL)
             return 0;
@@ -837,7 +876,6 @@ public:
 
         if (!insertRollOrCorner(a, b, inserts, insertCount))
             DBG_PRINTLN("handleArcArc unresolved gap (IT_NONE)");
-
     }
 
     // Returns 0..2 TIPs that lie on BOTH finite elements
@@ -916,7 +954,8 @@ public:
         return 0;
     }
 
-    static CrossingHit lookAheadForCrossing(Move2D *moves, int numMoves, int srcIdx, int startTargetIdx, int maxIdx, int maxLookahead)
+    static CrossingHit lookAheadForCrossing(Move2D *moves, int numMoves, int srcIdx, int startTargetIdx, int maxIdx, int maxLookahead,
+                                            int firstCutIdx, int lastCutIdx)
     {
         CrossingHit best;
         best.hit = false;
@@ -934,6 +973,10 @@ public:
             if (!target.valid)
                 continue;
 
+            // Closed-loop seam case: do not trim when comparing first cutting move vs last cutting move.
+            if (srcIdx == firstCutIdx && j == lastCutIdx)
+                break;
+
             // Skip immediate neighbor to avoid trimming the normal shared endpoint
             if (j < srcIdx + 2)
                 continue;
@@ -948,7 +991,7 @@ public:
             if (n <= 0)
                 continue;
 
-            // picks the nearest crossing along from its start.
+            // picks the nearest crossing along src from its start.
             Vec2 pick = t1;
             float d = distFromStart_along(src, t1);
             if (n == 2)
@@ -998,51 +1041,22 @@ public:
         return true;
     }
 
-    bool trimCrossingElements(Move2D *moves, int numMoves, int maxLookahead)
+    bool trimCrossingElements(Move2D *moves,int start, int moveCount, int lookahead)
     {
-        const int moveCount = numMoves;
-        const int lookahead = maxLookahead;
+        int srcIdx = start;
+        if (srcIdx < 0)
+            srcIdx = 0;
+        if (srcIdx >= moveCount)
+            return false;
 
+        int maxIdx = moveCount;
         // calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
-        init_all_aabb(moves, moveCount);
+        init_all_aabb(moves, start, moveCount);
 
-        // find the first and last cutting moves to check for the bowtie edge case that cannot be resolved by trimming.
-        int firstIdx = first_cutting_move(moves, moveCount);
-        if (firstIdx < 0)
-            return false;
-
-        int maxIdx = last_cutting_move(moves, moveCount, firstIdx);
-        if (maxIdx < 0 || maxIdx <= firstIdx)
-            return false;
-
-        if (maxIdx > moveCount)
-            maxIdx = moveCount;
-
-        //  lastIndex needs to be at least 2 greater than firstIndex to have a non-adjacent pair.
-        if (maxIdx <= firstIdx + 1)
-            return false;
-
-        int srcIdx = firstIdx;
-
-        // if the first cutting move and the last cutting move cross
-        // we have a bowtie shape that cannot be resolved by trimming,
-        Vec2 tip1, tip2;
-        // test for crossing between first and last cutting moves
-        if (commonTIP_any(moves[firstIdx], moves[maxIdx], tip1, tip2) > 0)
-        {
-            // found a crossing between first and last cutting moves.
-            // This is a known edge case (bowtie shape) that can occur in complex toolpaths.
-            if (maxIdx - firstIdx > 2)
-            {
-                // If there are more elements beyond the crossing, we can skip trimming the first crossing and start processing from the element after the first cutting move.
-                srcIdx = firstIdx + 1; // start src from the element after the first cutting move to continue processing any other crossings that may exist in the middle of the path.
-                // scan bound remains maxIdx and excludes known bowtie crossing at the end.
-            }
-            else
-            {
-                return false; // no other crossings to trim and we can just return.
-            }
-        }
+        int firstCutIdx = first_cutting_move(moves, moveCount);
+        int lastCutIdx = -1;
+        if (firstCutIdx >= 0)
+            lastCutIdx = last_cutting_move(moves, moveCount, firstCutIdx);
 
         bool trimmedAny = false;
 
@@ -1061,7 +1075,7 @@ public:
             if (target >= maxIdx)
                 break;
 
-            CrossingHit crossing = lookAheadForCrossing(moves, moveCount, srcIdx, target, maxIdx, lookahead);
+            CrossingHit crossing = lookAheadForCrossing(moves, moveCount, srcIdx, target, maxIdx, lookahead, firstCutIdx, lastCutIdx);
             if (!crossing.hit)
             {
                 srcIdx++;
@@ -1127,5 +1141,17 @@ public:
         }
 
         return merges;
+    }
+
+    // Merges adjacent colinear LINE segments over a subrange [start, endExclusive).
+    // Returns number of merges performed.
+    int merge_all_colinear(Move2D *moves, int start, int endExclusive)
+    {
+        int i0 = (start < 0) ? 0 : start;
+        int i1 = (endExclusive < 0) ? 0 : endExclusive;
+        if (i1 <= i0)
+            return 0;
+
+        return merge_all_colinear(moves + i0, i1 - i0);
     }
 };

@@ -305,7 +305,7 @@ static inline bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, Ar
 
 // Turn a scanned line into a Move2D (or MOT_EMPTY if no XY motion).
 // Updates modal state (pos, motion mode, comp, feed).
-static inline Move2D interpret_to_move(const ScanLine &s, ModalState &modeState, MachineType machineType = MAC_MILL)
+static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState, MachineType machineType = MAC_MILL)
 {
     // Update modal toggles first
     if (s.sawG17)

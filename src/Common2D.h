@@ -3,14 +3,16 @@
 #include <stdbool.h>
 #include <math.h>
 
-#define TOL 0.00005f
+#define TOL 0.0001f
 #define INPUT_ARC_TOL 0.001f
 #define EPS 1e-7f
 #define PARALLEL_TOL 1e-3f
+#define BEVEL_VEC_TOL 1.0e-1f
 #define PI 3.14159265358979323846f
 #define TWO_PI 6.2831853071795864769f
 #define MAX_SWEEP_DEG 359.9f
 #define MIN_ARC_LEN 0.001f
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi
                                                                                              : x; }
@@ -68,7 +70,7 @@ enum CompMode : uint8_t
 enum CornerType : uint8_t
 {
   CORNER_ROLL = 0,
-  CORNER_CHAMFER= 1,
+  CORNER_CHAMFER = 1,
 };
 
 enum MachineType : uint8_t
@@ -127,7 +129,7 @@ struct Move2D
   CompMode compMode = CM_NONE;
   bool valid = true; // for output moves, indicates if move is valid
 
-  AABB2 bounds;        // precomputed bounding box for this move
+  AABB2 bounds;        // bounding box.
   uint32_t seqNum = 0; // for debugging
 
   // Legacy/original move snapshot fields (kept for compatibility/debugging).
@@ -142,7 +144,6 @@ struct Move2D
   // Initial tangent directions.
   Vec2 initialStartDir{0, 0};
   Vec2 initialEndDir{0, 0};
-
 };
 static inline bool machine_is_lathe(MachineType mt)
 {
@@ -221,7 +222,6 @@ static inline Vec3 internal_delta_xy_to_machine(const Vec2 &d, MachineType mt)
     return v3(d.x, d.y, 0.0f);
   return v3(d.y, 0.0f, d.x);
 }
-
 
 // Plot-space mapping (SVG still draws in XY):
 // - Mill: plot X/Y
@@ -400,9 +400,9 @@ static inline AABB2 aabb_of(const Move2D &m)
   return b;
 }
 
-static void init_all_aabb(Move2D *moves, int count)
+static void init_all_aabb(Move2D *moves,int start, int count)
 {
-  for (int i = 0; i < count; ++i)
+  for (int i = start; i < count; ++i)
   {
     if (moves[i].type != MOT_EMPTY && moves[i].valid) // Only compute bounds for valid moves
       moves[i].bounds = aabb_of(moves[i]);
@@ -524,7 +524,6 @@ static int first_valid_index(const Move2D *moves, int count)
   return -1;
 }
 
-
 // Find the first move after a CM_IN move
 static int first_cutting_move(const Move2D *moves, int count)
 {
@@ -540,7 +539,7 @@ static int first_cutting_move(const Move2D *moves, int count)
 }
 
 // Find the last move before a CM_OUT move
-static int last_cutting_move(const Move2D *moves, int count,int startAt)
+static int last_cutting_move(const Move2D *moves, int count, int startAt)
 {
   for (int i = startAt; i < count; ++i)
   {
@@ -626,7 +625,7 @@ static inline IntersectType intersectLineLine(const Move2D &ln1, const Move2D &l
   float denTol = PARALLEL_TOL * lr * ls;
   if (fabsf(den) <= denTol)
   {
-    tip = false;// too parallel to reliably intersect
+    tip = false; // too parallel to reliably intersect
     return IT_NONE;
   }
 

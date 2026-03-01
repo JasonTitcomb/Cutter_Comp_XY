@@ -18,7 +18,6 @@
 
 #include "SimpleGCodeScan.h"
 #include "CutterComp2D.h"
-#include "TestData.h"
 
 // -------------------- Config --------------------
 static constexpr uint32_t BAUD = 115200;
@@ -29,11 +28,12 @@ static constexpr bool FORCE_ROLL_AROUND = true;
 static constexpr bool FULL_TRIM_CROSSINGS = true;
 static constexpr bool ENABLE_MERGE = true;
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
-static constexpr int FULL_TRIM_MAX_LOOKAHEAD = 25; // MaxLookaheadForIntersections
+static constexpr int MAX_LOOKAHEAD = 25; // MaxLookaheadForIntersections
+static constexpr int EMIT_HOLDBACK = 2;
 static constexpr int FULL_TRIM_MAX_PASSES = 6;                  // safety cap
 // ------------------------------------------------
 
-static ModalState modal;
+static ModalState modalState;
 static CutterComp2D cc;
 
 // -------------------- Profile buffer for post-pass trimming --------------------
@@ -53,6 +53,38 @@ static bool profile_push(const Move2D &m)
   Move2D t = m;
   t.valid = true;
   profile[profileCount++] = t;
+  return true;
+}
+
+static bool emit_comp_profile_delta(const Move2D *moves,
+                                    int profileSize,
+                                    int &nextEmitIndex,
+                                    int holdBackCount,
+                                    bool flushAll)
+{
+  if (nextEmitIndex < 0)
+    nextEmitIndex = 0;
+
+  int emitLimit = profileSize;
+  if (!flushAll)
+  {
+    emitLimit = profileSize - holdBackCount;
+    if (emitLimit < 0)
+      emitLimit = 0;
+  }
+
+  if (nextEmitIndex >= emitLimit)
+    return true;
+
+  for (int i = nextEmitIndex; i < emitLimit; ++i)
+  {
+    const Move2D &m = moves[i];
+    if (!m.valid || m.type == MOT_EMPTY)
+      continue;
+    emit_move_as_gcode(m);
+  }
+
+  nextEmitIndex = emitLimit;
   return true;
 }
 
@@ -113,12 +145,12 @@ static void process_one_gcode_line(const char *raw)
   scan_line(clean, s);
 
   // Interpret to motion (also updates modal.comp, modal.motionG, etc.)
-  Move2D mv = interpret_to_move(s, modal, MACHINE_TYPE);
+  Move2D mv = interpret_move(s, modalState, MACHINE_TYPE);
 
   // If this block turns comp ON (G41/G42), enable comp BEFORE processing this move.
   if (s.sawG41 || s.sawG42)
   {
-    cc.setComp(modal.comp); // modal.comp is now LEFT/RIGHT
+    cc.setComp(modalState.comp); // modal.comp is now LEFT/RIGHT
   }
 
   // No motion? still might be a comp-toggle-only line.
@@ -172,8 +204,8 @@ static void process_one_gcode_line(const char *raw)
   // If this block turns comp OFF (G40), disable comp AFTER processing this move.
   if (s.sawG40)
   {
-    // cc.setComp(COMP_OFF);
     cc.flush();
+    cc.setComp(COMP_OFF);
 
     Move2D out;
     while (cc.popOut(out))
@@ -210,7 +242,7 @@ static void post_trim_and_merge()
 
     for (int pass = 0; pass < FULL_TRIM_MAX_PASSES; ++pass)
     {
-      bool changed = cc.trimCrossingElements(profile, profileCount, FULL_TRIM_MAX_LOOKAHEAD);
+      bool changed = cc.trimCrossingElements(profile,0, profileCount, MAX_LOOKAHEAD);
       if (!changed)
       {
         DBG_PRINTLN("No crossings found on pass " + String(pass));
@@ -252,13 +284,13 @@ void setup()
   DBG_PRINTLN(MAX_PROFILE_MOVES);
 
   // Init modal state
-  modal = ModalState{};
-  modal.planeXY = true;
-  modal.absXYZ = true;
-  modal.motionG = 0;
-  modal.comp = COMP_OFF;
-  modal.feed = 0;
-  modal.pos = v2(0, 0);
+  modalState = ModalState{};
+  modalState.planeXY = true;
+  modalState.absXYZ = true;
+  modalState.motionG = 0;
+  modalState.comp = COMP_OFF;
+  modalState.feed = 0;
+  modalState.pos = v2(0, 0);
 
   // Init cutter comp engine
   cc.setToolRadius(TOOL_RADIUS);
@@ -269,25 +301,59 @@ void setup()
   // Reset profile buffer
   profile_reset();
 
+  int emittedProfileCount = 0;
+  int linesSinceEmit = 0;
+  int trimResumeIndex = 0;
+  int mergeResumeIndex = 0;
+
   // Run demo program once
   const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
   for (int i = 0; i < lines; ++i)
   {
     process_one_gcode_line(demo_program[i]);
+
+    if (cc.comp_state != COMP_OFF)
+    {
+      linesSinceEmit++;
+      if (linesSinceEmit >= MAX_LOOKAHEAD)
+      {
+        if (FULL_TRIM_CROSSINGS)
+        {
+          cc.trimCrossingElements(profile, trimResumeIndex, profileCount, MAX_LOOKAHEAD);
+          trimResumeIndex += MAX_LOOKAHEAD;
+        }
+
+        if (ENABLE_MERGE)
+        {
+          int mergeStart = (mergeResumeIndex > 0) ? (mergeResumeIndex - 1) : 0;
+          int mergeCount = profileCount - mergeStart;
+          if (mergeCount > (MAX_LOOKAHEAD + 1))
+            mergeCount = (MAX_LOOKAHEAD + 1);
+          int mergeEnd = mergeStart + mergeCount;
+
+          if (mergeCount > 1)
+            cc.merge_all_colinear(profile, mergeStart, mergeEnd);
+
+          mergeResumeIndex += MAX_LOOKAHEAD;
+        }
+
+        if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, EMIT_HOLDBACK, false))
+        {
+          Serial.println("(emit failed)");
+          return;
+        }
+
+        linesSinceEmit = 0;
+      }
+    }
   }
+
   flush_pipeline();
 
-  // VB-style: remove offset self-crossing loops after full profile is built
-  post_trim_and_merge();
-
-  // Emit final profile
-  for (int i = 0; i < profileCount; ++i)
+  if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
   {
-    if (!profile[i].valid)
-      continue;
-    if (profile[i].type == MOT_EMPTY)
-      continue;
-    emit_move_as_gcode(profile[i]);
+    Serial.println("(final emit failed)");
+    return;
   }
 
   Serial.println("\n--------------------------------------------------");
