@@ -18,12 +18,13 @@
 
 #include "SimpleGCodeScan.h"
 #include "CutterComp2D.h"
+#include "TestData.h"
 
 // -------------------- Config --------------------
 static constexpr uint32_t BAUD = 115200;
 
 // IMPORTANT: Tool radius must match the units of your G-code.
-static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr float TOOL_RADIUS = 0.0225f;
 static constexpr bool FORCE_ROLL_AROUND = true;
 static constexpr bool FULL_TRIM_CROSSINGS = true;
 static constexpr bool ENABLE_MERGE = true;

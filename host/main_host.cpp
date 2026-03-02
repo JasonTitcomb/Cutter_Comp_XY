@@ -36,11 +36,11 @@
 // -------------------- Config --------------------
 static constexpr MachineType MACHINE_TYPE = MAC_MILL;
 
-static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr float TOOL_RADIUS = 0.062f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool PERFORM_TRIM = true;                  // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
-static constexpr int MAX_LOOKAHEAD = 20;
-static constexpr int EMIT_HOLDBACK = 2;
+static constexpr bool PERFORM_TRIM = false;                  // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
+static constexpr int MAX_LOOKAHEAD = 10;
+static constexpr int EMIT_HOLDBACK = 4;
 
 // ------------------------------------------------
 
@@ -75,15 +75,52 @@ static inline void copy_gcode_line(char *dst, size_t dstSize, const char *src)
 #endif
 }
 
+
+static inline void update_units_mode_from_line(const char *line, bool &inchUnits)
+{
+  const char *p = line;
+  while (*p)
+  {
+    if (up(*p) != 'G')
+    {
+      ++p;
+      continue;
+    }
+
+    ++p;
+    while (*p == ' ' || *p == '\t')
+      ++p;
+
+    if (!std::isdigit((unsigned char)*p))
+      continue;
+
+    int code = 0;
+    while (std::isdigit((unsigned char)*p))
+    {
+      code = code * 10 + (*p - '0');
+      ++p;
+    }
+
+    if (code == 20)
+      inchUnits = true;
+    else if (code == 21)
+      inchUnits = false;
+  }
+}
+
 static bool emit_comp_profile_delta(FILE *f,
                                     const std::vector<Move2D> &moves,
                                     int &nextEmitIndex,
                                     int holdBackCount,
-                                    bool flushAll)
+                                    bool flushAll,
+                                    bool inchUnits,
+                                    float toolRadius)
 {
   const int profileSize = (int)moves.size();
   if (nextEmitIndex < 0)
     nextEmitIndex = 0;
+
+  const float minCompLen = (toolRadius < 0.0f) ? -toolRadius : toolRadius;
 
   int emitLimit = profileSize;
   if (!flushAll)
@@ -101,7 +138,25 @@ static bool emit_comp_profile_delta(FILE *f,
     const Move2D &m = moves[i];
     if (!m.valid || m.type == MOT_EMPTY)
       continue;
-    emit_move_as_gcode(f, m, MACHINE_TYPE);
+
+    if (m.compMode == CM_IN || m.compMode == CM_OUT)
+    {
+      float moveLen = 0.0f;
+      if (m.type == MOT_ARC)
+        moveLen = distFromStart_along(m, m.p_1);
+      else
+        moveLen = len(m.p_1 - m.p_0);
+
+      if (moveLen <= minCompLen)
+      {
+        const char *modeName = (m.compMode == CM_IN) ? "CM_IN" : "CM_OUT";
+        std::printf("(comp transition too short: seq=%d mode=%s len=%.6f toolR=%.6f)\n",
+                    (int)m.seqNum, modeName, moveLen, minCompLen);
+        return false;
+      }
+    }
+
+    emit_move_as_gcode(f, m, MACHINE_TYPE, inchUnits);
   }
 
   nextEmitIndex = emitLimit;
@@ -175,6 +230,9 @@ static void flush_pipeline()
   while (cc.popOut(out))
     profile_push(out);
 }
+
+
+
 static std::vector<std::string> load_program_from_file(const char *path)
 {
   std::ifstream in(path);
@@ -296,6 +354,7 @@ static bool run_profile_streaming(const char *inputPath,
   bool compClosed = false;
   int emittedProfileCount = 0;
   bool profileValid = true;
+  bool inchUnits = true;
   int linesSinceEmit = 0;
   int trimResumeIndex = 0;
   int mergeResumeIndex = 0;
@@ -315,6 +374,8 @@ static bool run_profile_streaming(const char *inputPath,
 
     char clean[160];
     strip_comments(line.c_str(), clean, sizeof(clean));
+    update_units_mode_from_line(clean, inchUnits);
+    
     ScanLine s;
     scan_line(clean, s);
 
@@ -341,9 +402,6 @@ static bool run_profile_streaming(const char *inputPath,
       return false;
     }
 
-    // TODO: validate enough room to comp in.
-    // If not, alarm.
-
     if (cc.comp_state != COMP_OFF)
     {
       linesSinceEmit++;
@@ -353,7 +411,10 @@ static bool run_profile_streaming(const char *inputPath,
 
         if (PERFORM_TRIM)
         {
-          cc.trimCrossingElements(profile.data(), trimResumeIndex, profileSize, MAX_LOOKAHEAD);
+          int trimStart = trimResumeIndex;
+          if (trimStart < emittedProfileCount)
+            trimStart = emittedProfileCount;
+          bool valid = cc.trimCrossingElements(profile.data(), trimStart, profileSize, MAX_LOOKAHEAD);
           trimResumeIndex += MAX_LOOKAHEAD;
         }
 
@@ -368,7 +429,7 @@ static bool run_profile_streaming(const char *inputPath,
 
         mergeResumeIndex += MAX_LOOKAHEAD;
 
-        if (!emit_comp_profile_delta(out, profile, emittedProfileCount, EMIT_HOLDBACK, false))
+        if (!emit_comp_profile_delta(out, profile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits, toolRadius))
         {
           std::fclose(out);
           return false;
@@ -383,8 +444,8 @@ static bool run_profile_streaming(const char *inputPath,
     {
       sawG40 = true;
       compClosed = true;
-
-      if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true))
+      bool success = cc.trimCrossingElements(profile.data(), trimResumeIndex, profile.size(), MAX_LOOKAHEAD);
+      if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, toolRadius))
       {
         std::fclose(out);
         return false;
@@ -398,7 +459,7 @@ static bool run_profile_streaming(const char *inputPath,
   {
     flush_pipeline();
 
-    if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true))
+    if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, toolRadius))
     {
       std::fclose(out);
       return false;
@@ -418,7 +479,10 @@ static bool run_profile_streaming(const char *inputPath,
     const int profileSize = (int)profile.size();
     if constexpr (PERFORM_TRIM)
     {
-      cc.trimCrossingElements(profile.data(), trimResumeIndex, profileSize, MAX_LOOKAHEAD);
+      int trimStart = trimResumeIndex;
+      if (trimStart < emittedProfileCount)
+        trimStart = emittedProfileCount;
+      cc.trimCrossingElements(profile.data(), trimStart, profileSize, MAX_LOOKAHEAD);
     }
 
     int mergeStart = (mergeResumeIndex > 0) ? (mergeResumeIndex - 1) : 0;
@@ -447,10 +511,11 @@ int main()
   // const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   // const char *default_file = "../../data/simple1.nc";
-   const char *default_file = "../../data/TortureTestG90.nc";
+  const char *default_file = "../../data/TortureTestG90.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
   // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //const char *default_file = "../../data/SimpleSquarePocket.nc";
+  //const char *default_file = "../../data/CompErrorTest.nc";
   const std::string inputFilePath(default_file);
   const std::string inputBaseName = basename_no_ext(inputFilePath);
 

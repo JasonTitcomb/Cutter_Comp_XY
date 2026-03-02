@@ -10,8 +10,8 @@ public:
     bool performTrim = true;                  // performTrim flag
     MachineType machineType = MAC_MILL;       // machine type
     // Buffers
-    static constexpr int IN_CAP = 16;
-    static constexpr int OUT_CAP = 32;
+    static constexpr int IN_CAP = 2;
+    static constexpr int OUT_CAP = 4;
 
     // Ring buffers
     Move2D input_buffer[IN_CAP];
@@ -46,7 +46,7 @@ public:
         toolR = (r < 0) ? -r : r;
         toolSign = (r < 0) ? -1 : 1;
     }
-    
+
     void setComp(CompSide s)
     {
         comp_state = s;
@@ -92,20 +92,9 @@ public:
 
             Move2D curOff;
 
-            //bool offsetOk = offsetMove(raw, curOff);
-
             offsetMove(raw, curOff);
             curOff.initialStartDir = raw.startDir;
             curOff.initialEndDir = raw.endDir;
-            // if (!offsetOk)
-            // {
-            //     // offset failed (e.g. arc radius too small after offset)
-            //     DBG_PRINTLN("Offset failed for move, passing through unmodified");
-            //     return false;
-            // }
-
-            //update_vectors(curOff); // after offsetting.
-            // check_validity(curOff);
             if (!havePrevMove2D)
             {
                 prevOff = curOff;
@@ -113,7 +102,9 @@ public:
                 continue;
             }
 
-            Move2D inserts[3];
+            // prevOff.p_1 = curOff.p_0; // ensure connectivity for corner treatment logic
+
+            Move2D inserts[3]; // allow up to 3 inserts for corner treatment.
             int insertCount = 0;
 
             bool canRoll = true; // no rolling when compong.
@@ -135,10 +126,12 @@ public:
             applyLogic(prevOff, curOff, inserts, insertCount);
 
             // Emit previous + inserts; hold curOff as new prev
-            pushOut(prevOff);
-            for (int i = 0; i < insertCount; ++i)
-                pushOut(inserts[i]);
-
+            if (prevOff.valid)
+            {
+                pushOut(prevOff);
+                for (int i = 0; i < insertCount; ++i)
+                    pushOut(inserts[i]);
+            }
             prevOff = curOff;
         }
         return true;
@@ -223,7 +216,6 @@ public:
         return convex_from_winding(cw);
     }
 
-   
     // ---------- offset primitives ----------
     bool offsetMove(const Move2D &src, Move2D &dst)
     {
@@ -318,20 +310,6 @@ public:
         Vec2 v1 = src.p_1 - src.center;
         float lv0 = len(v0), lv1 = len(v1);
 
-        // if (lv0 < TOL || lv1 < TOL)
-        // {
-        //     dst.valid = false;//TODO:remove.
-        //     return false;
-        // }
-
-        // // determine if radius is consistent with endpoints.
-        // bool radius_ok = is_radius_consistent(src);
-        // if (!radius_ok)
-        // {
-        //     dst.valid = false;//TODO:remove.
-        //     return false;
-        // }
-
         dst.type = MOT_ARC;
         dst.center = src.center;
         dst.radius = r1;
@@ -345,10 +323,10 @@ public:
 
     static inline bool validate(Move2D &m)
     {
-            float d = 0;
-            bool radius_ok = true;
-            float sw = 0;
-            bool sweepOk = true;
+        float d = 0;
+        bool radius_ok = true;
+        float sw = 0;
+        bool sweepOk = true;
 
         if (m.type == MOT_LINE)
         {
@@ -495,7 +473,7 @@ public:
             // we already know there is a gap > TOL because otherwise we wouldn't need corner treatment,
             // so just do a simple bevel.
             Move2D bevel = makeBevel(a, b);
-            //float l = len(bevel.p_1 - bevel.p_0);
+            // float l = len(bevel.p_1 - bevel.p_0);
             out[outCountLocal++] = bevel;
             return outCountLocal;
         }
@@ -1041,13 +1019,14 @@ public:
         return true;
     }
 
-    bool trimCrossingElements(Move2D *moves,int start, int moveCount, int lookahead)
+    // return false if failed to trim (which can only happen if a comp in move is crossing, 
+    bool trimCrossingElements(Move2D *moves, int start, int moveCount, int lookahead)
     {
         int srcIdx = start;
         if (srcIdx < 0)
             srcIdx = 0;
         if (srcIdx >= moveCount)
-            return false;
+            return true; // nothing to trim, so "success"
 
         int maxIdx = moveCount;
         // calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
@@ -1058,28 +1037,38 @@ public:
         if (firstCutIdx >= 0)
             lastCutIdx = last_cutting_move(moves, moveCount, firstCutIdx);
 
-        bool trimmedAny = false;
-
         while (srcIdx < maxIdx)
         {
-            // do not trim comp in elements since they are already "offset" and thus less likely to have true crossings that need trimming.
-            while (srcIdx < maxIdx && (!moves[srcIdx].valid || moves[srcIdx].compMode == CM_IN))
+            while (srcIdx < maxIdx && (!moves[srcIdx].valid ))//|| moves[srcIdx].compMode == CM_IN
                 srcIdx++;
 
             if (srcIdx >= maxIdx)
                 break;
 
-            int target = srcIdx + 1;
-            while (target < maxIdx && !moves[target].valid)
-                target++;
-            if (target >= maxIdx)
-                break;
+            int targetIdx = srcIdx + 1;
+            while (targetIdx < maxIdx && !moves[targetIdx].valid)
+                targetIdx++;//skip invalid targets
+            if (targetIdx >= maxIdx)
+                break;// if we have no valid targets ahead, we are done.
 
-            CrossingHit crossing = lookAheadForCrossing(moves, moveCount, srcIdx, target, maxIdx, lookahead, firstCutIdx, lastCutIdx);
+            CrossingHit crossing = lookAheadForCrossing(moves, moveCount, srcIdx, targetIdx, maxIdx, lookahead, firstCutIdx, lastCutIdx);
             if (!crossing.hit)
             {
                 srcIdx++;
                 continue;
+            }
+
+            if(moves[srcIdx].compMode == CM_IN){
+                //comp in should never cross.
+                DBG_PRINTLN("Invalid comp in move");
+                return false;
+            }
+
+
+            if(moves[crossing.j].compMode == CM_OUT){
+                //comp out should never cross.
+                DBG_PRINTLN("Invalid comp out move");
+                return false;
             }
 
             int j = crossing.j;
@@ -1090,13 +1079,11 @@ public:
 
             invalidateRange(moves, srcIdx, j);
 
-            trimmedAny = true;
-
             // trimmedTo becomes new srcElement
             srcIdx = j;
         }
 
-        return trimmedAny;
+        return true;
     }
 
     // Merges adjacent colinear LINE segments in-place by extending the first and invalidating the second.

@@ -608,10 +608,10 @@ static inline bool pointOnArc(const Move2D &a, Vec2 p)
 
 static inline IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
 {
-  Vec2 p = ln1.o_0;
-  Vec2 r = ln1.o_1 - ln1.o_0;
-  Vec2 q = ln2.o_0;
-  Vec2 s = ln2.o_1 - ln2.o_0;
+  Vec2 p = ln1.p_0;
+  Vec2 r = ln1.p_1 - ln1.p_0;
+  Vec2 q = ln2.p_0;
+  Vec2 s = ln2.p_1 - ln2.p_0;
 
   float lr = len(r);
   float ls = len(s);

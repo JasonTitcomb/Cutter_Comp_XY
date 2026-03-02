@@ -33,9 +33,11 @@ static inline FILE *open_file_write_binary(const char *path)
 }
 
 // -------------------- Emit helpers (host files) --------------------
-static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType)
+static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType, bool inchUnits = true)
 {
     const bool latheMode = machine_is_lathe(machineType);
+    const int posDigits = inchUnits ? 4 : 3;
+    const int centerDigits = inchUnits ? 4 : 3;
     // Reverse of parser mapping: internal milling-like XY -> machine turning axes.
     Vec3 p1m = internal_xy_to_machine(m.p_1, machineType);
 
@@ -43,13 +45,15 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
     {
         if (latheMode)
         {
-            std::fprintf(f, "N%d %s X%.4f Z%.4f\n",
-                         (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1", p1m.x, p1m.z);
+            std::fprintf(f, "N%d %s X%.*f Z%.*f\n",
+                         (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1",
+                         posDigits, p1m.x, posDigits, p1m.z);
         }
         else
         {
-            std::fprintf(f, "N%d %s X%.4f Y%.4f\n",
-                         (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1", p1m.x, p1m.y);
+            std::fprintf(f, "N%d %s X%.*f Y%.*f\n",
+                         (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1",
+                         posDigits, p1m.x, posDigits, p1m.y);
         }
         return;
     }
@@ -63,15 +67,17 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
 
         if (latheMode)
         {
-            std::fprintf(f, "N%d %s X%.4f Z%.4f I%.4f K%.4f\n",
+            std::fprintf(f, "N%d %s X%.*f Z%.*f I%.*f K%.*f\n",
                          (int)m.seqNum, (m.arcDir == ARC_CW) ? "G2" : "G3",
-                         p1m.x, p1m.z, dMachine.x, dMachine.z);
+                         posDigits, p1m.x, posDigits, p1m.z,
+                         centerDigits, dMachine.x, centerDigits, dMachine.z);
         }
         else
         {
-            std::fprintf(f, "N%d %s X%.4f Y%.4f I%.4f J%.4f\n",
+            std::fprintf(f, "N%d %s X%.*f Y%.*f I%.*f J%.*f\n",
                          (int)m.seqNum, (m.arcDir == ARC_CW) ? "G2" : "G3",
-                         p1m.x, p1m.y, dMachine.x, dMachine.y);
+                         posDigits, p1m.x, posDigits, p1m.y,
+                         centerDigits, dMachine.x, centerDigits, dMachine.y);
         }
         return;
     }
@@ -80,7 +86,8 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, MachineType machineType
 void write_gcode(const char *path,
                  const std::vector<Move2D> &moves,
                  MachineType machineType = MAC_MILL,
-                 float toolRadius = 0.0f)
+                 float toolRadius = 0.0f,
+                 bool inchUnits = true)
 {
     // G-code file
     if (FILE *f = open_file_write_binary(path))
@@ -90,7 +97,7 @@ void write_gcode(const char *path,
         {
             if (!m.valid || m.type == MOT_EMPTY)
                 continue;
-            emit_move_as_gcode(f, m, machineType);
+            emit_move_as_gcode(f, m, machineType, inchUnits);
         }
         std::fclose(f);
     }
@@ -313,8 +320,12 @@ static void write_svg(const char *path,
     {
         for (auto &m : moves)
         {
-            if (!m.valid || m.type == MOT_EMPTY || m.type == MOT_RAPID)
+            if (!m.valid || m.type == MOT_EMPTY)
                 continue;
+
+            const bool isRapid = (m.type == MOT_RAPID);
+            const char *sweepColor = isRapid ? "#999999" : "#bbbbbb";
+            const float sweepOpacity = isRapid ? 0.35f : 0.50f;
 
             auto pts = approx_move_points(m, 24);
             if (pts.size() < 2)
@@ -329,9 +340,9 @@ static void write_svg(const char *path,
                     p.y = b.maxy + b.miny - p.y;
             }
 
-            ss << "<polyline fill=\"none\" stroke=\"#bbbbbb\" stroke-width=\""
+            ss << "<polyline fill=\"none\" stroke=\"" << sweepColor << "\" stroke-width=\""
                << tool_diameter
-               << "\" stroke-linecap=\"round\" stroke-linejoin=\"round\" opacity=\"0.50\" points=\"";
+               << "\" stroke-linecap=\"round\" stroke-linejoin=\"round\" opacity=\"" << sweepOpacity << "\" points=\"";
             for (auto &p : pts)
                 ss << p.x << "," << p.y << " ";
             ss << "\" />\n";
