@@ -34,11 +34,9 @@
 */
 
 // -------------------- Config --------------------
-static constexpr MachineType MACHINE_TYPE = MAC_MILL;
-
 static constexpr float TOOL_RADIUS = 0.062f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool PERFORM_TRIM = false;                  // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
+static constexpr bool PERFORM_TRIM = true; // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
 static constexpr int MAX_LOOKAHEAD = 10;
 static constexpr int EMIT_HOLDBACK = 4;
 
@@ -74,7 +72,6 @@ static inline void copy_gcode_line(char *dst, size_t dstSize, const char *src)
   dst[dstSize - 1] = '\0';
 #endif
 }
-
 
 static inline void update_units_mode_from_line(const char *line, bool &inchUnits)
 {
@@ -156,7 +153,7 @@ static bool emit_comp_profile_delta(FILE *f,
       }
     }
 
-    emit_move_as_gcode(f, m, MACHINE_TYPE, inchUnits);
+    emit_move_as_gcode(f, m, inchUnits);
   }
 
   nextEmitIndex = emitLimit;
@@ -178,7 +175,7 @@ static bool process_one_gcode_line(const char *raw)
   ScanLine s;
   scan_line(clean, s);
 
-  Move2D mv = interpret_move(s, modalState, MACHINE_TYPE);
+  Move2D mv = interpret_move(s, modalState);
 
 #ifndef NDEBUG
   // copy raw line for testing only
@@ -231,8 +228,6 @@ static void flush_pipeline()
     profile_push(out);
 }
 
-
-
 static std::vector<std::string> load_program_from_file(const char *path)
 {
   std::ifstream in(path);
@@ -270,7 +265,7 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
     strip_comments(line.c_str(), clean, sizeof(clean));
     ScanLine s;
     scan_line(clean, s);
-    Move2D mv = interpret_move(s, m, MACHINE_TYPE);
+    Move2D mv = interpret_move(s, m);
     if (mv.type != MOT_EMPTY)
     {
       mv.valid = true;
@@ -336,8 +331,8 @@ static bool run_profile_streaming(const char *inputPath,
 
   cc = CutterComp2D{};
   cc.setToolRadius(toolRadius);
-  cc.setMachineType(MACHINE_TYPE);
   cc.setCornerTreatment(cornerTreatment);
+  cc.setPerformTrim(PERFORM_TRIM);
   cc.setComp(COMP_OFF);
 
   profile_reset();
@@ -353,8 +348,7 @@ static bool run_profile_streaming(const char *inputPath,
   bool sawG40 = false;
   bool compClosed = false;
   int emittedProfileCount = 0;
-  bool profileValid = true;
-  bool inchUnits = true;
+   bool inchUnits = true;
   int linesSinceEmit = 0;
   int trimResumeIndex = 0;
   int mergeResumeIndex = 0;
@@ -375,7 +369,7 @@ static bool run_profile_streaming(const char *inputPath,
     char clean[160];
     strip_comments(line.c_str(), clean, sizeof(clean));
     update_units_mode_from_line(clean, inchUnits);
-    
+
     ScanLine s;
     scan_line(clean, s);
 
@@ -390,9 +384,9 @@ static bool run_profile_streaming(const char *inputPath,
 
     if (compIsOff && !entersComp)
     {
-      interpret_move(s, modalState, MACHINE_TYPE);
+      interpret_move(s, modalState);
       if (!s.sawG40)
-        std::fprintf(out, "%s\n", line.c_str());// pass through unmodified until comp starts
+        std::fprintf(out, "%s\n", line.c_str()); // pass through unmodified until comp starts
       continue;
     }
 
@@ -414,19 +408,17 @@ static bool run_profile_streaming(const char *inputPath,
           int trimStart = trimResumeIndex;
           if (trimStart < emittedProfileCount)
             trimStart = emittedProfileCount;
-          bool valid = cc.trimCrossingElements(profile.data(), trimStart, profileSize, MAX_LOOKAHEAD);
+
+          if(!cc.trimCrossingElements(profile.data(), trimStart, profileSize, MAX_LOOKAHEAD))
+          {
+            std::fclose(out);
+            return false;
+          }
           trimResumeIndex += MAX_LOOKAHEAD;
-        }
+          cc.merge_all_colinear(profile.data() + trimStart, profileSize - trimStart);
+      }
 
-        int mergeStart = (mergeResumeIndex > 0) ? (mergeResumeIndex - 1) : 0;
-        int mergeCount = profileSize - mergeStart;
-        if (mergeCount > (MAX_LOOKAHEAD + 1))
-          mergeCount = (MAX_LOOKAHEAD + 1);
-        int mergeEnd = mergeStart + mergeCount;
-
-        if (mergeCount > 1)
-          cc.merge_all_colinear(profile.data(), mergeStart, mergeEnd);
-
+  
         mergeResumeIndex += MAX_LOOKAHEAD;
 
         if (!emit_comp_profile_delta(out, profile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits, toolRadius))
@@ -437,14 +429,21 @@ static bool run_profile_streaming(const char *inputPath,
         linesSinceEmit = 0;
         std::fprintf(out, "(comp batch emit)\n");
       }
-
     }
 
     if (cc.comp_state == COMP_OFF && sawCompStart)
     {
       sawG40 = true;
       compClosed = true;
-      bool success = cc.trimCrossingElements(profile.data(), trimResumeIndex, profile.size(), MAX_LOOKAHEAD);
+      if (PERFORM_TRIM)
+
+        if(!cc.trimCrossingElements(profile.data(), trimResumeIndex, profile.size(), MAX_LOOKAHEAD))
+        {
+          std::fclose(out);
+          return false;
+        }
+        cc.merge_all_colinear(profile.data() + trimResumeIndex, profile.size() - trimResumeIndex);
+
       if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, toolRadius))
       {
         std::fclose(out);
@@ -474,36 +473,14 @@ static bool run_profile_streaming(const char *inputPath,
   if (sawCompStart && profile.empty())
     return false;
 
-  if (sawCompStart)
-  {
-    const int profileSize = (int)profile.size();
-    if constexpr (PERFORM_TRIM)
-    {
-      int trimStart = trimResumeIndex;
-      if (trimStart < emittedProfileCount)
-        trimStart = emittedProfileCount;
-      cc.trimCrossingElements(profile.data(), trimStart, profileSize, MAX_LOOKAHEAD);
-    }
-
-    int mergeStart = (mergeResumeIndex > 0) ? (mergeResumeIndex - 1) : 0;
-    int mergeCount = profileSize - mergeStart;
-    if (mergeCount > (MAX_LOOKAHEAD + 1))
-      mergeCount = (MAX_LOOKAHEAD + 1);
-    int mergeEnd = mergeStart + mergeCount;
-
-    if (mergeCount > 1)
-      cc.merge_all_colinear(profile.data(), mergeStart, mergeEnd);
-
-  }
-
-  return profileValid;
+   return true;
 }
 
 int main()
 {
   // const char *default_file = "../../data/RapidComp.nc";
   // const char *default_file = "../../data/G41_1.nc";
-  // const char *default_file = "../../data/G41_2.nc";
+   const char *default_file = "../../data/G41_2.nc";
   // const char *default_file = "../../data/TortureTestG91.nc";
   // const char *default_file = "../../data/LatheDia.nc";
   // const char *default_file = "../../data/LatheRad.nc";
@@ -511,11 +488,11 @@ int main()
   // const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   // const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc";
+  // const char *default_file = "../../data/TortureTestG90.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
   // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
-  //const char *default_file = "../../data/SimpleSquarePocket.nc";
-  //const char *default_file = "../../data/CompErrorTest.nc";
+  // const char *default_file = "../../data/SimpleSquarePocket.nc";
+  // const char *default_file = "../../data/CompErrorTest.nc";
   const std::string inputFilePath(default_file);
   const std::string inputBaseName = basename_no_ext(inputFilePath);
 
@@ -538,7 +515,7 @@ int main()
     return 1;
   auto orig = build_original_moves(program);
 
-  write_svg(svgPath.c_str(), profile, &orig, MACHINE_TYPE, false, true, fabs(toolRadius * 2.0f),
+  write_svg(svgPath.c_str(), profile, &orig, false, true, fabs(toolRadius * 2.0f),
             false, true, false, inputBaseName.c_str(), toolRadius); // mirror for better visualization
 
   std::printf("Wrote: %s, %s\n", svgPath.c_str(), ngcPath.c_str());

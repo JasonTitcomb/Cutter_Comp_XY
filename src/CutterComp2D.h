@@ -8,7 +8,6 @@ class CutterComp2D
 public:
     CornerType cornerTreatment = CORNER_ROLL; // cornerTreatment flag
     bool performTrim = true;                  // performTrim flag
-    MachineType machineType = MAC_MILL;       // machine type
     // Buffers
     static constexpr int IN_CAP = 2;
     static constexpr int OUT_CAP = 4;
@@ -29,7 +28,6 @@ public:
     bool havePrevMove2D = false;
     Move2D prevOff;
 
-    void setMachineType(MachineType mt) { machineType = mt; }
     void setCornerTreatment(CornerType ct) { cornerTreatment = ct; }
     void setPerformTrim(bool en) { performTrim = en; }
 
@@ -93,8 +91,8 @@ public:
             Move2D curOff;
 
             offsetMove(raw, curOff);
-            curOff.initialStartDir = raw.startDir;
-            curOff.initialEndDir = raw.endDir;
+            //curOff.initialStartDir = raw.startDir;
+            //curOff.initialEndDir = raw.endDir;
             if (!havePrevMove2D)
             {
                 prevOff = curOff;
@@ -190,8 +188,6 @@ public:
         m.feed = (a.feed > 0) ? a.feed : b.feed;
         m.p_0 = a.p_1;
         m.p_1 = b.p_0;
-        m.o_1 = m.p_1;
-        m.o_0 = m.p_0;
         update_vectors(m);
         return m;
     }
@@ -232,11 +228,11 @@ public:
         // complete copy for non-comp moves or if tool radius is zero (also captures original vectors)
         dst = src;
         // capture the original move's start/end points before any comp modifications
-        dst.src_0 = src.p_0;
+        //dst.src_0 = src.p_0;
         dst.src_1 = src.p_1;
-        dst.src_c = src.center;
-        dst.initialStartDir = src.startDir;
-        dst.initialEndDir = src.endDir;
+        //dst.src_c = src.center;
+        //dst.initialStartDir = src.startDir;
+        //dst.initialEndDir = src.endDir;
 
         Vec2 v = src.p_1 - src.p_0;
         float l = len(v);
@@ -265,10 +261,7 @@ public:
         dst.type = src.type; // keep rapid vs feed
         dst.p_0 = src.p_0 + off;
         dst.p_1 = src.p_1 + off;
-        dst.o_0 = dst.p_0;
-        dst.o_1 = dst.p_1;
-
-        return true;
+         return true;
     }
 
     // Concentric arc offset like before (good enough for your VB logic)
@@ -283,11 +276,11 @@ public:
         // complete copy.
         dst = src;
         // backups of original geometry.
-        dst.src_0 = src.p_0;
+        //dst.src_0 = src.p_0;
         dst.src_1 = src.p_1;
-        dst.src_c = src.center;
-        dst.initialStartDir = src.startDir;
-        dst.initialEndDir = src.endDir;
+        //dst.src_c = src.center;
+        //dst.initialStartDir = src.startDir;
+        //dst.initialEndDir = src.endDir;
 
         float dr = toolR;
         bool ccw = (src.arcDir == ARC_CCW);
@@ -315,10 +308,7 @@ public:
         dst.radius = r1;
         dst.p_0 = src.center + v0 * (r1 / lv0);
         dst.p_1 = src.center + v1 * (r1 / lv1);
-        dst.o_0 = dst.p_0;
-        dst.o_1 = dst.p_1;
-
-        return true;
+         return true;
     }
 
     static inline bool validate(Move2D &m)
@@ -450,9 +440,6 @@ public:
                     roll.arcDir = ARC_CW;
             }
         }
-
-        roll.o_0 = roll.p_0;
-        roll.o_1 = roll.p_1;
         roll.valid = true;
         update_vectors(roll);
         return roll;
@@ -526,8 +513,6 @@ public:
         const float halfLen = 0.5f * (toolR + 2.0f);
         cap.p_0 = offsetCap - chamferDir * halfLen;
         cap.p_1 = offsetCap + chamferDir * halfLen;
-        cap.o_0 = cap.p_0;
-        cap.o_1 = cap.p_1;
         update_vectors(cap);
 
         // now create the intersections and trim the lines to the cap
@@ -545,9 +530,6 @@ public:
         // define chamfer end points
         cap.p_0 = ipForL1;
         cap.p_1 = ipForL2;
-        cap.o_0 = cap.p_0;
-        cap.o_1 = cap.p_1;
-
         // if the cap length is smaller than the tolerance.
         if (!validate(cap))
             return 0;
@@ -555,7 +537,7 @@ public:
         if (a.type == MOT_LINE)
         {
             a.p_1 = ipForL1;
-            a.o_1 = a.p_1;
+            //a.o_1 = a.p_1;
             update_vectors(a);
             if (!validate(a))
                 return 0;
@@ -564,7 +546,7 @@ public:
         if (b.type == MOT_LINE)
         {
             b.p_0 = ipForL2;
-            b.o_0 = b.p_0;
+            //b.o_0 = b.p_0;
             update_vectors(b);
             if (!validate(b))
                 return 0;
@@ -573,7 +555,6 @@ public:
         if (haveExtA)
         {
             extA.p_1 = ipForL1;
-            extA.o_1 = extA.p_1;
             update_vectors(extA);
             if (!validate(extA))
                 return 0;
@@ -586,8 +567,6 @@ public:
         {
             extB.p_0 = ipForL2;
             extB.p_1 = b.p_0;
-            extB.o_0 = extB.p_0;
-            extB.o_1 = extB.p_1;
             update_vectors(extB);
             if (!validate(extB))
                 return 0;
@@ -619,14 +598,10 @@ public:
         extLnOut.feed = arc.feed;
         extLnOut.p_0 = anchor;
         extLnOut.p_1 = anchor + dir * extent;
-        extLnOut.o_0 = extLnOut.p_0;
-        extLnOut.o_1 = extLnOut.p_1;
-        // extLnOut.src_0 = extLnOut.p_0;
-        // extLnOut.src_1 = extLnOut.p_1;
         extLnOut.startDir = dir;
         extLnOut.endDir = dir;
-        extLnOut.initialStartDir = dir;
-        extLnOut.initialEndDir = dir;
+        //extLnOut.initialStartDir = dir;
+        //extLnOut.initialEndDir = dir;
         update_vectors(extLnOut);
         validate(extLnOut);
 
@@ -689,8 +664,8 @@ public:
         // 1) TIP: true intersection within both finite segments -> trim
         if (tip)
         {
-            trimToTIP(a, b, ip);
-            return;
+            if (trimToTIP(a, b, ip))
+                return;
         }
 
         // direction gate (same condition used inside ExtendToCommonFIP)
@@ -755,7 +730,10 @@ public:
         if (it == IT_TANGENT)
         {
             if (tip1)
-                trimToTIP(a, b, p1);
+            {
+                if (trimToTIP(a, b, p1))
+                    return;
+            }
             return;
         }
 
@@ -764,8 +742,8 @@ public:
             Vec2 tip = tip1 ? p1 : p2;
             if (tip1 && tip2)
                 tip = pickClosest(a.p_1, p1, p2);
-            trimToTIP(a, b, tip);
-            return;
+            if (trimToTIP(a, b, tip))
+                return;
         }
 
         if (!insertRollOrCorner(a, b, inserts, insertCount))
@@ -848,8 +826,8 @@ public:
             Vec2 tip = tip1 ? p1 : p2;
             if (tip1 && tip2)
                 tip = pickClosest(a.p_1, p1, p2);
-            trimToTIP(a, b, tip);
-            return;
+            if (trimToTIP(a, b, tip))
+                return;
         }
 
         if (!insertRollOrCorner(a, b, inserts, insertCount))
@@ -1000,34 +978,11 @@ public:
     }
 
 public:
-    bool is_profile_chained(Move2D *moves, int numMoves)
-    {
-        for (int i = 1; i < numMoves; ++i)
-        {
-            Move2D &prev = moves[i - 1];
-            Move2D &curr = moves[i];
-            if (!curr.valid)
-                continue;
-
-            if (isMotionValid(prev) || isMotionValid(curr)) // skip non-comp moves.
-                continue;
-
-            float dist = len(prev.p_1 - curr.p_0);
-            if (dist > TOL)
-                return false;
-        }
-        return true;
-    }
-
+  
     // return false if failed to trim (which can only happen if a comp in move is crossing, 
     bool trimCrossingElements(Move2D *moves, int start, int moveCount, int lookahead)
     {
         int srcIdx = start;
-        if (srcIdx < 0)
-            srcIdx = 0;
-        if (srcIdx >= moveCount)
-            return true; // nothing to trim, so "success"
-
         int maxIdx = moveCount;
         // calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
         init_all_aabb(moves, start, moveCount);
@@ -1114,7 +1069,6 @@ public:
             {
                 // Extend a to b end and invalidate b
                 a.p_1 = b.p_1;
-                a.o_1 = a.p_1;
                 update_vectors(a);
 
                 b.valid = false;
@@ -1130,15 +1084,4 @@ public:
         return merges;
     }
 
-    // Merges adjacent colinear LINE segments over a subrange [start, endExclusive).
-    // Returns number of merges performed.
-    int merge_all_colinear(Move2D *moves, int start, int endExclusive)
-    {
-        int i0 = (start < 0) ? 0 : start;
-        int i1 = (endExclusive < 0) ? 0 : endExclusive;
-        if (i1 <= i0)
-            return 0;
-
-        return merge_all_colinear(moves + i0, i1 - i0);
-    }
 };

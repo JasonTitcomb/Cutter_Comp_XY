@@ -28,7 +28,6 @@ static constexpr float TOOL_RADIUS = 0.0225f;
 static constexpr bool FORCE_ROLL_AROUND = true;
 static constexpr bool FULL_TRIM_CROSSINGS = true;
 static constexpr bool ENABLE_MERGE = true;
-static constexpr MachineType MACHINE_TYPE = MAC_MILL;
 static constexpr int MAX_LOOKAHEAD = 25; // MaxLookaheadForIntersections
 static constexpr int EMIT_HOLDBACK = 2;
 static constexpr int FULL_TRIM_MAX_PASSES = 6;                  // safety cap
@@ -92,8 +91,7 @@ static bool emit_comp_profile_delta(const Move2D *moves,
 // -------------------- G-code emission --------------------
 static void emit_move_as_gcode(const Move2D &m)
 {
-  const bool latheMode = machine_is_lathe(MACHINE_TYPE);
-  Vec3 p1m = internal_xy_to_machine(m.p_1, MACHINE_TYPE);
+  Vec3 p1m = internal_xy_to_machine(m.p_1);
 
   if (m.type == MOT_LINE)
   {
@@ -102,8 +100,8 @@ static void emit_move_as_gcode(const Move2D &m)
     DBG_PRINT(m.type == MOT_RAPID ? " G0" : " G1");
     DBG_PRINT(" X");
     DBG_PRINT(p1m.x, 4);
-    DBG_PRINT(latheMode ? " Z" : " Y");
-    DBG_PRINT(latheMode ? p1m.z : p1m.y, 4);
+    DBG_PRINT(" Y");
+    DBG_PRINT(p1m.y, 4);
     DBG_PRINT("\n");
     return;
   }
@@ -111,19 +109,19 @@ static void emit_move_as_gcode(const Move2D &m)
   if (m.type == MOT_ARC)
   {
     Vec2 dInternal = m.center - m.p_0;
-    Vec3 dMachine = internal_delta_xy_to_machine(dInternal, MACHINE_TYPE);
+    Vec3 dMachine = internal_delta_xy_to_machine(dInternal);
 
     DBG_PRINT("N");
     DBG_PRINT(m.seqNum);
     DBG_PRINT((m.arcDir == ARC_CW) ? " G2" : " G3");
     DBG_PRINT(" X");
     DBG_PRINT(p1m.x, 4);
-    DBG_PRINT(latheMode ? " Z" : " Y");
-    DBG_PRINT(latheMode ? p1m.z : p1m.y, 4);
+    DBG_PRINT(" Y");
+    DBG_PRINT(p1m.y, 4);
     DBG_PRINT(" I");
     DBG_PRINT(dMachine.x, 4);
-    DBG_PRINT(latheMode ? " K" : " J");
-    DBG_PRINT(latheMode ? dMachine.z : dMachine.y, 4);
+    DBG_PRINT(" J");
+    DBG_PRINT(dMachine.y, 4);
     DBG_PRINT("\n");
     return;
   }
@@ -146,7 +144,7 @@ static void process_one_gcode_line(const char *raw)
   scan_line(clean, s);
 
   // Interpret to motion (also updates modal.comp, modal.motionG, etc.)
-  Move2D mv = interpret_move(s, modalState, MACHINE_TYPE);
+  Move2D mv = interpret_move(s, modalState);
 
   // If this block turns comp ON (G41/G42), enable comp BEFORE processing this move.
   if (s.sawG41 || s.sawG42)
@@ -295,7 +293,6 @@ void setup()
 
   // Init cutter comp engine
   cc.setToolRadius(TOOL_RADIUS);
-  cc.setMachineType(MACHINE_TYPE);
   cc.setCornerTreatment(FORCE_ROLL_AROUND ? CORNER_ROLL : CORNER_CHAMFER);
   cc.setComp(COMP_OFF);
 

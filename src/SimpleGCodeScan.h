@@ -20,8 +20,6 @@ struct ScanLine
     float I = 0;
     bool hasJ = false;
     float J = 0;
-    bool hasK = false;
-    float K = 0;
     bool hasR = false;
     float R = 0;
     bool hasF = false;
@@ -235,11 +233,6 @@ static inline void scan_line(const char *line, ScanLine &s)
                 s.hasJ = true;
                 p = parse_float(p, s.J);
             }
-            else if (c == 'K')
-            {
-                s.hasK = true;
-                p = parse_float(p, s.K);
-            }
             else if (c == 'R')
             {
                 s.hasR = true;
@@ -305,7 +298,7 @@ static inline bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, Ar
 
 // Turn a scanned line into a Move2D (or MOT_EMPTY if no XY motion).
 // Updates modal state (pos, motion mode, comp, feed).
-static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState, MachineType machineType = MAC_MILL)
+static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
 {
     // Update modal toggles first
     if (s.sawG17)
@@ -333,75 +326,36 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState, Ma
     else if (s.sawG3)
         modeState.motionG = 3;
 
-    const bool latheMode = machine_is_lathe(machineType);
-    // - Turning->Milling transform is (X,Y,Z)->(Z,X,Y)
-    // - Internal XY uses that milling view (X:=Z, Y:=X)
-
     // Coordinates are parsed in machine-space, then mapped to internal XY space.
     Vec2 p0 = modeState.pos;
     Vec2 p1 = p0;
 
     bool anyXYZ = false;
-    if (!latheMode)
+    if (s.hasX)
     {
-        if (s.hasX)
+        if (modeState.absXYZ)
         {
-            if (modeState.absXYZ)
-            {
-                p1.x = s.X;
-            }
-            else
-            {
-                p1.x = p0.x + s.X;
-            }
-
-            anyXYZ = true;
+            p1.x = s.X;
         }
-        if (s.hasY)
+        else
         {
-            if (modeState.absXYZ)
-            {
-                p1.y = s.Y;
-            }
-            else
-            {
-                p1.y = p0.y + s.Y;
-            }
-            anyXYZ = true;
+            p1.x = p0.x + s.X;
         }
-        // Z is ignored by 2D compensation geometry.
+        anyXYZ = true;
     }
-    else
+    if (s.hasY)
     {
-        // Lathe path in internal XY (VB-equivalent axis permutation):
-        // machine X -> internal Y, machine Z -> internal X.
-        if (s.hasX)
+        if (modeState.absXYZ)
         {
-            float yInternal = machine_x_to_internal_y(s.X, machineType);
-            if (modeState.absXYZ)
-            {
-                p1.y = yInternal;
-            }
-            else
-            {
-                p1.y = p0.y + yInternal;
-            }
-            anyXYZ = true;
+            p1.y = s.Y;
         }
-
-        if (s.hasZ)
+        else
         {
-            if (modeState.absXYZ)
-            {
-                p1.x = s.Z;
-            }
-            else
-            {
-                p1.x = p0.x + s.Z;
-            }
-            anyXYZ = true;
+            p1.y = p0.y + s.Y;
         }
+        anyXYZ = true;
     }
+    // Z is ignored by 2D compensation geometry.
 
     Move2D out;
 
@@ -452,19 +406,10 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState, Ma
         out.arcDir = (modeState.motionG == 2) ? ARC_CW : ARC_CCW;
 
         // Resolve center either from I/J or from R
-        if (!latheMode && (s.hasI || s.hasJ))
+        if (s.hasI || s.hasJ)
         {
             Vec2 ij = v2(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f); // I/J are already in internal XY space
             out.center = p0 + ij;                                         // I/J incremental
-            out.radius = len(p0 - out.center);
-        }
-        else if (latheMode && (s.hasI || s.hasK))
-        {
-            Vec3 ikMachine = v3(s.hasI ? s.I : 0.0f, 0.0f, s.hasK ? s.K : 0.0f);
-            // Lathe arcs use I/K in machine turning space; map them through
-            // the same turning->milling transform into internal XY.
-            Vec2 ikInternal = machine_delta_to_internal_xy(ikMachine, machineType);
-            out.center = p0 + ikInternal; // I/K incremental in machine-space, mapped to internal XY
             out.radius = len(p0 - out.center);
         }
         else if (s.hasR)

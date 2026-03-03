@@ -72,13 +72,6 @@ enum CornerType : uint8_t
   CORNER_ROLL = 0,
   CORNER_CHAMFER = 1,
 };
-
-enum MachineType : uint8_t
-{
-  MAC_MILL = 0,
-  MAC_LATHE_DIA = 1,
-  MAC_LATHE_RAD = 2
-};
 enum MotionType : uint8_t
 {
   MOT_EMPTY = 0,
@@ -117,6 +110,8 @@ struct Move2D
 
   Vec2 p_0{0, 0}; // working start
   Vec2 p_1{0, 0}; // working end
+
+  Vec2 src_1{0, 0}; // original end (used by roll-arc center logic)
   Vec2 center{0, 0};
 
   Vec2 startDir{0, 0};
@@ -127,109 +122,37 @@ struct Move2D
   MotionType type = MOT_EMPTY;
   ArcDir arcDir = ARC_CW;
   CompMode compMode = CM_NONE;
-  bool valid = true; // for output moves, indicates if move is valid
+  bool valid = true;
 
   AABB2 bounds;        // bounding box.
   uint32_t seqNum = 0; // for debugging
-
-  // Legacy/original move snapshot fields (kept for compatibility/debugging).
-  Vec2 src_0{0, 0}; // original start (currently not used by core logic; write-only)
-  Vec2 src_1{0, 0}; // original end (used by roll-arc center logic)
-  Vec2 src_c{0, 0}; // original arc center (currently not used by core logic; write-only)
-
-  // Track original endpoints before any trimming/extension.
-  Vec2 o_0{0, 0};
-  Vec2 o_1{0, 0};
-
-  // Initial tangent directions.
-  Vec2 initialStartDir{0, 0};
-  Vec2 initialEndDir{0, 0};
 };
-static inline bool machine_is_lathe(MachineType mt)
-{
-  return (mt == MAC_LATHE_DIA || mt == MAC_LATHE_RAD);
-}
-
-static inline float machine_x_to_internal_y(float x, MachineType mt)
-{
-  if (mt == MAC_LATHE_DIA)
-    return 0.5f * x;
-  return x;
-}
-
-static inline float internal_y_to_machine_x(float y, MachineType mt)
-{
-  if (mt == MAC_LATHE_DIA)
-    return 2.0f * y;
-  return y;
-}
-
-// VB-equivalent axis permutations for turning (XZ) <-> milling (XY) thinking:
-// Turning -> Milling: (X,Y,Z) => (Z,X,Y)
-// Milling -> Turning: (X,Y,Z) => (Y,Z,X)
-static inline Vec3 turning_to_milling_xyz(const Vec3 &coord)
-{
-  return v3(coord.z, coord.x, coord.y);
-}
-
-static inline Vec3 milling_to_turning_xyz(const Vec3 &coord)
-{
-  return v3(coord.y, coord.z, coord.x);
-}
-
 // Convert machine-space absolute point to internal XY space used by compensation.
-// Mill: X/Y -> X/Y
-// Lathe: X/Z -> Y/X (internal X is machine Z, internal Y is machine X[or X/2 in DIA mode])
-static inline Vec2 machine_to_internal_xy(const Vec3 &p, MachineType mt)
+static inline Vec2 machine_to_internal_xy(const Vec3 &p)
 {
-  if (!machine_is_lathe(mt))
-    return v2(p.x, p.y);
-
-  Vec3 mill = turning_to_milling_xyz(p); // mill.x=Z, mill.y=X
-  if (mt == MAC_LATHE_DIA)
-    mill.y = machine_x_to_internal_y(mill.y, mt); // DIA endpoint X -> radius
-
-  return v2(mill.x, mill.y);
+  return v2(p.x, p.y);
 }
 
 // Convert internal XY absolute point back to machine-space coordinates.
-static inline Vec3 internal_xy_to_machine(const Vec2 &p, MachineType mt)
+static inline Vec3 internal_xy_to_machine(const Vec2 &p)
 {
-  if (!machine_is_lathe(mt))
-    return v3(p.x, p.y, 0.0f);
-
-  Vec3 mill = v3(p.x, p.y, 0.0f);
-  if (mt == MAC_LATHE_DIA)
-    mill.y = internal_y_to_machine_x(mill.y, mt); // radius -> DIA endpoint X
-
-  return milling_to_turning_xyz(mill);
+  return v3(p.x, p.y, 0.0f);
 }
 
-// Same mapping for center offset vectors (I/J or I/K style offsets).
-// NOTE: In lathe DIA mode, X endpoints are diameter values, but I center offsets
-// are typically provided in radius units. So we do NOT apply DIA 2x/0.5x scaling
-// to center offsets.
-static inline Vec2 machine_delta_to_internal_xy(const Vec3 &d, MachineType mt)
+// Same mapping for center offset vectors (I/J style offsets).
+static inline Vec2 machine_delta_to_internal_xy(const Vec3 &d)
 {
-  if (!machine_is_lathe(mt))
-    return v2(d.x, d.y);
-  return v2(d.z, d.x);
+  return v2(d.x, d.y);
 }
 
-static inline Vec3 internal_delta_xy_to_machine(const Vec2 &d, MachineType mt)
+static inline Vec3 internal_delta_xy_to_machine(const Vec2 &d)
 {
-  if (!machine_is_lathe(mt))
-    return v3(d.x, d.y, 0.0f);
-  return v3(d.y, 0.0f, d.x);
+  return v3(d.x, d.y, 0.0f);
 }
 
-// Plot-space mapping (SVG still draws in XY):
-// - Mill: plot X/Y
-// - Lathe: plot Z/radius (internal X/internal Y)
-//   This avoids DIA-mode visual stretching caused by plotting machine X-diameter.
-static inline Vec2 internal_xy_to_plot_xy(const Vec2 &p, MachineType mt)
+// Plot-space mapping (SVG draws in XY).
+static inline Vec2 internal_xy_to_plot_xy(const Vec2 &p)
 {
-  (void)mt;
   return v2(p.x, p.y);
 }
 
@@ -608,6 +531,13 @@ static inline bool pointOnArc(const Move2D &a, Vec2 p)
 
 static inline IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
 {
+
+  // Vec2 p = ln1.o_0;
+  // Vec2 r = ln1.o_1 - ln1.o_0;
+  // Vec2 q = ln2.o_0;
+  // Vec2 s = ln2.o_1 - ln2.o_0;
+
+
   Vec2 p = ln1.p_0;
   Vec2 r = ln1.p_1 - ln1.p_0;
   Vec2 q = ln2.p_0;
