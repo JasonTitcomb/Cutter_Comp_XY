@@ -35,6 +35,7 @@ static constexpr int FULL_TRIM_MAX_PASSES = 6;                  // safety cap
 
 static ModalState modalState;
 static CutterComp2D cc;
+static float activeToolRadius = TOOL_RADIUS;
 
 // -------------------- Profile buffer for post-pass trimming --------------------
 static constexpr int MAX_PROFILE_MOVES = 512; // bump if needed
@@ -142,6 +143,15 @@ static void process_one_gcode_line(const char *raw)
   // Scan tokens so we can see G41/G42/G40 even if no motion
   ScanLine s;
   scan_line(clean, s);
+
+  if (s.hasD)
+  {
+    float diameter = s.D;
+    if (diameter < 0.0f)
+      diameter = -diameter;
+    activeToolRadius = diameter * 0.5f;
+    cc.setToolRadius(activeToolRadius);
+  }
 
   // Interpret to motion (also updates modal.comp, modal.motionG, etc.)
   Move2D mv = interpret_move(s, modalState);
@@ -293,6 +303,7 @@ void setup()
 
   // Init cutter comp engine
   cc.setToolRadius(TOOL_RADIUS);
+  activeToolRadius = TOOL_RADIUS;
   cc.setCornerTreatment(FORCE_ROLL_AROUND ? CORNER_ROLL : CORNER_CHAMFER);
   cc.setComp(COMP_OFF);
 

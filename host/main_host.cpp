@@ -1,4 +1,4 @@
-#include <cstdio>
+﻿#include <cstdio>
 #include <vector>
 #include <string>
 #include <cstring>
@@ -34,9 +34,9 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.062f;
+static constexpr float TOOL_RADIUS = -0.062f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool PERFORM_TRIM = true; // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
+static constexpr bool PERFORM_TRIM = true;                  // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
 static constexpr int MAX_LOOKAHEAD = 10;
 static constexpr int EMIT_HOLDBACK = 4;
 
@@ -111,13 +111,13 @@ static bool emit_comp_profile_delta(FILE *f,
                                     int holdBackCount,
                                     bool flushAll,
                                     bool inchUnits,
-                                    float toolRadius)
+                                    float activeToolRadius)
 {
   const int profileSize = (int)moves.size();
   if (nextEmitIndex < 0)
     nextEmitIndex = 0;
 
-  const float minCompLen = (toolRadius < 0.0f) ? -toolRadius : toolRadius;
+  const float minCompLen = (activeToolRadius < 0.0f) ? -activeToolRadius : activeToolRadius;
 
   int emitLimit = profileSize;
   if (!flushAll)
@@ -316,6 +316,24 @@ static std::string sanitize_radius_for_filename(float radius)
   return out;
 }
 
+static bool trim_and_merge_pending_profile(int emittedProfileCount, int &trimResumeIndex)
+{
+  const int profileSize = (int)profile.size();
+  int trimStart = trimResumeIndex;
+  if (trimStart < emittedProfileCount)
+    trimStart = emittedProfileCount;
+
+  if (trimStart >= profileSize)
+    return true;
+  int retTargetIdx = -1;
+  if (!cc.trimCrossingElements(profile.data(), trimStart, profileSize, MAX_LOOKAHEAD, retTargetIdx))
+    return false;
+
+  cc.merge_all_colinear(profile.data() + trimStart, profileSize - trimStart);
+  trimResumeIndex = profileSize; //-4 this fixes it but why is it needed?
+  return true;
+}
+
 static bool run_profile_streaming(const char *inputPath,
                                   const char *emitGcodePath,
                                   float toolRadius,
@@ -330,7 +348,8 @@ static bool run_profile_streaming(const char *inputPath,
   modalState.pos = v2(0, 0);
 
   cc = CutterComp2D{};
-  cc.setToolRadius(toolRadius);
+  float activeToolRadius = toolRadius;
+  cc.setToolRadius(activeToolRadius);
   cc.setCornerTreatment(cornerTreatment);
   cc.setPerformTrim(PERFORM_TRIM);
   cc.setComp(COMP_OFF);
@@ -348,10 +367,9 @@ static bool run_profile_streaming(const char *inputPath,
   bool sawG40 = false;
   bool compClosed = false;
   int emittedProfileCount = 0;
-   bool inchUnits = true;
+  bool inchUnits = true;
   int linesSinceEmit = 0;
   int trimResumeIndex = 0;
-  int mergeResumeIndex = 0;
   std::string line;
 
   FILE *out = open_file_write_binary(emitGcodePath);
@@ -401,27 +419,13 @@ static bool run_profile_streaming(const char *inputPath,
       linesSinceEmit++;
       if (linesSinceEmit >= MAX_LOOKAHEAD)
       {
-        const int profileSize = (int)profile.size();
-
-        if (PERFORM_TRIM)
+        if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
         {
-          int trimStart = trimResumeIndex;
-          if (trimStart < emittedProfileCount)
-            trimStart = emittedProfileCount;
+          std::fclose(out);
+          return false;
+        }
 
-          if(!cc.trimCrossingElements(profile.data(), trimStart, profileSize, MAX_LOOKAHEAD))
-          {
-            std::fclose(out);
-            return false;
-          }
-          trimResumeIndex += MAX_LOOKAHEAD;
-          cc.merge_all_colinear(profile.data() + trimStart, profileSize - trimStart);
-      }
-
-  
-        mergeResumeIndex += MAX_LOOKAHEAD;
-
-        if (!emit_comp_profile_delta(out, profile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits, toolRadius))
+        if (!emit_comp_profile_delta(out, profile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits, activeToolRadius))
         {
           std::fclose(out);
           return false;
@@ -435,16 +439,13 @@ static bool run_profile_streaming(const char *inputPath,
     {
       sawG40 = true;
       compClosed = true;
-      if (PERFORM_TRIM)
+      if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
+      {
+        std::fclose(out);
+        return false;
+      }
 
-        if(!cc.trimCrossingElements(profile.data(), trimResumeIndex, profile.size(), MAX_LOOKAHEAD))
-        {
-          std::fclose(out);
-          return false;
-        }
-        cc.merge_all_colinear(profile.data() + trimResumeIndex, profile.size() - trimResumeIndex);
-
-      if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, toolRadius))
+      if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, activeToolRadius))
       {
         std::fclose(out);
         return false;
@@ -458,7 +459,13 @@ static bool run_profile_streaming(const char *inputPath,
   {
     flush_pipeline();
 
-    if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, toolRadius))
+    if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
+    {
+      std::fclose(out);
+      return false;
+    }
+
+    if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, activeToolRadius))
     {
       std::fclose(out);
       return false;
@@ -473,14 +480,14 @@ static bool run_profile_streaming(const char *inputPath,
   if (sawCompStart && profile.empty())
     return false;
 
-   return true;
+  return true;
 }
 
 int main()
 {
   // const char *default_file = "../../data/RapidComp.nc";
   // const char *default_file = "../../data/G41_1.nc";
-   const char *default_file = "../../data/G41_2.nc";
+  // const char *default_file = "../../data/G41_2.nc";
   // const char *default_file = "../../data/TortureTestG91.nc";
   // const char *default_file = "../../data/LatheDia.nc";
   // const char *default_file = "../../data/LatheRad.nc";
@@ -488,7 +495,7 @@ int main()
   // const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   // const char *default_file = "../../data/simple1.nc";
-  // const char *default_file = "../../data/TortureTestG90.nc";
+  const char *default_file = "../../data/TortureTestG90.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
   // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   // const char *default_file = "../../data/SimpleSquarePocket.nc";

@@ -91,8 +91,8 @@ public:
             Move2D curOff;
 
             offsetMove(raw, curOff);
-            //curOff.initialStartDir = raw.startDir;
-            //curOff.initialEndDir = raw.endDir;
+            // curOff.initialStartDir = raw.startDir;
+            // curOff.initialEndDir = raw.endDir;
             if (!havePrevMove2D)
             {
                 prevOff = curOff;
@@ -228,11 +228,11 @@ public:
         // complete copy for non-comp moves or if tool radius is zero (also captures original vectors)
         dst = src;
         // capture the original move's start/end points before any comp modifications
-        //dst.src_0 = src.p_0;
+        // dst.src_0 = src.p_0;
         dst.src_1 = src.p_1;
-        //dst.src_c = src.center;
-        //dst.initialStartDir = src.startDir;
-        //dst.initialEndDir = src.endDir;
+        // dst.src_c = src.center;
+        // dst.initialStartDir = src.startDir;
+        // dst.initialEndDir = src.endDir;
 
         Vec2 v = src.p_1 - src.p_0;
         float l = len(v);
@@ -261,7 +261,7 @@ public:
         dst.type = src.type; // keep rapid vs feed
         dst.p_0 = src.p_0 + off;
         dst.p_1 = src.p_1 + off;
-         return true;
+        return true;
     }
 
     // Concentric arc offset like before (good enough for your VB logic)
@@ -276,11 +276,11 @@ public:
         // complete copy.
         dst = src;
         // backups of original geometry.
-        //dst.src_0 = src.p_0;
+        // dst.src_0 = src.p_0;
         dst.src_1 = src.p_1;
-        //dst.src_c = src.center;
-        //dst.initialStartDir = src.startDir;
-        //dst.initialEndDir = src.endDir;
+        // dst.src_c = src.center;
+        // dst.initialStartDir = src.startDir;
+        // dst.initialEndDir = src.endDir;
 
         float dr = toolR;
         bool ccw = (src.arcDir == ARC_CCW);
@@ -308,7 +308,7 @@ public:
         dst.radius = r1;
         dst.p_0 = src.center + v0 * (r1 / lv0);
         dst.p_1 = src.center + v1 * (r1 / lv1);
-         return true;
+        return true;
     }
 
     static inline bool validate(Move2D &m)
@@ -537,7 +537,7 @@ public:
         if (a.type == MOT_LINE)
         {
             a.p_1 = ipForL1;
-            //a.o_1 = a.p_1;
+            // a.o_1 = a.p_1;
             update_vectors(a);
             if (!validate(a))
                 return 0;
@@ -546,7 +546,7 @@ public:
         if (b.type == MOT_LINE)
         {
             b.p_0 = ipForL2;
-            //b.o_0 = b.p_0;
+            // b.o_0 = b.p_0;
             update_vectors(b);
             if (!validate(b))
                 return 0;
@@ -600,8 +600,8 @@ public:
         extLnOut.p_1 = anchor + dir * extent;
         extLnOut.startDir = dir;
         extLnOut.endDir = dir;
-        //extLnOut.initialStartDir = dir;
-        //extLnOut.initialEndDir = dir;
+        // extLnOut.initialStartDir = dir;
+        // extLnOut.initialEndDir = dir;
         update_vectors(extLnOut);
         validate(extLnOut);
 
@@ -910,8 +910,15 @@ public:
         return 0;
     }
 
-    static CrossingHit lookAheadForCrossing(Move2D *moves, int numMoves, int srcIdx, int startTargetIdx, int maxIdx, int maxLookahead,
-                                            int firstCutIdx, int lastCutIdx)
+
+    
+    static CrossingHit lookAheadForCrossing(Move2D *moves, int numMoves, 
+                                            int srcIdx, 
+                                            int startTargetIdx, 
+                                            int maxIdx, 
+                                            int maxLookahead,
+                                            int firstCutIdx, 
+                                            int lastCutIdx)
     {
         CrossingHit best;
         best.hit = false;
@@ -960,12 +967,6 @@ public:
                 }
             }
 
-            // if we have a head-bites tail scenario
-            if (len(src.p_0 - target.p_1) < TOL)
-            {
-                continue;
-            }
-
             if (d <= best.dist)
             {
                 best.hit = true;
@@ -978,23 +979,43 @@ public:
     }
 
 public:
-  
-    // return false if failed to trim (which can only happen if a comp in move is crossing, 
-    bool trimCrossingElements(Move2D *moves, int start, int moveCount, int lookahead)
-    {
-        int srcIdx = start;
-        int maxIdx = moveCount;
-        // calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
-        init_all_aabb(moves, start, moveCount);
 
-        int firstCutIdx = first_cutting_move(moves, moveCount);
+    bool testForCrossingElements(Move2D *moves, int &srcIdx, int maxIdx, int lookahead)
+    {
+        CrossingHit crossing = lookAheadForCrossing(moves, maxIdx, srcIdx, srcIdx + 1, maxIdx, lookahead, -1, -1);
+        return crossing.hit;
+    }
+
+
+    // return false if failed to trim (which can only happen if a comp in move is crossing,
+    bool trimCrossingElements(Move2D *moves, int &srcIdx, int maxIdx, int lookahead, int &hitTargetIdx)
+    {
+        int compInIdx = -1;
+        int compOutIdx = -1;
+         // calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
+        init_all_aabb(moves, srcIdx, maxIdx);
+
+        // find the moves adjacent to the comp in and comp out.
+        // we want to skip these in the crossing logic since they are allowed to "cross" in the sense that they share geometry but should not be trimmed since they are intentionally connected that way as part of the comp.
+        int firstCutIdx = first_comp_move(moves, maxIdx);
         int lastCutIdx = -1;
         if (firstCutIdx >= 0)
-            lastCutIdx = last_cutting_move(moves, moveCount, firstCutIdx);
+            lastCutIdx = last_comp_move(moves, maxIdx, firstCutIdx);
+
+        if (firstCutIdx >= 0)
+        {
+            compInIdx = firstCutIdx - 1; // comp in is immediately before first cut move
+        }
+
+        if (lastCutIdx >= 0)
+        {
+            compOutIdx = lastCutIdx + 1; // comp out is immediately after last cut move
+        }
+        //
 
         while (srcIdx < maxIdx)
         {
-            while (srcIdx < maxIdx && (!moves[srcIdx].valid ))//|| moves[srcIdx].compMode == CM_IN
+            while (srcIdx < maxIdx && (!moves[srcIdx].valid)) //|| moves[srcIdx].compMode == CM_IN
                 srcIdx++;
 
             if (srcIdx >= maxIdx)
@@ -1002,40 +1023,47 @@ public:
 
             int targetIdx = srcIdx + 1;
             while (targetIdx < maxIdx && !moves[targetIdx].valid)
-                targetIdx++;//skip invalid targets
+                targetIdx++; // skip invalid targets
             if (targetIdx >= maxIdx)
-                break;// if we have no valid targets ahead, we are done.
+                break; // if we have no valid targets ahead, we are done.
 
-            CrossingHit crossing = lookAheadForCrossing(moves, moveCount, srcIdx, targetIdx, maxIdx, lookahead, firstCutIdx, lastCutIdx);
+            CrossingHit crossing = lookAheadForCrossing(moves, maxIdx, srcIdx, targetIdx, maxIdx, lookahead, firstCutIdx, lastCutIdx);
             if (!crossing.hit)
             {
                 srcIdx++;
                 continue;
             }
+            hitTargetIdx = crossing.j;
 
-            if(moves[srcIdx].compMode == CM_IN){
-                //comp in should never cross.
-                DBG_PRINTLN("Invalid comp in move");
-                return false;
+            // if we are here we have a crossing.
+            if (moves[srcIdx].compMode == CM_IN)
+            {
+                if (hitTargetIdx < lastCutIdx)
+                {
+                    // comp in should never cross.
+                    DBG_PRINTLN("Invalid comp in move");
+                    return false;
+                }
+                srcIdx++;
+                continue; // skip trimming for comp in move.
             }
 
-
-            if(moves[crossing.j].compMode == CM_OUT){
-                //comp out should never cross.
+            if (moves[hitTargetIdx].compMode == CM_OUT)
+            {
+                // comp out should never cross.
                 DBG_PRINTLN("Invalid comp out move");
                 return false;
             }
 
-            int j = crossing.j;
-
-            (void)trimToTIP(moves[srcIdx], moves[j], crossing.tip);
-            // test the above now to see if either one is invalid after trimming,
-            // and if so invalidate the other as well since the crossing is resolved and we don't want to leave any tiny slivers that could cause more crossings or other issues downstream.
-
-            invalidateRange(moves, srcIdx, j);
-
+            // only run this if we have a non-lead-in-out crossing and it is not a head-bites-tail.
+            bool shouldTrim = compInIdx!=-1 && compOutIdx!=-1 && srcIdx == compInIdx && hitTargetIdx == compOutIdx;
+            if (!shouldTrim)
+            {
+                (void)trimToTIP(moves[srcIdx], moves[hitTargetIdx], crossing.tip);
+                invalidateRange(moves, srcIdx, hitTargetIdx);
+            }
             // trimmedTo becomes new srcElement
-            srcIdx = j;
+            srcIdx = hitTargetIdx;
         }
 
         return true;
@@ -1083,5 +1111,4 @@ public:
 
         return merges;
     }
-
 };

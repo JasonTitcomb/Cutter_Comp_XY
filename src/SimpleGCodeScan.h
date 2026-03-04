@@ -24,6 +24,8 @@ struct ScanLine
     float R = 0;
     bool hasF = false;
     float F = 0;
+    bool hasD = false;
+    float D = 0;
 
     // Special modal toggles
     bool sawG17 = false;
@@ -49,6 +51,7 @@ struct ModalState
     CompSide comp = COMP_OFF;
     CompMode compMode = CM_NONE;
     float feed = 0.0f;
+    float toolDiameterOffset = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
 };
 
@@ -243,6 +246,11 @@ static inline void scan_line(const char *line, ScanLine &s)
                 s.hasF = true;
                 p = parse_float(p, s.F);
             }
+            else if (c == 'D')
+            {
+                s.hasD = true;
+                p = parse_float(p, s.D);
+            }
             else
             {
                 // Unknown word: skip a number if present
@@ -315,6 +323,8 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         modeState.comp = COMP_RIGHT;
     if (s.hasF)
         modeState.feed = s.F;
+    if (s.hasD)
+        modeState.toolDiameterOffset = s.D;
 
     // Update motion mode if explicitly provided
     if (s.sawG0)

@@ -4,7 +4,7 @@
 #include <math.h>
 
 #define TOL 0.0001f
-#define INPUT_ARC_TOL 0.001f
+#define INPUT_ARC_TOL 0.0001f
 #define EPS 1e-7f
 #define PARALLEL_TOL 1e-3f
 #define BEVEL_VEC_TOL 1.0e-1f
@@ -437,6 +437,16 @@ static int next_valid_index(const Move2D *moves, int count, int i)
   return -1;
 }
 
+static int prev_valid_index(const Move2D *moves, int count, int i)
+{
+  for (int k = i - 1; k >= 0; --k)
+  {
+    if (isMotionValid(moves[k]))
+      return k;
+  }
+  return -1;
+}
+
 static int first_valid_index(const Move2D *moves, int count)
 {
   for (int i = 0; i < count; ++i)
@@ -448,11 +458,11 @@ static int first_valid_index(const Move2D *moves, int count)
 }
 
 // Find the first move after a CM_IN move
-static int first_cutting_move(const Move2D *moves, int count)
+static int first_comp_move(const Move2D *moves, int count)
 {
   for (int i = 0; i < count; ++i)
   {
-    if (isMotionValid(moves[i]) && moves[i].compMode == CM_IN)
+    if (moves[i].compMode == CM_IN)
     {
       // Found a CM_IN move, now find the next valid move
       return next_valid_index(moves, count, i);
@@ -462,21 +472,14 @@ static int first_cutting_move(const Move2D *moves, int count)
 }
 
 // Find the last move before a CM_OUT move
-static int last_cutting_move(const Move2D *moves, int count, int startAt)
+static int last_comp_move(const Move2D *moves, int count, int startAt)
 {
   for (int i = startAt; i < count; ++i)
   {
     if (moves[i].compMode == CM_OUT)
     {
       // Found a CM_OUT move, now find the last valid move before it
-      for (int k = i - 1; k >= 0; --k)
-      {
-        if (isMotionValid(moves[k]))
-        {
-          return k;
-        }
-      }
-      return -1; // No valid move before CM_OUT
+      return prev_valid_index(moves, count, i);
     }
   }
   return -1; // No CM_OUT found

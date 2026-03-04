@@ -1,7 +1,7 @@
 %
 O1000
 N1 G90 G94 G17 G49 G40 G80
-N2 G20
+N2 G21
 N3 G28 G91 Z0.
 N4 G90
 (comment test)
