@@ -176,9 +176,7 @@ static inline bool is_radius_consistent(const Move2D &m)
 
 static inline int get_winding_dir(Vec2 a, Vec2 b)
 {
-  // Implemented as sign of cross of normalized vectors.
-  a = normalize(a);
-  b = normalize(b);
+  // a and b are already unit vectors (startDir/endDir from update_vectors)
   float z = cross(a, b);
   if (z > TOL)
     return +1;
@@ -263,29 +261,22 @@ static inline AABB2 aabb_of(const Move2D &m)
 
   if (m.type == MOT_ARC && fabsf(m.radius) > TOL)
   {
-    // Check silhouette points to get tighter bounds.
+    // Cardinal angles are known constants — no atan2f needed.
     float a0n = angleNorm(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
     float a1n = angleNorm(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
 
-    Vec2 leftPoint = v2(m.center.x - m.radius, m.center.y);
-    float leftAngle = angleNorm(atan2f(leftPoint.y - m.center.y, leftPoint.x - m.center.x));
-    if (angle_on_arc_norm(a0n, a1n, leftAngle, m.arcDir))
-      b.minx = leftPoint.x;
+    // right (+x) = 0, top (+y) = PI/2, left (-x) = PI, bottom (-y) = 3*PI/2
+    if (angle_on_arc_norm(a0n, a1n, PI, m.arcDir))
+      b.minx = m.center.x - m.radius;
 
-    Vec2 rightPoint = v2(m.center.x + m.radius, m.center.y);
-    float rightAngle = angleNorm(atan2f(rightPoint.y - m.center.y, rightPoint.x - m.center.x));
-    if (angle_on_arc_norm(a0n, a1n, rightAngle, m.arcDir))
-      b.maxx = rightPoint.x;
+    if (angle_on_arc_norm(a0n, a1n, 0.0f, m.arcDir))
+      b.maxx = m.center.x + m.radius;
 
-    Vec2 topPoint = v2(m.center.x, m.center.y + m.radius);
-    float topAngle = angleNorm(atan2f(topPoint.y - m.center.y, topPoint.x - m.center.x));
-    if (angle_on_arc_norm(a0n, a1n, topAngle, m.arcDir))
-      b.maxy = topPoint.y;
+    if (angle_on_arc_norm(a0n, a1n, PI * 0.5f, m.arcDir))
+      b.maxy = m.center.y + m.radius;
 
-    Vec2 bottomPoint = v2(m.center.x, m.center.y - m.radius);
-    float bottomAngle = angleNorm(atan2f(bottomPoint.y - m.center.y, bottomPoint.x - m.center.x));
-    if (angle_on_arc_norm(a0n, a1n, bottomAngle, m.arcDir))
-      b.miny = bottomPoint.y;
+    if (angle_on_arc_norm(a0n, a1n, PI * 1.5f, m.arcDir))
+      b.miny = m.center.y - m.radius;
   }
   return b;
 }
@@ -343,7 +334,8 @@ static inline void invalidateRange(Move2D *moves, int i, int j)
 // ----- helpers -----
 static inline bool is_near(const Vec2 &a, const Vec2 &b)
 {
-  return len(a - b) <= TOL;
+  Vec2 d = a - b;
+  return dot(d, d) <= TOL * TOL;
 }
 
 static inline bool isMotionValid(const Move2D &m)
@@ -362,16 +354,13 @@ static inline bool isColinearWith(const Move2D &a, const Move2D &b)
   // -------- LINE vs LINE --------
   if (a.type == MOT_LINE)
   {
+    // startDir is already a unit vector from update_vectors
     Vec2 da = a.startDir;
     Vec2 db = b.startDir;
 
     if (len(da) < TOL || len(db) < TOL)
       return false;
 
-    da = normalize(da);
-    db = normalize(db);
-
-    // Cross(StartDirection, other.StartDirection).Length < TOL
     float cr = fabsf(cross(da, db));
     return cr < TOL;
   }
@@ -615,7 +604,9 @@ static inline IntersectType intersectLineCircle(Vec2 l1, Vec2 a1, Vec2 ctr, floa
 
 static inline Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
 {
-  return (len(a - ref) <= len(b - ref)) ? a : b;
+  Vec2 da = a - ref;
+  Vec2 db = b - ref;
+  return (dot(da, da) <= dot(db, db)) ? a : b;
 }
 
 static inline bool isNearDir(Vec2 a, Vec2 b)
