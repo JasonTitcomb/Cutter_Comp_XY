@@ -154,7 +154,15 @@ public:
     }
 
     // ---------- small helpers ----------
-    bool outHasSpace(int n) const { return (outCount + n) <= OUT_CAP; }
+    bool outHasSpace(int n) const
+    {
+        bool ok = (outCount + n) <= OUT_CAP;
+#ifndef NDEBUG
+        if (!ok)
+            DBG_PRINTLN("outHasSpace: output buffer full");
+#endif
+        return ok;
+    }
 
     Move2D popIn()
     {

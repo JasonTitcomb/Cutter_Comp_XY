@@ -126,6 +126,8 @@ static bool emit_comp_profile_delta(const Move2D *moves,
   if (nextEmitIndex < 0)
     nextEmitIndex = 0;
 
+  const float minCompLen = (activeToolRadius < 0.0f) ? -activeToolRadius : activeToolRadius;
+
   int emitLimit = profileSize;
   if (!flushAll)
   {
@@ -142,6 +144,22 @@ static bool emit_comp_profile_delta(const Move2D *moves,
     const Move2D &m = moves[i];
     if (!m.valid || m.type == MOT_EMPTY)
       continue;
+
+    if (m.compMode == CM_IN || m.compMode == CM_OUT)
+    {
+      float moveLen = 0.0f;
+      if (m.type == MOT_ARC)
+        moveLen = distFromStart_along(m, m.p_1);
+      else
+        moveLen = len(m.p_1 - m.p_0);
+
+      if (moveLen <= minCompLen)
+      {
+        DBG_PRINT("(comp transition too short:)");
+        return false;
+      }
+    }
+
     emit_move_as_gcode(m);
   }
 
@@ -331,11 +349,29 @@ void setup()
 
   int emittedProfileCount = 0;
   int trimResumeIndex = 0;
+  bool sawCompStart = false;
+  bool sawG40 = false;
+  bool compClosed = false;
 
   // Run demo program once
   const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
   for (int i = 0; i < lines; ++i)
   {
+    // Peek at the line to detect comp transitions for comment output
+    char peekClean[160];
+    strip_comments(demo_program[i], peekClean, sizeof(peekClean));
+    ScanLine peekS;
+    scan_line(peekClean, peekS);
+
+    const bool compIsOff = (cc.comp_state == COMP_OFF);
+    const bool entersComp = compIsOff && (peekS.sawG41 || peekS.sawG42) && !compClosed;
+
+    if (entersComp)
+    {
+      sawCompStart = true;
+      DBG_PRINTLN("(comp start:)");
+    }
+
     process_one_gcode_line(demo_program[i]);
 
     if (cc.comp_state != COMP_OFF)
@@ -354,23 +390,48 @@ void setup()
           Serial.println("(emit failed)");
           return;
         }
+        DBG_PRINT("(comp batch emit)\n");
       }
+    }
+
+    if (cc.comp_state == COMP_OFF && sawCompStart && !compClosed)
+    {
+      sawG40 = true;
+      compClosed = true;
+      if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
+      {
+        Serial.println("(trim failed)");
+        return;
+      }
+
+      if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
+      {
+        Serial.println("(emit failed)");
+        return;
+      }
+      DBG_PRINTLN("(comp stop:)");
     }
   }
 
-  flush_pipeline();
-
-  if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
+  if (sawCompStart && !compClosed)
   {
-    Serial.println("(final trim failed)");
-    return;
+    flush_pipeline();
+
+    if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
+    {
+      Serial.println("(final trim failed)");
+      return;
+    }
+
+    if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
+    {
+      Serial.println("(final emit failed)");
+      return;
+    }
   }
 
-  if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
-  {
-    Serial.println("(final emit failed)");
-    return;
-  }
+  if (!sawG40)
+    Serial.println("(warning: reached EOF before G40)");
 
   Serial.println("\n--------------------------------------------------");
   Serial.println("Done.");
