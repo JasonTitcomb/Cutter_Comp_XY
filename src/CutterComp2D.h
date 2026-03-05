@@ -105,19 +105,16 @@ public:
             Move2D inserts[3]; // allow up to 3 inserts for corner treatment.
             int insertCount = 0;
 
-            bool canRoll = true; // no rolling when compong.
-            if (prevOff.compMode == CM_IN)
+               if (prevOff.compMode == CM_IN)
             {
                 // modify the previous move so that the end is the start of the current move,
                 prevOff.p_1 = curOff.p_0;
-                canRoll = false;
             }
 
             if (curOff.compMode == CM_OUT)
             {
                 // modify the G40 start is the end of the previous move,
                 curOff.p_0 = prevOff.p_1;
-                canRoll = false;
             }
 
             // Apply decision tree between prevOff and curOff

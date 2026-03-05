@@ -34,11 +34,22 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = -0.062f;
+static constexpr float TOOL_RADIUS = 0.062f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool PERFORM_TRIM = true;                  // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
 static constexpr int MAX_LOOKAHEAD = 10;
-static constexpr int EMIT_HOLDBACK = 4;
+// Crossing search can inspect up to (src + 2 + MAX_LOOKAHEAD), so we must
+// keep at least that many tail elements un-emitted between batches.
+static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
+static constexpr int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
+static_assert(EMIT_HOLDBACK >= TRIM_OVERLAP_MOVES, "EMIT_HOLDBACK must preserve trim overlap across batches");
+// Trigger a batch emit when the pending profile window grows beyond overlap
+// plus a target chunk size. This reduces trim/merge cadence overhead while
+// keeping memory bounded for streaming/embedded use.
+// Throughput knob: independent from MAX_LOOKAHEAD correctness settings.
+static constexpr int TARGET_BATCH_EMIT_MOVES = 20;
+static constexpr int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
+static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be positive");
 
 // ------------------------------------------------
 
@@ -258,6 +269,7 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
   m.comp = COMP_OFF;
   m.feed = 0;
   m.pos = v2(0, 0);
+  m.z = 0.0f;
 
   for (const auto &line : program)
   {
@@ -325,12 +337,25 @@ static bool trim_and_merge_pending_profile(int emittedProfileCount, int &trimRes
 
   if (trimStart >= profileSize)
     return true;
+
+  int srcIdx = trimStart;
   int retTargetIdx = -1;
-  if (!cc.trimCrossingElements(profile.data(), trimStart, profileSize, MAX_LOOKAHEAD, retTargetIdx))
+  if (!cc.trimCrossingElements(profile.data(), srcIdx, profileSize, MAX_LOOKAHEAD, retTargetIdx))
     return false;
 
-  cc.merge_all_colinear(profile.data() + trimStart, profileSize - trimStart);
-  trimResumeIndex = profileSize; //-4 this fixes it but why is it needed?
+  // Merge needs one-element overlap to catch boundary joins.
+  int mergeStart = trimStart;
+  if (mergeStart > emittedProfileCount)
+    mergeStart -= 1;
+  cc.merge_all_colinear(profile.data() + mergeStart, profileSize - mergeStart);
+
+  // Keep overlap so older tail elements can be re-checked against new arrivals.
+  int nextTrimStart = profileSize - TRIM_OVERLAP_MOVES;
+  if (nextTrimStart < emittedProfileCount)
+    nextTrimStart = emittedProfileCount;
+  if (nextTrimStart < 0)
+    nextTrimStart = 0;
+  trimResumeIndex = nextTrimStart;
   return true;
 }
 
@@ -346,6 +371,7 @@ static bool run_profile_streaming(const char *inputPath,
   modalState.comp = COMP_OFF;
   modalState.feed = 0;
   modalState.pos = v2(0, 0);
+  modalState.z = 0.0f;
 
   cc = CutterComp2D{};
   float activeToolRadius = toolRadius;
@@ -368,7 +394,6 @@ static bool run_profile_streaming(const char *inputPath,
   bool compClosed = false;
   int emittedProfileCount = 0;
   bool inchUnits = true;
-  int linesSinceEmit = 0;
   int trimResumeIndex = 0;
   std::string line;
 
@@ -408,6 +433,15 @@ static bool run_profile_streaming(const char *inputPath,
       continue;
     }
 
+    const bool zOnlyMove = s.hasZ && !s.hasX && !s.hasY;
+    if (zOnlyMove)
+    {
+      interpret_move(s, modalState);
+      if (!s.sawG40)
+        std::fprintf(out, "%s\n", line.c_str());
+      continue;
+    }
+
     if (!process_one_gcode_line(line.c_str()))
     {
       std::fclose(out);
@@ -416,8 +450,8 @@ static bool run_profile_streaming(const char *inputPath,
 
     if (cc.comp_state != COMP_OFF)
     {
-      linesSinceEmit++;
-      if (linesSinceEmit >= MAX_LOOKAHEAD)
+      const int pendingProfileWindow = (int)profile.size() - emittedProfileCount;
+      if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
       {
         if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
         {
@@ -430,7 +464,6 @@ static bool run_profile_streaming(const char *inputPath,
           std::fclose(out);
           return false;
         }
-        linesSinceEmit = 0;
         std::fprintf(out, "(comp batch emit)\n");
       }
     }

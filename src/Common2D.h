@@ -118,6 +118,9 @@ struct Move2D
   Vec2 endDir{0, 0};
   float radius = 0.0f;
   float feed = 0.0f;
+  float z_0 = 0.0f;
+  float z_1 = 0.0f;
+  bool hasZ = false;
 
   MotionType type = MOT_EMPTY;
   ArcDir arcDir = ARC_CW;
@@ -127,34 +130,6 @@ struct Move2D
   AABB2 bounds;        // bounding box.
   uint32_t seqNum = 0; // for debugging
 };
-// Convert machine-space absolute point to internal XY space used by compensation.
-static inline Vec2 machine_to_internal_xy(const Vec3 &p)
-{
-  return v2(p.x, p.y);
-}
-
-// Convert internal XY absolute point back to machine-space coordinates.
-static inline Vec3 internal_xy_to_machine(const Vec2 &p)
-{
-  return v3(p.x, p.y, 0.0f);
-}
-
-// Same mapping for center offset vectors (I/J style offsets).
-static inline Vec2 machine_delta_to_internal_xy(const Vec3 &d)
-{
-  return v2(d.x, d.y);
-}
-
-static inline Vec3 internal_delta_xy_to_machine(const Vec2 &d)
-{
-  return v3(d.x, d.y, 0.0f);
-}
-
-// Plot-space mapping (SVG draws in XY).
-static inline Vec2 internal_xy_to_plot_xy(const Vec2 &p)
-{
-  return v2(p.x, p.y);
-}
 
 static inline void update_vectors(Move2D &m)
 {
@@ -195,14 +170,6 @@ static inline bool is_radius_consistent(const Move2D &m)
   {
     DBG_PRINT("Arc radius inconsistency detected! SeqNum: ");
     DBG_PRINTLN(m.seqNum);
-    DBG_PRINT("r0: ");
-    DBG_PRINT("%.6f", r0);
-    DBG_PRINT(", r1: ");
-    DBG_PRINT("%.6f", r1);
-    // You can set a breakpoint on the line below to catch radius inconsistencies during debugging.
-    // This can help identify issues with arc moves that may cause problems for compensation logic.
-    // For example, if you see this triggered, check if the arc endpoints are very close together or if the center is far from both endpoints.
-    // You may want to log the move details here for further analysis.
   }
   return isValid;
 }

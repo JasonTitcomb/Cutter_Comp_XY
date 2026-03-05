@@ -37,24 +37,29 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, bool inchUnits = true)
 {
     const int posDigits = inchUnits ? 4 : 3;
     const int centerDigits = inchUnits ? 4 : 3;
-    Vec3 p1m = internal_xy_to_machine(m.p_1);
+    const int zDigits = inchUnits ? 4 : 3;
 
     if (m.type == MOT_LINE || m.type == MOT_RAPID)
     {
-        std::fprintf(f, "N%d %s X%.*f Y%.*f\n",
+        std::fprintf(f, "N%d %s X%.*f Y%.*f",
                      (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1",
-                     posDigits, p1m.x, posDigits, p1m.y);
+                     posDigits, m.p_1.x, posDigits, m.p_1.y);
+        if (m.hasZ)
+            std::fprintf(f, " Z%.*f", zDigits, m.z_1);
+        std::fprintf(f, "\n");
         return;
     }
 
     if (m.type == MOT_ARC)
     {
-        Vec2 dInternal = m.center - m.p_0;
-        Vec3 dMachine = internal_delta_xy_to_machine(dInternal);
-        std::fprintf(f, "N%d %s X%.*f Y%.*f I%.*f J%.*f\n",
+        Vec2 dCenter = m.center - m.p_0;
+        std::fprintf(f, "N%d %s X%.*f Y%.*f I%.*f J%.*f",
                      (int)m.seqNum, (m.arcDir == ARC_CW) ? "G2" : "G3",
-                     posDigits, p1m.x, posDigits, p1m.y,
-                     centerDigits, dMachine.x, centerDigits, dMachine.y);
+                     posDigits, m.p_1.x, posDigits, m.p_1.y,
+                     centerDigits, dCenter.x, centerDigits, dCenter.y);
+        if (m.hasZ)
+            std::fprintf(f, " Z%.*f", zDigits, m.z_1);
+        std::fprintf(f, "\n");
         return;
     }
 }
@@ -216,7 +221,6 @@ static void write_svg(const char *path,
             auto pts = approx_move_points(m);
             for (auto &p : pts)
             {
-                p = internal_xy_to_plot_xy(p);
                 b.add(p);
             }
         }
@@ -253,7 +257,6 @@ static void write_svg(const char *path,
             auto pts = approx_move_points(m);
             for (auto &p : pts)
             {
-                p = internal_xy_to_plot_xy(p);
                 if (mirror_x)
                     p.x = b.maxx + b.minx - p.x;
                 if (mirror_y)
@@ -277,7 +280,6 @@ static void write_svg(const char *path,
             if (show_seq_numbers)
             {
                 Vec2 tp = move_label_pos(m);
-                tp = internal_xy_to_plot_xy(tp);
                 if (mirror_x)
                     tp.x = b.maxx + b.minx - tp.x;
                 if (mirror_y)
@@ -307,7 +309,6 @@ static void write_svg(const char *path,
 
             for (auto &p : pts)
             {
-                p = internal_xy_to_plot_xy(p);
                 if (mirror_x)
                     p.x = b.maxx + b.minx - p.x;
                 if (mirror_y)
@@ -335,8 +336,6 @@ static void write_svg(const char *path,
             for (size_t i = 0; i + 1 < pts.size(); ++i)
             {
                 Vec2 p0 = pts[i], p1 = pts[i + 1];
-                p0 = internal_xy_to_plot_xy(p0);
-                p1 = internal_xy_to_plot_xy(p1);
                 if (mirror_x)
                 {
                     p0.x = b.maxx + b.minx - p0.x;
@@ -368,7 +367,6 @@ static void write_svg(const char *path,
         auto pts = approx_move_points(m);
         for (auto &p : pts)
         {
-            p = internal_xy_to_plot_xy(p);
             if (mirror_x)
                 p.x = b.maxx + b.minx - p.x;
             if (mirror_y)
@@ -393,7 +391,6 @@ static void write_svg(const char *path,
         if (show_seq_numbers)
         {
             Vec2 tp = move_label_pos(m);
-            tp = internal_xy_to_plot_xy(tp);
             if (mirror_x)
                 tp.x = b.maxx + b.minx - tp.x;
             if (mirror_y)

@@ -53,6 +53,7 @@ struct ModalState
     float feed = 0.0f;
     float toolDiameterOffset = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
+    float z = 0.0f;
 };
 
 // -------------------------
@@ -339,6 +340,8 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     // Coordinates are parsed in machine-space, then mapped to internal XY space.
     Vec2 p0 = modeState.pos;
     Vec2 p1 = p0;
+    float z0 = modeState.z;
+    float z1 = z0;
 
     bool anyXYZ = false;
     if (s.hasX)
@@ -365,7 +368,17 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         }
         anyXYZ = true;
     }
-    // Z is ignored by 2D compensation geometry.
+    if (s.hasZ)
+    {
+        if (modeState.absXYZ)
+        {
+            z1 = s.Z;
+        }
+        else
+        {
+            z1 = z0 + s.Z;
+        }
+    }
 
     Move2D out;
 
@@ -374,6 +387,9 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
 
     out.p_0 = p0;
     out.p_1 = p1;
+    out.z_0 = z0;
+    out.z_1 = z1;
+    out.hasZ = s.hasZ;
     out.feed = modeState.feed;
 
     if (modeState.compMode == CM_IN || modeState.compMode == CM_OUT)
@@ -400,6 +416,7 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     {
         out.type = MOT_RAPID;
         modeState.pos = p1;
+        modeState.z = z1;
         return out;
     }
 
@@ -407,6 +424,7 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     {
         out.type = MOT_LINE;
         modeState.pos = p1;
+        modeState.z = z1;
         return out;
     }
 
@@ -441,10 +459,12 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         }
 
         modeState.pos = p1;
+        modeState.z = z1;
         return out;
     }
 
     modeState.pos = p1;
+    modeState.z = z1;
 
     return out;
 }

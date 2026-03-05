@@ -8,7 +8,7 @@
 #include <Arduino.h>
 #define DBG_PRINTLN(x) Serial.println(x)
 #define DBG_PRINT(x) Serial.print(x)
-#define DBG_PRINT(x, ...) Serial.print(x, ##__VA_ARGS__)
+//#define DBG_PRINT(x, ...) Serial.print(x, ##__VA_ARGS__)
 #else
 #include <cstdio>
 #define DBG_PRINTLN(x) std::puts(x)
@@ -24,13 +24,20 @@
 static constexpr uint32_t BAUD = 115200;
 
 // IMPORTANT: Tool radius must match the units of your G-code.
-static constexpr float TOOL_RADIUS = 0.0225f;
-static constexpr bool FORCE_ROLL_AROUND = true;
-static constexpr bool FULL_TRIM_CROSSINGS = true;
+static constexpr float TOOL_RADIUS = 0.00625f;
+static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
+static constexpr bool PERFORM_TRIM = true;
 static constexpr bool ENABLE_MERGE = true;
-static constexpr int MAX_LOOKAHEAD = 25; // MaxLookaheadForIntersections
-static constexpr int EMIT_HOLDBACK = 2;
-static constexpr int FULL_TRIM_MAX_PASSES = 6;                  // safety cap
+static constexpr int MAX_LOOKAHEAD = 10; // MaxLookaheadForIntersections
+// Crossing search can inspect up to (src + 2 + MAX_LOOKAHEAD), so we must
+// keep at least that many tail elements un-emitted between batches.
+static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
+static constexpr int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
+static_assert(EMIT_HOLDBACK >= TRIM_OVERLAP_MOVES,"EMIT_HOLDBACK must preserve trim overlap across batches");
+// Throughput knob: independent from MAX_LOOKAHEAD correctness settings.
+static constexpr int TARGET_BATCH_EMIT_MOVES = 20;
+static constexpr int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
+static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be positive");
 // ------------------------------------------------
 
 static ModalState modalState;
@@ -38,7 +45,7 @@ static CutterComp2D cc;
 static float activeToolRadius = TOOL_RADIUS;
 
 // -------------------- Profile buffer for post-pass trimming --------------------
-static constexpr int MAX_PROFILE_MOVES = 512; // bump if needed
+static constexpr int MAX_PROFILE_MOVES = 32; // bump if needed
 static Move2D profile[MAX_PROFILE_MOVES];
 static int profileCount = 0;
 
@@ -56,6 +63,59 @@ static bool profile_push(const Move2D &m)
   profile[profileCount++] = t;
   return true;
 }
+
+const char* fmtVal(char buf[], float v, int precision = 4)
+{
+  snprintf(buf, 32, "%.*f", precision, v);
+  return buf;
+}
+
+// -------------------- G-code emission --------------------
+static void emit_move_as_gcode(const Move2D &m)
+{
+  char buf[32];
+  if (m.type == MOT_LINE || m.type == MOT_RAPID)
+  {
+    DBG_PRINT("N");
+    DBG_PRINT(m.seqNum);
+    DBG_PRINT(m.type == MOT_RAPID ? " G0" : " G1");
+    DBG_PRINT(" X");
+    DBG_PRINT(fmtVal(buf, m.p_1.x, 4));
+    DBG_PRINT(" Y");
+    DBG_PRINT(fmtVal(buf, m.p_1.y, 4));
+    if (m.hasZ)
+    {
+      DBG_PRINT(" Z");
+      DBG_PRINT(fmtVal(buf, m.z_1, 4));
+    }
+    DBG_PRINT("\n");
+  }
+
+  if (m.type == MOT_ARC)
+  {
+    Vec2 dCenter = m.center - m.p_0;
+
+    DBG_PRINT("N");
+    DBG_PRINT(m.seqNum);
+    DBG_PRINT((m.arcDir == ARC_CW) ? " G2" : " G3");
+    DBG_PRINT(" X");
+    DBG_PRINT(fmtVal(buf, m.p_1.x, 4));
+    DBG_PRINT(" Y");
+    DBG_PRINT(fmtVal(buf, m.p_1.y, 4));
+    DBG_PRINT(" I");
+    DBG_PRINT(fmtVal(buf, dCenter.x, 4));
+    DBG_PRINT(" J");
+    DBG_PRINT(fmtVal(buf, dCenter.y, 4));
+    if (m.hasZ)
+    {
+      DBG_PRINT(" Z");
+      DBG_PRINT(fmtVal(buf, m.z_1, 4));
+    }
+    DBG_PRINT("\n");
+    return;
+  }
+}
+
 
 static bool emit_comp_profile_delta(const Move2D *moves,
                                     int profileSize,
@@ -89,44 +149,6 @@ static bool emit_comp_profile_delta(const Move2D *moves,
   return true;
 }
 
-// -------------------- G-code emission --------------------
-static void emit_move_as_gcode(const Move2D &m)
-{
-  Vec3 p1m = internal_xy_to_machine(m.p_1);
-
-  if (m.type == MOT_LINE)
-  {
-    DBG_PRINT("N");
-    DBG_PRINT(m.seqNum);
-    DBG_PRINT(m.type == MOT_RAPID ? " G0" : " G1");
-    DBG_PRINT(" X");
-    DBG_PRINT(p1m.x, 4);
-    DBG_PRINT(" Y");
-    DBG_PRINT(p1m.y, 4);
-    DBG_PRINT("\n");
-    return;
-  }
-
-  if (m.type == MOT_ARC)
-  {
-    Vec2 dInternal = m.center - m.p_0;
-    Vec3 dMachine = internal_delta_xy_to_machine(dInternal);
-
-    DBG_PRINT("N");
-    DBG_PRINT(m.seqNum);
-    DBG_PRINT((m.arcDir == ARC_CW) ? " G2" : " G3");
-    DBG_PRINT(" X");
-    DBG_PRINT(p1m.x, 4);
-    DBG_PRINT(" Y");
-    DBG_PRINT(p1m.y, 4);
-    DBG_PRINT(" I");
-    DBG_PRINT(dMachine.x, 4);
-    DBG_PRINT(" J");
-    DBG_PRINT(dMachine.y, 4);
-    DBG_PRINT("\n");
-    return;
-  }
-}
 
 // -------------------- Per-line processing --------------------
 static void process_one_gcode_line(const char *raw)
@@ -146,11 +168,7 @@ static void process_one_gcode_line(const char *raw)
 
   if (s.hasD)
   {
-    float diameter = s.D;
-    if (diameter < 0.0f)
-      diameter = -diameter;
-    activeToolRadius = diameter * 0.5f;
-    cc.setToolRadius(activeToolRadius);
+   //TODO: tool table lookup could go here if desired.
   }
 
   // Interpret to motion (also updates modal.comp, modal.motionG, etc.)
@@ -189,7 +207,6 @@ static void process_one_gcode_line(const char *raw)
     return;
   }
 
- 
   // main pump-----------------------------------------
   bool success = cc.process();
   if (!success)
@@ -198,7 +215,6 @@ static void process_one_gcode_line(const char *raw)
     return;
   }
   //-------------------------------------------------
-
 
   Move2D out;
   while (cc.popOut(out))
@@ -242,34 +258,37 @@ static void flush_pipeline()
   }
 }
 
-// --------------------  post pass: trim crossings --------------------
-static void post_trim_and_merge()
+static bool trim_and_merge_pending_profile(int emittedProfileCount, int &trimResumeIndex)
 {
-  bool any = false;
-  if (FULL_TRIM_CROSSINGS)
-  {
+  const int currentProfileCount = profileCount;
+  int trimStart = trimResumeIndex;
+  if (trimStart < emittedProfileCount)
+    trimStart = emittedProfileCount;
 
-    for (int pass = 0; pass < FULL_TRIM_MAX_PASSES; ++pass)
-    {
-      bool changed = cc.trimCrossingElements(profile,0, profileCount, MAX_LOOKAHEAD);
-      if (!changed)
-      {
-        DBG_PRINTLN("No crossings found on pass " + String(pass));
-        break;
-      }
-      any = true;
-    }
+  if (trimStart >= currentProfileCount)
+    return true;
+
+  if (PERFORM_TRIM)
+  {
+    int srcIdx = trimStart;
+    int retTargetIdx = -1;
+    if (!cc.trimCrossingElements(profile, srcIdx, currentProfileCount, MAX_LOOKAHEAD, retTargetIdx))
+      return false;
+
+    int mergeStart = trimStart;
+    if (mergeStart > emittedProfileCount)
+      mergeStart -= 1;
+
+    cc.merge_all_colinear(profile + mergeStart, currentProfileCount - mergeStart);
   }
 
-  if (ENABLE_MERGE)
-  {
-    cc.merge_all_colinear(profile, profileCount);
-  }
-
-  
-  DBG_PRINT("(post-trim crossings: ");
-  DBG_PRINT(any ? "YES" : "NO");
-  DBG_PRINTLN(")");
+  int nextTrimStart = currentProfileCount - TRIM_OVERLAP_MOVES;
+  if (nextTrimStart < emittedProfileCount)
+    nextTrimStart = emittedProfileCount;
+  if (nextTrimStart < 0)
+    nextTrimStart = 0;
+  trimResumeIndex = nextTrimStart;
+  return true;
 }
 
 // -------------------- Arduino setup/loop --------------------
@@ -282,11 +301,11 @@ void setup()
 
   Serial.println();
   Serial.println("Demo: TinyGCodeScan + CutterComp2D + PostTrimCrossings");
-  
+
   DBG_PRINT("Fillet: ");
-  DBG_PRINTLN(FORCE_ROLL_AROUND ? "ON" : "OFF");
+  DBG_PRINTLN(CORNER_TREATMENT == CORNER_ROLL ? "ROLL" : "CHAMFER");
   DBG_PRINT("Crossing trim: ");
-  DBG_PRINTLN(FULL_TRIM_CROSSINGS ? "ON" : "OFF");
+  DBG_PRINTLN(PERFORM_TRIM ? "ON" : "OFF");
   DBG_PRINT("Tool radius: ");
   DBG_PRINTLN(TOOL_RADIUS);
   DBG_PRINT("Profile buffer cap: ");
@@ -304,16 +323,14 @@ void setup()
   // Init cutter comp engine
   cc.setToolRadius(TOOL_RADIUS);
   activeToolRadius = TOOL_RADIUS;
-  cc.setCornerTreatment(FORCE_ROLL_AROUND ? CORNER_ROLL : CORNER_CHAMFER);
+  cc.setCornerTreatment(CORNER_TREATMENT);
   cc.setComp(COMP_OFF);
 
   // Reset profile buffer
   profile_reset();
 
   int emittedProfileCount = 0;
-  int linesSinceEmit = 0;
   int trimResumeIndex = 0;
-  int mergeResumeIndex = 0;
 
   // Run demo program once
   const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
@@ -323,27 +340,13 @@ void setup()
 
     if (cc.comp_state != COMP_OFF)
     {
-      linesSinceEmit++;
-      if (linesSinceEmit >= MAX_LOOKAHEAD)
+      const int pendingProfileWindow = profileCount - emittedProfileCount;
+      if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
       {
-        if (FULL_TRIM_CROSSINGS)
+        if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
         {
-          cc.trimCrossingElements(profile, trimResumeIndex, profileCount, MAX_LOOKAHEAD);
-          trimResumeIndex += MAX_LOOKAHEAD;
-        }
-
-        if (ENABLE_MERGE)
-        {
-          int mergeStart = (mergeResumeIndex > 0) ? (mergeResumeIndex - 1) : 0;
-          int mergeCount = profileCount - mergeStart;
-          if (mergeCount > (MAX_LOOKAHEAD + 1))
-            mergeCount = (MAX_LOOKAHEAD + 1);
-          int mergeEnd = mergeStart + mergeCount;
-
-          if (mergeCount > 1)
-            cc.merge_all_colinear(profile, mergeStart, mergeEnd);
-
-          mergeResumeIndex += MAX_LOOKAHEAD;
+          Serial.println("(trim failed)");
+          return;
         }
 
         if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, EMIT_HOLDBACK, false))
@@ -351,13 +354,17 @@ void setup()
           Serial.println("(emit failed)");
           return;
         }
-
-        linesSinceEmit = 0;
       }
     }
   }
 
   flush_pipeline();
+
+  if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
+  {
+    Serial.println("(final trim failed)");
+    return;
+  }
 
   if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
   {
