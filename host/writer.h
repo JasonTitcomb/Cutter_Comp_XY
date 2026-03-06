@@ -294,33 +294,43 @@ static void write_svg(const char *path,
     // Draw smooth tool sweep as a continuous swath along each move.
     if (show_tool_sweep && tool_diameter > 0.0f)
     {
-        for (auto &m : moves)
+        // Two passes (feed then rapid) each in a group with shared opacity
+        // so overlapping segments don't darken.
+        struct SweepPass { const char *color; float opacity; bool rapid; };
+        SweepPass passes[] = {
+            {"#bbbbbb", 0.50f, false},
+            {"#999999", 0.35f, true}
+        };
+        for (auto &pass : passes)
         {
-            if (!m.valid || m.type == MOT_EMPTY)
-                continue;
-
-            const bool isRapid = (m.type == MOT_RAPID);
-            const char *sweepColor = isRapid ? "#999999" : "#bbbbbb";
-            const float sweepOpacity = isRapid ? 0.35f : 0.50f;
-
-            auto pts = approx_move_points(m, 24);
-            if (pts.size() < 2)
-                continue;
-
-            for (auto &p : pts)
+            ss << "<g opacity=\"" << pass.opacity << "\">\n";
+            for (auto &m : moves)
             {
-                if (mirror_x)
-                    p.x = b.maxx + b.minx - p.x;
-                if (mirror_y)
-                    p.y = b.maxy + b.miny - p.y;
-            }
+                if (!m.valid || m.type == MOT_EMPTY)
+                    continue;
+                if ((m.type == MOT_RAPID) != pass.rapid)
+                    continue;
 
-            ss << "<polyline fill=\"none\" stroke=\"" << sweepColor << "\" stroke-width=\""
-               << tool_diameter
-               << "\" stroke-linecap=\"round\" stroke-linejoin=\"round\" opacity=\"" << sweepOpacity << "\" points=\"";
-            for (auto &p : pts)
-                ss << p.x << "," << p.y << " ";
-            ss << "\" />\n";
+                auto pts = approx_move_points(m, 24);
+                if (pts.size() < 2)
+                    continue;
+
+                for (auto &p : pts)
+                {
+                    if (mirror_x)
+                        p.x = b.maxx + b.minx - p.x;
+                    if (mirror_y)
+                        p.y = b.maxy + b.miny - p.y;
+                }
+
+                ss << "<polyline fill=\"none\" stroke=\"" << pass.color << "\" stroke-width=\""
+                   << tool_diameter
+                   << "\" stroke-linecap=\"round\" stroke-linejoin=\"round\" points=\"";
+                for (auto &p : pts)
+                    ss << p.x << "," << p.y << " ";
+                ss << "\" />\n";
+            }
+            ss << "</g>\n";
         }
     }
 

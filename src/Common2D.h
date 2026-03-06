@@ -4,7 +4,7 @@
 #include <math.h>
 
 #define TOL 0.0001f
-#define INPUT_ARC_TOL 0.0001f
+#define INPUT_ARC_TOL 0.001f
 #define EPS 1e-7f
 #define PARALLEL_TOL 1e-3f
 #define BEVEL_VEC_TOL 1.0e-1f
@@ -97,6 +97,27 @@ enum CompSide : int8_t
   COMP_RIGHT = -1
 };
 
+enum CompError : uint8_t
+{
+  CE_NONE = 0,
+  CE_ARC_RADIUS_MISMATCH,
+  CE_INVALID_MOVE,
+  CE_COMP_MOVE_TOO_SHORT,
+  CE_FLIPPED_ARC,
+  CE_COMP_IN_CROSSING,
+  CE_COMP_OUT_CROSSING,
+  CE_UNRESOLVED_GAP
+};
+
+typedef void (*CompErrorCB)(CompError err, uint32_t seqNum);
+static CompErrorCB g_compErrorCB = nullptr;
+
+static inline void reportCompError(CompError err, uint32_t seqNum)
+{
+  if (g_compErrorCB)
+    g_compErrorCB(err, seqNum);
+}
+
 struct AABB2
 {
   float minx, miny, maxx, maxy;
@@ -120,6 +141,7 @@ struct Move2D
   float feed = 0.0f;
   float z_0 = 0.0f;
   float z_1 = 0.0f;
+  bool hasXY = false;
   bool hasZ = false;
 
   MotionType type = MOT_EMPTY;
@@ -167,10 +189,7 @@ static inline bool is_radius_consistent(const Move2D &m)
   float r1 = len(m.p_1 - m.center);
   bool isValid = fabsf(r0 - r1) <= INPUT_ARC_TOL;
   if (!isValid)
-  {
-    DBG_PRINT("Arc radius inconsistency detected! SeqNum: ");
-    DBG_PRINTLN(m.seqNum);
-  }
+    reportCompError(CE_ARC_RADIUS_MISMATCH, m.seqNum);
   return isValid;
 }
 
@@ -281,7 +300,7 @@ static inline AABB2 aabb_of(const Move2D &m)
   return b;
 }
 
-static void init_all_aabb(Move2D *moves,int start, int count)
+static void init_all_aabb(Move2D *moves, int start, int count)
 {
   for (int i = start; i < count; ++i)
   {
@@ -322,6 +341,31 @@ static inline float distFromStart_along(const Move2D &m, Vec2 p)
     return fabsf(m.radius) * sw;
   }
   return 0.0f;
+}
+
+static inline bool validate(Move2D &m)
+{
+  float d = 0;
+  bool radius_ok = true;
+  float sw = 0;
+  bool sweepOk = true;
+
+  if (m.type == MOT_LINE)
+  {
+    m.valid = (len(m.p_1 - m.p_0) >= TOL);
+  }
+  if (m.type == MOT_ARC)
+  {
+    d = distFromStart_along(m, m.p_1);
+    radius_ok = is_radius_consistent(m);
+    sw = arcSweepDeg(m);
+    sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
+    m.valid = d >= TOL && radius_ok && sweepOk;
+  }
+  // add a debugger break if m.valid is false
+  if (!m.valid)
+    reportCompError(CE_INVALID_MOVE, m.seqNum);
+  return m.valid;
 }
 
 static inline void invalidateRange(Move2D *moves, int i, int j)
@@ -488,6 +532,53 @@ static inline bool pointOnArc(const Move2D &a, Vec2 p)
     return angleOnSweepCW(a0, a1, ap);
 }
 
+/* ── Pre-computed arc sweep angles ───────────────────────────
+   When testing multiple candidate points against the same arc,
+   the arc's own start/end angles (a0, a1) are constant.
+   Pre-computing them once avoids redundant atan2f calls:
+     original pointOnArc  = 3× atan2f per call  (a0, a1, ap)
+     pointOnArcCached     = 1× atan2f per call   (ap only)
+
+   Typical savings in the crossing / TIP hot-path:
+     LINE-ARC  (2 candidates): 6 → 4  atan2f  (saves 2)
+     ARC-ARC   (2 candidates): 12 → 8 atan2f  (saves 4)
+*/
+struct ArcAngles
+{
+  float a0;   /* angle of arc start point  (p_0 relative to center) */
+  float a1;   /* angle of arc end point    (p_1 relative to center) */
+  ArcDir dir; /* CW or CCW sweep direction                         */
+};
+
+/* Compute start/end angles for an arc move (2× atan2f).
+   Call once per arc, then pass to pointOnArcCached(). */
+static inline ArcAngles precomputeArcAngles(const Move2D &m)
+{
+  ArcAngles aa;
+  aa.a0 = atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x);
+  aa.a1 = atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x);
+  aa.dir = m.arcDir;
+  return aa;
+}
+
+/* Test whether point p lies on the arc, reusing pre-computed sweep angles.
+   Only 1× atan2f per call (for the test point) instead of 3×. */
+static inline bool pointOnArcCached(const Move2D &a, Vec2 p, const ArcAngles &aa)
+{
+  /* Radius check — cheapest rejection test, no trig needed */
+  float rp = len(p - a.center);
+  if (fabsf(rp - a.radius) > TOL)
+    return false;
+
+  /* Angle of the test point relative to arc center (the only atan2f) */
+  float ap = atan2f(p.y - a.center.y, p.x - a.center.x);
+
+  if (aa.dir == ARC_CCW)
+    return angleOnSweepCCW(aa.a0, aa.a1, ap);
+  else
+    return angleOnSweepCW(aa.a0, aa.a1, ap);
+}
+
 static inline IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
 {
 
@@ -495,7 +586,6 @@ static inline IntersectType intersectLineLine(const Move2D &ln1, const Move2D &l
   // Vec2 r = ln1.o_1 - ln1.o_0;
   // Vec2 q = ln2.o_0;
   // Vec2 s = ln2.o_1 - ln2.o_0;
-
 
   Vec2 p = ln1.p_0;
   Vec2 r = ln1.p_1 - ln1.p_0;

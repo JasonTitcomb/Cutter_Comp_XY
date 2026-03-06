@@ -378,6 +378,7 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         {
             z1 = z0 + s.Z;
         }
+        anyXYZ = true;
     }
 
     Move2D out;
@@ -389,6 +390,7 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     out.p_1 = p1;
     out.z_0 = z0;
     out.z_1 = z1;
+    out.hasXY = (s.hasX || s.hasY);
     out.hasZ = s.hasZ;
     out.feed = modeState.feed;
 
@@ -432,6 +434,7 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     {
         out.type = MOT_ARC;
         out.arcDir = (modeState.motionG == 2) ? ARC_CW : ARC_CCW;
+        out.hasXY = true; // arcs must have XY for center calculations;
 
         // Resolve center either from I/J or from R
         if (s.hasI || s.hasJ)

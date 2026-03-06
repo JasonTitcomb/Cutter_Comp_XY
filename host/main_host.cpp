@@ -34,7 +34,8 @@
 */
 
 // -------------------- Config --------------------
-static constexpr float TOOL_RADIUS = 0.062f;
+static constexpr bool STOP_ON_FIRST_ERRORS = true;
+static constexpr float TOOL_RADIUS = 0.0651f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool PERFORM_TRIM = true;                  // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
 static constexpr int MAX_LOOKAHEAD = 10;
@@ -55,6 +56,23 @@ static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be posi
 
 static ModalState modalState;
 static CutterComp2D cc;
+static bool hasStopError = false;
+static void compErrorHandler(CompError err, uint32_t seqNum)
+{
+  const char *msg = "Unknown comp error";
+  switch (err)
+  {
+    case CE_ARC_RADIUS_MISMATCH: msg = "Arc radius inconsistency"; break;
+    case CE_INVALID_MOVE:        msg = "Invalid move"; break;
+    case CE_COMP_MOVE_TOO_SHORT: msg = "Comp move too short"; break;
+    case CE_FLIPPED_ARC:         msg = "Flipped arc"; break;
+    case CE_COMP_IN_CROSSING:    msg = "Comp-in crossing"; break;
+    case CE_COMP_OUT_CROSSING:   msg = "Comp-out crossing"; break;
+    case CE_UNRESOLVED_GAP:      msg = "Unresolved gap"; break;
+    default: break;
+  }
+  std::printf("CompError: %s (N%u)\n", msg, (unsigned)seqNum);
+}
 
 // -------------------- Profile buffer --------------------
 static std::vector<Move2D> profile;
@@ -146,24 +164,6 @@ static bool emit_comp_profile_delta(FILE *f,
     const Move2D &m = moves[i];
     if (!m.valid || m.type == MOT_EMPTY)
       continue;
-
-    if (m.compMode == CM_IN || m.compMode == CM_OUT)
-    {
-      float moveLen = 0.0f;
-      if (m.type == MOT_ARC)
-        moveLen = distFromStart_along(m, m.p_1);
-      else
-        moveLen = len(m.p_1 - m.p_0);
-
-      if (moveLen <= minCompLen)
-      {
-        const char *modeName = (m.compMode == CM_IN) ? "CM_IN" : "CM_OUT";
-        std::printf("(comp transition too short: seq=%d mode=%s len=%.6f toolR=%.6f)\n",
-                    (int)m.seqNum, modeName, moveLen, minCompLen);
-        return false;
-      }
-    }
-
     emit_move_as_gcode(f, m, inchUnits);
   }
 
@@ -378,6 +378,7 @@ static bool run_profile_streaming(const char *inputPath,
   cc.setToolRadius(activeToolRadius);
   cc.setCornerTreatment(cornerTreatment);
   cc.setPerformTrim(PERFORM_TRIM);
+  cc.setErrorCallback(compErrorHandler);
   cc.setComp(COMP_OFF);
 
   profile_reset();
@@ -406,6 +407,12 @@ static bool run_profile_streaming(const char *inputPath,
 
   while (std::getline(in, line))
   {
+    if(STOP_ON_FIRST_ERRORS && hasStopError)
+    {
+      std::puts("(stopped due to previous errors)");
+      break;
+    }
+
     if (!line.empty() && line.back() == '\r')
       line.pop_back();
 
@@ -518,21 +525,20 @@ static bool run_profile_streaming(const char *inputPath,
 
 int main()
 {
-  // const char *default_file = "../../data/RapidComp.nc";
+  //const char *default_file = "../../data/RapidComp.nc";
   // const char *default_file = "../../data/G41_1.nc";
-  // const char *default_file = "../../data/G41_2.nc";
-  // const char *default_file = "../../data/TortureTestG91.nc";
-  // const char *default_file = "../../data/LatheDia.nc";
-  // const char *default_file = "../../data/LatheRad.nc";
+  //const char *default_file = "../../data/G41_2.nc";
+  //const char *default_file = "../../data/TortureTestG91.nc";
   // const char *default_file = "../../data/Sample2.nc";
   // const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   // const char *default_file = "../../data/simple1.nc";
   const char *default_file = "../../data/TortureTestG90.nc";
-  // const char *default_file = "../../data/AI_Torture.nc";
+  //const char *default_file = "../../data/AI_Torture.nc";
   // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   // const char *default_file = "../../data/SimpleSquarePocket.nc";
-  // const char *default_file = "../../data/CompErrorTest.nc";
+  //const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
+  //const char *default_file = "../../data/CompErrorTest.nc";
   const std::string inputFilePath(default_file);
   const std::string inputBaseName = basename_no_ext(inputFilePath);
 
