@@ -1,10 +1,14 @@
 // CutterComp2D.h - 2D cutter compensation with logic
 
 #pragma once
-#include "Common2D.h"
+#include "cc_math.h"
 
 class CutterComp2D
 {
+private:
+    Units units = UNITS_MM;
+
+
 public:
     CornerType cornerTreatment = CORNER_ROLL; // cornerTreatment flag
     bool performTrim = true;                  // performTrim flag
@@ -31,14 +35,17 @@ public:
     void setCornerTreatment(CornerType ct) { cornerTreatment = ct; }
     void setPerformTrim(bool en) { performTrim = en; }
     void setErrorCallback(CompErrorCB cb) { g_compErrorCB = cb; }
-
-    struct CrossingHit
-    {
-        bool hit = false;
-        int j = -1;
-        Vec2 tip{0, 0};
-        float dist = 0;
-    };
+    void setUnits(Units u) { 
+        units = u; 
+        if (units == UNITS_INCH){
+            arcTol = ARC_TOL_IN;
+            gapTol = GAP_TOL_IN;
+        }
+        else {
+            arcTol = ARC_TOL_IN * 25.4f;
+            gapTol = GAP_TOL_IN * 25.4f;
+        }
+    }
 
     void setToolRadius(float r)
     {
@@ -448,6 +455,7 @@ public:
             return outCountLocal;
         }
 
+
         if (a.type == MOT_LINE)
         {
             l1 = a;
@@ -583,8 +591,6 @@ public:
         extLnOut.p_1 = anchor + dir * extent;
         extLnOut.startDir = dir;
         extLnOut.endDir = dir;
-        // extLnOut.initialStartDir = dir;
-        // extLnOut.initialEndDir = dir;
         update_vectors(extLnOut);
         validate(extLnOut);
 
@@ -594,6 +600,18 @@ public:
     bool insertRollOrCorner(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
         int startCount = insertCount;
+        
+        float gap = len(b.p_0 - a.p_1);
+        bool nearlyConnected = gap < gapTol;
+        if(nearlyConnected){
+            // make a bevel to close the tiny gap
+            Move2D bevel = makeBevel(a, b);
+            if (!validate(bevel))
+                return false;
+            inserts[insertCount++] = bevel;
+            return true;
+        }
+
 
         if (cornerTreatment == CORNER_ROLL)
         {
@@ -656,9 +674,11 @@ public:
         float fipDir2 = dot(ip - b.p_0, b.startDir);
         bool dirOK = (fipDir1 > 0 && fipDir2 < 0);
 
-        // 2) Roll path: (acute OR forceRoll)
-        // With transitions comping=true only for CM_IN/CM_OUT. Otherwise do NOT extend.
-        if (comping && dirOK)
+
+        float gap = len(b.p_0 - a.p_1);
+        bool nearlyConnected = gap < gapTol;
+ 
+        if ((nearlyConnected||comping) && dirOK)
         {
             if (extendToFIP(a, b, ip))
             {

@@ -16,28 +16,24 @@
   } while (0)
 #define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
 
-// If any of your headers include <Arduino.h>, include the compat first and
-// make sure your headers include ArduinoCompat.h when not ARDUINO.
-#include "ArduinoCompat.h"
-
-#include "SimpleGCodeScan.h"
-#include "CutterComp2D.h"
+#include "cc_simple_scan.h"
+#include "cc_processor.h"
 #include "writer.h"
 /*
   This is a desktop test harness for the CutterComp2D class, which performs 2D cutter compensation on linear and arc moves.
 
   It includes a post-pass to trim crossing elements, which is a common source of tiny unwanted moves after compensation. This is optional and can be toggled with ENABLE_TRIM_CROSSINGS.
 
-  The test uses hardcoded G-code in TestData.h, which you can modify to test different scenarios. The output is printed as G-code lines, and also saved to "output.csv" for analysis and "output.svg" for visualization.
+  The test uses hardcoded G-code in test_data.h, which you can modify to test different scenarios. The output is printed as G-code lines, and also saved to "output.csv" for analysis and "output.svg" for visualization.
 
   Note: This code is meant for testing the compensation logic on the host. It does not run on an Arduino or control any hardware.
 */
 
 // -------------------- Config --------------------
 static constexpr bool STOP_ON_FIRST_ERRORS = true;
-static constexpr float TOOL_RADIUS = 0.0651f;
+static constexpr float TOOL_RADIUS = 0.05f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool PERFORM_TRIM = true;                  // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
+static constexpr bool PERFORM_TRIM = true;                     // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
 static constexpr int MAX_LOOKAHEAD = 10;
 // Crossing search can inspect up to (src + 2 + MAX_LOOKAHEAD), so we must
 // keep at least that many tail elements un-emitted between batches.
@@ -62,14 +58,29 @@ static void compErrorHandler(CompError err, uint32_t seqNum)
   const char *msg = "Unknown comp error";
   switch (err)
   {
-    case CE_ARC_RADIUS_MISMATCH: msg = "Arc radius inconsistency"; break;
-    case CE_INVALID_MOVE:        msg = "Invalid move"; break;
-    case CE_COMP_MOVE_TOO_SHORT: msg = "Comp move too short"; break;
-    case CE_FLIPPED_ARC:         msg = "Flipped arc"; break;
-    case CE_COMP_IN_CROSSING:    msg = "Comp-in crossing"; break;
-    case CE_COMP_OUT_CROSSING:   msg = "Comp-out crossing"; break;
-    case CE_UNRESOLVED_GAP:      msg = "Unresolved gap"; break;
-    default: break;
+  case CE_ARC_RADIUS_MISMATCH:
+    msg = "Arc radius inconsistency";
+    break;
+  case CE_INVALID_MOVE:
+    msg = "Invalid move";
+    break;
+  case CE_COMP_MOVE_TOO_SHORT:
+    msg = "Comp move too short";
+    break;
+  case CE_FLIPPED_ARC:
+    msg = "Flipped arc";
+    break;
+  case CE_COMP_IN_CROSSING:
+    msg = "Comp-in crossing";
+    break;
+  case CE_COMP_OUT_CROSSING:
+    msg = "Comp-out crossing";
+    break;
+  case CE_UNRESOLVED_GAP:
+    msg = "Unresolved gap";
+    break;
+  default:
+    break;
   }
   std::printf("CompError: %s (N%u)\n", msg, (unsigned)seqNum);
 }
@@ -172,26 +183,13 @@ static bool emit_comp_profile_delta(FILE *f,
 }
 
 // -------------------- Pipeline --------------------
-static bool process_one_gcode_line(const char *raw)
+static bool process_one_gcode_line(ScanLine s)
 {
-  char clean[160];
-  strip_comments(raw, clean, sizeof(clean));
-
-  const char *p = clean;
-  while (*p == ' ' || *p == '\t')
-    ++p;
-  if (*p == 0)
-    return true; // empty or comment-only line
-
-  ScanLine s;
-  scan_line(clean, s);
 
   Move2D mv = interpret_move(s, modalState);
 
-#ifndef NDEBUG
   // copy raw line for testing only
-  copy_gcode_line(mv.gcode_line, sizeof(mv.gcode_line), raw);
-#endif
+  // copy_gcode_line(mv.gcode_line, sizeof(mv.gcode_line), raw);
 
   if ((s.sawG41 || s.sawG42))
   {
@@ -207,13 +205,14 @@ static bool process_one_gcode_line(const char *raw)
 
   // main pump-----------------------------------------
 
-  bool success = cc.process();
-  if (!success)
-  {
-    std::puts("(comp processing failed)");
-    success = false;
-    return false;
-  }
+     bool success = cc.process();
+    if (!success)
+    {
+      std::puts("(comp processing failed)");
+      success = false;
+      return false;
+    }
+ 
   //-------------------------------------------------
 
   Move2D out;
@@ -407,7 +406,7 @@ static bool run_profile_streaming(const char *inputPath,
 
   while (std::getline(in, line))
   {
-    if(STOP_ON_FIRST_ERRORS && hasStopError)
+    if (STOP_ON_FIRST_ERRORS && hasStopError)
     {
       std::puts("(stopped due to previous errors)");
       break;
@@ -418,6 +417,10 @@ static bool run_profile_streaming(const char *inputPath,
 
     char clean[160];
     strip_comments(line.c_str(), clean, sizeof(clean));
+    // is empty line then skip early to avoid affecting units mode
+    if (clean[0] == 0)
+      continue;
+
     update_units_mode_from_line(clean, inchUnits);
 
     ScanLine s;
@@ -434,22 +437,14 @@ static bool run_profile_streaming(const char *inputPath,
 
     if (compIsOff && !entersComp)
     {
-      interpret_move(s, modalState);
-      if (!s.sawG40)
-        std::fprintf(out, "%s\n", line.c_str()); // pass through unmodified until comp starts
-      continue;
-    }
-
-    const bool zOnlyMove = s.hasZ && !s.hasX && !s.hasY;
-    if (zOnlyMove)
-    {
+      // pass through unmodified until comp starts
       interpret_move(s, modalState);
       if (!s.sawG40)
         std::fprintf(out, "%s\n", line.c_str());
       continue;
     }
 
-    if (!process_one_gcode_line(line.c_str()))
+    if (!process_one_gcode_line(s))
     {
       std::fclose(out);
       return false;
@@ -525,20 +520,20 @@ static bool run_profile_streaming(const char *inputPath,
 
 int main()
 {
-  //const char *default_file = "../../data/RapidComp.nc";
-  // const char *default_file = "../../data/G41_1.nc";
-  //const char *default_file = "../../data/G41_2.nc";
-  //const char *default_file = "../../data/TortureTestG91.nc";
-  // const char *default_file = "../../data/Sample2.nc";
-  // const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
-  // const char *default_file = "../../data/TortureTestmm.nc";
-  // const char *default_file = "../../data/simple1.nc";
+  // const char *default_file = "../../data/RapidComp.nc";
+  //  const char *default_file = "../../data/G41_1.nc";
+  // const char *default_file = "../../data/G41_2.nc";
+  // const char *default_file = "../../data/TortureTestG91.nc";
+  //  const char *default_file = "../../data/Sample2.nc";
+  //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
+  //  const char *default_file = "../../data/TortureTestmm.nc";
+  //  const char *default_file = "../../data/simple1.nc";
   const char *default_file = "../../data/TortureTestG90.nc";
-  //const char *default_file = "../../data/AI_Torture.nc";
-  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
-  // const char *default_file = "../../data/SimpleSquarePocket.nc";
-  //const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
-  //const char *default_file = "../../data/CompErrorTest.nc";
+  // const char *default_file = "../../data/AI_Torture.nc";
+  //  const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  //  const char *default_file = "../../data/SimpleSquarePocket.nc";
+  // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
+  // const char *default_file = "../../data/CompErrorTest.nc";
   const std::string inputFilePath(default_file);
   const std::string inputBaseName = basename_no_ext(inputFilePath);
 

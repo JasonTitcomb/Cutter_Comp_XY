@@ -1,0 +1,1 @@
+Ctrl+Shift+P → type "Tasks: Run Task" → select "Copy cc_ to grblHAL plugins"*

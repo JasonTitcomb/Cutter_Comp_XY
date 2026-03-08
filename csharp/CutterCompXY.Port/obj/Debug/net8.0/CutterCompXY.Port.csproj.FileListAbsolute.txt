@@ -1,0 +1,15 @@
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\CutterCompXY.Port.GeneratedMSBuildEditorConfig.editorconfig
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\CutterCompXY.Port.AssemblyInfoInputs.cache
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\CutterCompXY.Port.AssemblyInfo.cs
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\CutterCompXY.Port.csproj.CoreCompileInputs.cache
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\CutterCompXY.Port.sourcelink.json
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\bin\Debug\net8.0\CutterCompXY.Port.exe
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\bin\Debug\net8.0\CutterCompXY.Port.deps.json
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\bin\Debug\net8.0\CutterCompXY.Port.runtimeconfig.json
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\bin\Debug\net8.0\CutterCompXY.Port.dll
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\bin\Debug\net8.0\CutterCompXY.Port.pdb
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\CutterCompXY.Port.dll
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\refint\CutterCompXY.Port.dll
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\CutterCompXY.Port.pdb
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\CutterCompXY.Port.genruntimeconfig.cache
+D:\Repos\Cutter_Comp_XY\csharp\CutterCompXY.Port\obj\Debug\net8.0\ref\CutterCompXY.Port.dll

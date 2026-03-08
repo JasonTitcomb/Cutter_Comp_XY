@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "CutterCompXY.Port/1.0.0": {
+        "runtime": {
+          "CutterCompXY.Port.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "CutterCompXY.Port/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

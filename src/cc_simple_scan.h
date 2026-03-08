@@ -1,6 +1,6 @@
 #pragma once
-#include <stddef.h> // size_t
-#include "Common2D.h"
+//#include <stddef.h> // size_t
+#include "cc_math.h"
 
 // Token scan result for one line
 struct ScanLine
@@ -25,7 +25,9 @@ struct ScanLine
     bool hasF = false;
     float F = 0;
     bool hasD = false;
-    float D = 0;
+    int32_t D = 0;
+    bool hasS = false;
+    float S = 0;
 
     // Special modal toggles
     bool sawG17 = false;
@@ -51,7 +53,8 @@ struct ModalState
     CompSide comp = COMP_OFF;
     CompMode compMode = CM_NONE;
     float feed = 0.0f;
-    float toolDiameterOffset = 0.0f;
+    int32_t D_Register = 0;
+    float speed = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
     float z = 0.0f;
 };
@@ -122,18 +125,22 @@ static inline const char *parse_int(const char *p, int32_t &out)
     return p;
 }
 
-// Remove comments while preserving non-comment text before/after comment spans.
+// Remove comments and normalize whitespace.
 // Supported comments:
 // - '(...)' block comments
 // - ';...;' inline comment spans (if closing ';' exists)
 // - ';...' to end-of-line when no closing ';' exists
+// Whitespace handling:
+// - Leading/trailing whitespace removed
+// - Multiple consecutive spaces compressed to single space
 // Writes into dst with maxLen, always null-terminated.
-static inline char *strip_comments(const char *src, char *dst, size_t maxLen)
+static inline char *strip_comments(const char *src, char *dst, uint32_t maxLen)
 {
-    size_t w = 0;
+    uint32_t w = 0;
     bool inParen = false;
     bool inSemi = false;
-    for (size_t i = 0; src[i] && w + 1 < maxLen; ++i)
+    bool lastWasSpace = true; // start true to skip leading whitespace
+    for (uint32_t i = 0; src[i] && w + 1 < maxLen; ++i)
     {
         char c = src[i];
 
@@ -159,8 +166,23 @@ static inline char *strip_comments(const char *src, char *dst, size_t maxLen)
         if (inSemi)
             continue;
 
+        // Normalize whitespace: compress multiple spaces, skip leading
+        if (is_space(c))
+        {
+            if (!lastWasSpace)
+            {
+                dst[w++] = ' ';
+                lastWasSpace = true;
+            }
+            continue;
+        }
+
         dst[w++] = c;
+        lastWasSpace = false;
     }
+    // Trim trailing space
+    if (w > 0 && dst[w - 1] == ' ')
+        w--;
     dst[w] = 0;
     return dst;
 }
@@ -250,7 +272,12 @@ static inline void scan_line(const char *line, ScanLine &s)
             else if (c == 'D')
             {
                 s.hasD = true;
-                p = parse_float(p, s.D);
+                p = parse_int(p, s.D);
+            }
+            else if (c == 'S')
+            {
+                s.hasS = true;
+                p = parse_float(p, s.S);
             }
             else
             {
@@ -325,7 +352,11 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     if (s.hasF)
         modeState.feed = s.F;
     if (s.hasD)
-        modeState.toolDiameterOffset = s.D;
+        modeState.D_Register = s.D;
+    if (s.hasS)
+        modeState.speed = s.S;
+    if (s.hasD)
+        modeState.D_Register = s.D;
 
     // Update motion mode if explicitly provided
     if (s.sawG0)
@@ -430,11 +461,20 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         return out;
     }
 
+    // Z-only blocks should stay linear/rapid even if current modal motion is arc.
+    if (s.hasZ && !s.hasX && !s.hasY)
+    {
+        out.type = (modeState.motionG == 0) ? MOT_RAPID : MOT_LINE;
+        modeState.pos = p1;
+        modeState.z = z1;
+        return out;
+    }
+
     if ((modeState.motionG == 2 || modeState.motionG == 3) && anyXYZ)
     {
         out.type = MOT_ARC;
         out.arcDir = (modeState.motionG == 2) ? ARC_CW : ARC_CCW;
-        out.hasXY = true; // arcs must have XY for center calculations;
+        //out.hasXY = true; // arcs must have XY for center calculations;
 
         // Resolve center either from I/J or from R
         if (s.hasI || s.hasJ)

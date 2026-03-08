@@ -4,76 +4,88 @@ This document captures the recommended embedded runtime flow for `CutterComp2D` 
 
 ## High-level flow
 
-- Initialize parser modal state.
-- Configure `CutterComp2D` (`setToolRadius`, `setMachineType`, `setCornerTreatment`, `setComp(COMP_OFF)`).
-- For each parsed G-code line:
-  - Interpret line to `Move2D`.
-  - If line enables comp (`G41`/`G42`), call `setComp(...)` before processing the move.
-  - Push input with `pushIn` (handle backpressure if full).
-  - Call `process` until successful or unrecoverable failure policy triggers.
-  - Drain all available output via `popOut` and send to motion queue/planner.
-  - On `G40`, call `flush`, drain output, then `setComp(COMP_OFF)`.
+- Initialize parser modal state with `ModalState{}` and defaults (`planeXY`, `absXYZ`, `motionG`, `comp`, `feed`, `speed`, `pos`).
+- Configure `CutterComp2D` with existing APIs only: `setToolRadius`, `setCornerTreatment`, `setErrorCallback`, `setComp(COMP_OFF)`.
+- For each raw G-code line:
+  - Strip comments: `strip_comments(raw, clean, sizeof(clean))`.
+  - Scan tokens: `scan_line(clean, s)`.
+  - Interpret move and update modal state: `Move2D mv = interpret_move(s, modalState)`.
+  - If line enables comp (`G41`/`G42`), call `cc.setComp(modalState.comp)` before processing that move.
+  - If `mv.type == MOT_EMPTY`, handle optional non-motion `G40` shutdown path and return.
+  - Push exactly one move with `pushIn`; if full, treat as input-buffer fault.
+  - Call `process` once; if false, treat as output-space/processing failure.
+  - Drain all available output via `popOut` and push to profile/planner buffer.
+  - If this move carries `G40`, call `flush`, then `setComp(COMP_OFF)`, then drain `popOut` again.
 - At program end, call final `flush` and drain `popOut`.
 
 ## Firmware-style pseudocode
 
 ```cpp
 CutterComp2D cc;
-init_parser_modal();
+ModalState modalState = ModalState{};
+modalState.planeXY = true;
+modalState.absXYZ = true;
+modalState.motionG = 0;
+modalState.comp = COMP_OFF;
+modalState.feed = 0.0f;
+modalState.speed = 0.0f;
+modalState.pos = v2(0, 0);
 
-cc.setMachineType(MAC_MILL);
-cc.setToolRadius(toolRadius);
-cc.setCornerTreatment(CORNER_ROLL);
+cc.setToolRadius(TOOL_RADIUS);
+cc.setCornerTreatment(CORNER_TREATMENT);
+cc.setErrorCallback(compErrorHandler);
+cc.setUnits();
 cc.setComp(COMP_OFF);
 
-while (read_next_gcode_line(line))
+while (read_next_gcode_line(raw))
 {
-    ScanLine s = scan_line(line);
-    Move2D mv = interpret_to_move(s, modal, MACHINE_TYPE);
+    char clean[160];
+    strip_comments(raw, clean, sizeof(clean));
+
+    ScanLine s;
+    scan_line(clean, s);
+    Move2D mv = interpret_move(s, modalState);
 
     if (s.sawG41 || s.sawG42)
-        cc.setComp(modal.comp);   // set before processing current move
+        cc.setComp(modalState.comp); // set before processing current move
 
-    // backpressure-safe push
-    while (!cc.pushIn(mv))
+    if (mv.type == MOT_EMPTY)
     {
-        Move2D out;
-        if (cc.popOut(out))
-            emit_to_motion_queue(out);
-        else
-            wait_or_yield();
+        if (s.sawG40)
+        {
+            cc.setComp(COMP_OFF);
+            cc.flush();
+
+            Move2D out;
+            while (cc.popOut(out))
+                profile_push(out);
+        }
+        continue;
     }
 
-    // pump until stable (or hard geometry failure policy)
-    while (!cc.process())
+    if (!cc.pushIn(mv))
     {
-        Move2D out;
-        bool drained = false;
-        while (cc.popOut(out))
-        {
-            emit_to_motion_queue(out);
-            drained = true;
-        }
-
-        if (!drained)
-        {
-            // likely non-buffer failure (geometry/invalid offset)
-            handle_comp_error(mv);   // alarm, fallback, or bypass
-            break;
-        }
+        handle_comp_error(mv); // input buffer full
+        continue;
     }
 
-    // normal drain
+    if (!cc.process())
+    {
+        handle_comp_error(mv); // output space / processing failure
+        continue;
+    }
+
     Move2D out;
     while (cc.popOut(out))
-        emit_to_motion_queue(out);
+        profile_push(out);
 
     if (s.sawG40)
     {
         cc.flush();
-        while (cc.popOut(out))
-            emit_to_motion_queue(out);
         cc.setComp(COMP_OFF);
+
+        while (cc.popOut(out))
+            profile_push(out);
     }
 }
 
@@ -81,11 +93,12 @@ while (read_next_gcode_line(line))
 cc.flush();
 Move2D out;
 while (cc.popOut(out))
-    emit_to_motion_queue(out);
+    profile_push(out);
 ```
 
 ## Practical notes for embedded targets
 
-- Drain `popOut` aggressively to avoid output buffer backpressure.
-- Treat `process() == false` as backpressure first; escalate only if nothing drains.
-- Keep parser/comp in task context (not ISR); make planner queue handoff non-blocking when possible.
+- `interpret_move` owns modal updates (`motionG`, `comp`, `feed`, `pos`, `z`); avoid duplicating that logic elsewhere.
+- `G41`/`G42` is applied before processing the current move; motion-line `G40` is applied after processing that move.
+- Non-motion `G40` lines are handled via the `mv.type == MOT_EMPTY` branch.
+- Keep parser/comp in task context (not ISR); keep profile/planner handoff non-blocking when possible.

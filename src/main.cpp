@@ -19,9 +19,9 @@
 #define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
 #endif
 
-#include "SimpleGCodeScan.h"
-#include "CutterComp2D.h"
-#include "TestData.h"
+#include "cc_simple_scan.h"
+#include "cc_processor.h"
+#include "test_data.h"
 
 // -------------------- Config --------------------
 static constexpr uint32_t BAUD = 115200;
@@ -56,25 +56,6 @@ static constexpr int POS_DIGITS_MM = 3;
 static ModalState modalState;
 static CutterComp2D cc;
 static float activeToolRadius = TOOL_RADIUS;
-
-struct PerfStats
-{
-  uint32_t lines = 0;
-  uint32_t batches = 0;
-  uint32_t processCalls = 0;
-  uint32_t trimCalls = 0;
-  uint32_t emitCalls = 0;
-  uint32_t compactCalls = 0;
-  uint32_t flushCalls = 0;
-
-  uint32_t processUs = 0;
-  uint32_t trimUs = 0;
-  uint32_t emitUs = 0;
-  uint32_t compactUs = 0;
-  uint32_t flushUs = 0;
-};
-
-static PerfStats perf;
 
 static inline uint32_t now_us()
 {
@@ -195,8 +176,11 @@ static void emit_move_as_gcode(const Move2D &m)
   {
     n = snprintf(line, sizeof(line), "%s", (m.type == MOT_RAPID) ? "G0" : "G1");
 
-    n = append_coord(line, sizeof(line), n, "X", m.p_1.x, posDigits);
-    n = append_coord(line, sizeof(line), n, "Y", m.p_1.y, posDigits);
+    if (m.hasXY)
+    {
+      n = append_coord(line, sizeof(line), n, "X", m.p_1.x, posDigits);
+      n = append_coord(line, sizeof(line), n, "Y", m.p_1.y, posDigits);
+    }
 
     if (m.feed > 0.0f && (!hasLastFeed || m.feed != lastFeed))
     {
@@ -264,22 +248,6 @@ static bool emit_comp_profile_delta(const Move2D *moves,
     const Move2D &m = moves[i];
     if (!m.valid || m.type == MOT_EMPTY)
       continue;
-
-    if (m.compMode == CM_IN || m.compMode == CM_OUT)
-    {
-      float moveLen = 0.0f;
-      if (m.type == MOT_ARC)
-        moveLen = distFromStart_along(m, m.p_1);
-      else
-        moveLen = len(m.p_1 - m.p_0);
-
-      if (moveLen <= minCompLen)
-      {
-        DBG_PRINT("(comp transition too short:)");
-        return false;
-      }
-    }
-
     emit_move_as_gcode(m);
   }
 
@@ -288,26 +256,8 @@ static bool emit_comp_profile_delta(const Move2D *moves,
 }
 
 // -------------------- Per-line processing --------------------
-static void process_one_gcode_line(const char *raw)
+static void process_one_gcode_line(ScanLine s)
 {
-  char clean[160];
-  strip_comments(raw, clean, sizeof(clean));
-
-  const char *p = clean;
-  while (*p == ' ' || *p == '\t')
-    ++p;
-  if (*p == 0)
-    return;
-
-  // Scan tokens so we can see G41/G42/G40 even if no motion
-  ScanLine s;
-  scan_line(clean, s);
-
-  if (s.hasD)
-  {
-    // TODO: tool table lookup could go here if desired.
-  }
-
   // Interpret to motion (also updates modal.comp, modal.motionG, etc.)
   Move2D mv = interpret_move(s, modalState);
 
@@ -431,7 +381,6 @@ static bool trim_and_merge_pending_profile(int emittedProfileCount, int &trimRes
 // -------------------- Arduino setup/loop --------------------
 void setup()
 {
-  perf = PerfStats{};
   uint32_t runStartUs = now_us();
 
   Serial.begin(BAUD);
@@ -462,6 +411,7 @@ void setup()
   modalState.motionG = 0;
   modalState.comp = COMP_OFF;
   modalState.feed = 0;
+  modalState.speed = 0;
   modalState.pos = v2(0, 0);
 
   // Init cutter comp engine
@@ -484,16 +434,18 @@ void setup()
   const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
   for (int i = 0; i < lines; ++i)
   {
-    perf.lines++;
-
     // Peek at the line to detect comp transitions for comment output
     char peekClean[160];
     strip_comments(demo_program[i], peekClean, sizeof(peekClean));
-    ScanLine peekS;
-    scan_line(peekClean, peekS);
+    // is empty line then skip early
+    if (peekClean[0] == 0)
+      continue;
+
+    ScanLine scanLn;
+    scan_line(peekClean, scanLn);
 
     const bool compIsOff = (cc.comp_state == COMP_OFF);
-    const bool entersComp = compIsOff && (peekS.sawG41 || peekS.sawG42) && !compClosed;
+    const bool entersComp = compIsOff && (scanLn.sawG41 || scanLn.sawG42) && !compClosed;
 
     if (entersComp)
     {
@@ -501,39 +453,27 @@ void setup()
       DBG_PRINTLN("(comp start:)");
     }
 
-    uint32_t t0 = now_us();
-    process_one_gcode_line(demo_program[i]);
-    perf.processUs += elapsed_us(t0);
-    perf.processCalls++;
+ 
+    process_one_gcode_line(scanLn);
 
     if (cc.comp_state != COMP_OFF)
     {
       const int pendingProfileWindow = profileCount - emittedProfileCount;
       if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
       {
-        t0 = now_us();
         if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
         {
           Serial.println("(trim failed)");
           return;
         }
-        perf.trimUs += elapsed_us(t0);
-        perf.trimCalls++;
 
-        t0 = now_us();
         if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, EMIT_HOLDBACK, false))
         {
           Serial.println("(emit failed)");
           return;
         }
-        perf.emitUs += elapsed_us(t0);
-        perf.emitCalls++;
 
-        t0 = now_us();
         profile_compact(emittedProfileCount, trimResumeIndex);
-        perf.compactUs += elapsed_us(t0);
-        perf.compactCalls++;
-        perf.batches++;
         //DBG_PRINT("(comp batch emit)\n");
       }
     }
@@ -542,96 +482,44 @@ void setup()
     {
       sawG40 = true;
       compClosed = true;
-      t0 = now_us();
       if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
       {
         Serial.println("(trim failed)");
         return;
       }
-      perf.trimUs += elapsed_us(t0);
-      perf.trimCalls++;
 
-      t0 = now_us();
       if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
       {
         Serial.println("(emit failed)");
         return;
       }
-      perf.emitUs += elapsed_us(t0);
-      perf.emitCalls++;
 
-      t0 = now_us();
       profile_compact(emittedProfileCount, trimResumeIndex);
-      perf.compactUs += elapsed_us(t0);
-      perf.compactCalls++;
       DBG_PRINTLN("(comp stop:)");
     }
   }
 
   if (sawCompStart && !compClosed)
   {
-    uint32_t t0 = now_us();
     flush_pipeline();
-    perf.flushUs += elapsed_us(t0);
-    perf.flushCalls++;
 
-    t0 = now_us();
     if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
     {
       Serial.println("(final trim failed)");
       return;
     }
-    perf.trimUs += elapsed_us(t0);
-    perf.trimCalls++;
 
-    t0 = now_us();
     if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
     {
       Serial.println("(final emit failed)");
       return;
     }
-    perf.emitUs += elapsed_us(t0);
-    perf.emitCalls++;
 
-    t0 = now_us();
     profile_compact(emittedProfileCount, trimResumeIndex);
-    perf.compactUs += elapsed_us(t0);
-    perf.compactCalls++;
   }
 
   if (!sawG40)
     Serial.println("(warning: reached EOF before G40)");
-
-  DBG_PRINTLN("Timing (us):");
-  DBG_PRINT("  lines=");
-  DBG_PRINTLN(perf.lines);
-  DBG_PRINT("  batches=");
-  DBG_PRINTLN(perf.batches);
-
-  DBG_PRINT("  process total=");
-  DBG_PRINT(perf.processUs);
-  DBG_PRINT(" avg=");
-  DBG_PRINTLN(perf.processCalls ? (perf.processUs / perf.processCalls) : 0);
-
-  DBG_PRINT("  trim total=");
-  DBG_PRINT(perf.trimUs);
-  DBG_PRINT(" avg=");
-  DBG_PRINTLN(perf.trimCalls ? (perf.trimUs / perf.trimCalls) : 0);
-
-  DBG_PRINT("  emit total=");
-  DBG_PRINT(perf.emitUs);
-  DBG_PRINT(" avg=");
-  DBG_PRINTLN(perf.emitCalls ? (perf.emitUs / perf.emitCalls) : 0);
-
-  DBG_PRINT("  compact total=");
-  DBG_PRINT(perf.compactUs);
-  DBG_PRINT(" avg=");
-  DBG_PRINTLN(perf.compactCalls ? (perf.compactUs / perf.compactCalls) : 0);
-
-  DBG_PRINT("  flush total=");
-  DBG_PRINT(perf.flushUs);
-  DBG_PRINT(" avg=");
-  DBG_PRINTLN(perf.flushCalls ? (perf.flushUs / perf.flushCalls) : 0);
 
   uint32_t totalUs = elapsed_us(runStartUs);
   char totalSecBuf[24];

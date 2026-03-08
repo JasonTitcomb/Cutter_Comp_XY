@@ -6,7 +6,7 @@
 #include <cstdio>
 #include <algorithm>
 #include <cmath>
-#include "CutterComp2D.h"
+#include "cc_processor.h"
 
 struct Bounds
 {
@@ -41,9 +41,11 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, bool inchUnits = true)
 
     if (m.type == MOT_LINE || m.type == MOT_RAPID)
     {
-        std::fprintf(f, "N%d %s X%.*f Y%.*f",
-                     (int)m.seqNum, m.type == MOT_RAPID ? "G0" : "G1",
-                     posDigits, m.p_1.x, posDigits, m.p_1.y);
+        if (m.seqNum != 0)
+            std::fprintf(f, "N%d ", (int)m.seqNum);
+        std::fprintf(f, "%s", m.type == MOT_RAPID ? "G0" : "G1");
+        if (m.hasXY)
+            std::fprintf(f, " X%.*f Y%.*f", posDigits, m.p_1.x, posDigits, m.p_1.y);
         if (m.hasZ)
             std::fprintf(f, " Z%.*f", zDigits, m.z_1);
         std::fprintf(f, "\n");
@@ -53,8 +55,10 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, bool inchUnits = true)
     if (m.type == MOT_ARC)
     {
         Vec2 dCenter = m.center - m.p_0;
-        std::fprintf(f, "N%d %s X%.*f Y%.*f I%.*f J%.*f",
-                     (int)m.seqNum, (m.arcDir == ARC_CW) ? "G2" : "G3",
+        if (m.seqNum != 0)
+            std::fprintf(f, "N%d ", (int)m.seqNum);
+        std::fprintf(f, "%s X%.*f Y%.*f I%.*f J%.*f",
+                     (m.arcDir == ARC_CW) ? "G2" : "G3",
                      posDigits, m.p_1.x, posDigits, m.p_1.y,
                      centerDigits, dCenter.x, centerDigits, dCenter.y);
         if (m.hasZ)

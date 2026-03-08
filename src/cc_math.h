@@ -4,16 +4,19 @@
 #include <math.h>
 
 #define TOL 0.0001f
-#define INPUT_ARC_TOL 0.001f
-#define EPS 1e-7f
-#define PARALLEL_TOL 1e-3f
-#define BEVEL_VEC_TOL 1.0e-1f
+#define ARC_TOL_IN 0.0005f// tolerance for arc fitting and intersection calculations; also used as the minimum gap size for corner treatment
+#define GAP_TOL_IN 0.001f// if the gap between two moves is smaller than this, we will just make a bevel instead of trying to roll (generally helps with small gaps that can cause issues for the roll logic, but setting this too high can cause visible facets in compensation results)
+#define EPS 1e-7f// general small value for float comparisons
+#define PARALLEL_TOL 1e-3f// tolerance for considering two lines as parallel
+#define BEVEL_VEC_TOL 1.0e-1f// if the turn is very slight (cosine of angle is close to 1) then just do a bevel instead of a roll, to avoid creating very large roll arcs that are visually indistinguishable from a bevel but more likely to cause issues for downstream processing and for CNC execution.
 #define PI 3.14159265358979323846f
 #define TWO_PI 6.2831853071795864769f
 #define MAX_SWEEP_DEG 359.9f
 #define MIN_ARC_LEN 0.001f
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
+float arcTol = ARC_TOL_IN;
+float gapTol = GAP_TOL_IN;
 static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi
                                                                                              : x; }
 struct Vec3
@@ -109,6 +112,20 @@ enum CompError : uint8_t
   CE_UNRESOLVED_GAP
 };
 
+enum Units : uint8_t
+{
+  UNITS_MM = 0,
+  UNITS_INCH = 1
+};
+
+struct CrossingHit
+{
+  bool hit = false;
+  int j = -1;
+  Vec2 tip{0, 0};
+  float dist = 0;
+};
+
 typedef void (*CompErrorCB)(CompError err, uint32_t seqNum);
 static CompErrorCB g_compErrorCB = nullptr;
 
@@ -125,32 +142,26 @@ struct AABB2
 
 struct Move2D
 {
-#ifndef NDEBUG
-  char gcode_line[160] = {0};
-#endif
-
-  Vec2 p_0{0, 0}; // working start
-  Vec2 p_1{0, 0}; // working end
-
+  //char gcode_line[160] = {0};
+  Vec2 p_0{0, 0};   // working start
+  Vec2 p_1{0, 0};   // working end
   Vec2 src_1{0, 0}; // original end (used by roll-arc center logic)
   Vec2 center{0, 0};
-
   Vec2 startDir{0, 0};
   Vec2 endDir{0, 0};
+  AABB2 bounds; // bounding box.
   float radius = 0.0f;
   float feed = 0.0f;
   float z_0 = 0.0f;
   float z_1 = 0.0f;
-  bool hasXY = false;
-  bool hasZ = false;
+  uint32_t seqNum = 0; // for debugging
 
   MotionType type = MOT_EMPTY;
   ArcDir arcDir = ARC_CW;
   CompMode compMode = CM_NONE;
+  bool hasXY = false;
+  bool hasZ = false;
   bool valid = true;
-
-  AABB2 bounds;        // bounding box.
-  uint32_t seqNum = 0; // for debugging
 };
 
 static inline void update_vectors(Move2D &m)
@@ -187,7 +198,7 @@ static inline bool is_radius_consistent(const Move2D &m)
 {
   float r0 = len(m.p_0 - m.center);
   float r1 = len(m.p_1 - m.center);
-  bool isValid = fabsf(r0 - r1) <= INPUT_ARC_TOL;
+  bool isValid = fabsf(r0 - r1) <= arcTol;
   if (!isValid)
     reportCompError(CE_ARC_RADIUS_MISMATCH, m.seqNum);
   return isValid;
@@ -437,7 +448,7 @@ static int next_valid_index(const Move2D *moves, int count, int i)
   return -1;
 }
 
-static int prev_valid_index(const Move2D *moves, int count, int i)
+static int prev_valid_index(const Move2D *moves, int i)
 {
   for (int k = i - 1; k >= 0; --k)
   {
@@ -479,7 +490,7 @@ static int last_comp_move(const Move2D *moves, int count, int startAt)
     if (moves[i].compMode == CM_OUT)
     {
       // Found a CM_OUT move, now find the last valid move before it
-      return prev_valid_index(moves, count, i);
+      return prev_valid_index(moves, i);
     }
   }
   return -1; // No CM_OUT found
@@ -581,12 +592,6 @@ static inline bool pointOnArcCached(const Move2D &a, Vec2 p, const ArcAngles &aa
 
 static inline IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
 {
-
-  // Vec2 p = ln1.o_0;
-  // Vec2 r = ln1.o_1 - ln1.o_0;
-  // Vec2 q = ln2.o_0;
-  // Vec2 s = ln2.o_1 - ln2.o_0;
-
   Vec2 p = ln1.p_0;
   Vec2 r = ln1.p_1 - ln1.p_0;
   Vec2 q = ln2.p_0;

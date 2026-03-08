@@ -2,6 +2,17 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "dotnet: build",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"${workspaceFolder}/csharp/CutterCompXY.Port/CutterCompXY.Port.csproj"
+			],
+			"problemMatcher": "$msCompile",
+			"group": "build"
+		},
+		{
 			"type": "cmake",
 			"label": "CMake: build",
 			"command": "build",
@@ -14,6 +25,12 @@
 			},
 			"problemMatcher": [],
 			"detail": "CMake template build task"
+		},
+		{
+			"label": "Copy cc_* to grblHAL plugins",
+			"type": "shell",
+			"command": "Copy-Item -Path 'src/cc_*' -Destination 'D:/Repos/iMXRT1062/grblHAL_Teensy4/src/plugins' -Force",
+			"problemMatcher": []
 		}
 	]
 }
