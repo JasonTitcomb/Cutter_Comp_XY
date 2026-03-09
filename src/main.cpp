@@ -29,7 +29,7 @@ static constexpr uint32_t BAUD = 115200;
 // IMPORTANT: Tool radius must match the units of your G-code.
 static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool PERFORM_TRIM = true;
+static constexpr bool TRIM_CROSSING = true;
 static constexpr bool OUTPUT_INCH_UNITS = true;
 
 // Primary tuning knobs.
@@ -221,7 +221,7 @@ static void emit_move_as_gcode(const Move2D &m)
     Serial.write((const uint8_t *)line, (size_t)n);
 }
 
-static bool emit_comp_profile_delta(const Move2D *moves,
+static bool emit_comp_profile(const Move2D *moves,
                                     int profileSize,
                                     int &nextEmitIndex,
                                     int holdBackCount,
@@ -229,8 +229,6 @@ static bool emit_comp_profile_delta(const Move2D *moves,
 {
   if (nextEmitIndex < 0)
     nextEmitIndex = 0;
-
-  const float minCompLen = (activeToolRadius < 0.0f) ? -activeToolRadius : activeToolRadius;
 
   int emitLimit = profileSize;
   if (!flushAll)
@@ -355,7 +353,7 @@ static bool trim_and_merge_pending_profile(int emittedProfileCount, int &trimRes
   if (trimStart >= currentProfileCount)
     return true;
 
-  if (PERFORM_TRIM)
+  if (TRIM_CROSSING)
   {
     int srcIdx = trimStart;
     int retTargetIdx = -1;
@@ -394,7 +392,7 @@ void setup()
   DBG_PRINT("Fillet: ");
   DBG_PRINTLN(CORNER_TREATMENT == CORNER_ROLL ? "ROLL" : "CHAMFER");
   DBG_PRINT("Crossing trim: ");
-  DBG_PRINTLN(PERFORM_TRIM ? "ON" : "OFF");
+  DBG_PRINTLN(TRIM_CROSSING ? "ON" : "OFF");
   DBG_PRINT("Tool radius: ");
   DBG_PRINTFLN(TOOL_RADIUS, 5);
   DBG_PRINT("Lookahead: ");
@@ -467,7 +465,7 @@ void setup()
           return;
         }
 
-        if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, EMIT_HOLDBACK, false))
+        if (!emit_comp_profile(profile, profileCount, emittedProfileCount, EMIT_HOLDBACK, false))
         {
           Serial.println("(emit failed)");
           return;
@@ -488,7 +486,7 @@ void setup()
         return;
       }
 
-      if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
+      if (!emit_comp_profile(profile, profileCount, emittedProfileCount, 0, true))
       {
         Serial.println("(emit failed)");
         return;
@@ -509,7 +507,7 @@ void setup()
       return;
     }
 
-    if (!emit_comp_profile_delta(profile, profileCount, emittedProfileCount, 0, true))
+    if (!emit_comp_profile(profile, profileCount, emittedProfileCount, 0, true))
     {
       Serial.println("(final emit failed)");
       return;

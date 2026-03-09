@@ -8,10 +8,8 @@ class CutterComp2D
 private:
     Units units = UNITS_MM;
 
-
 public:
     CornerType cornerTreatment = CORNER_ROLL; // cornerTreatment flag
-    bool performTrim = true;                  // performTrim flag
     // Buffers
     static constexpr int IN_CAP = 2;
     static constexpr int OUT_CAP = 4;
@@ -33,15 +31,17 @@ public:
     Move2D prevOff;
 
     void setCornerTreatment(CornerType ct) { cornerTreatment = ct; }
-    void setPerformTrim(bool en) { performTrim = en; }
     void setErrorCallback(CompErrorCB cb) { g_compErrorCB = cb; }
-    void setUnits(Units u) { 
-        units = u; 
-        if (units == UNITS_INCH){
+    void setUnits(Units u)
+    {
+        units = u;
+        if (units == UNITS_INCH)
+        {
             arcTol = ARC_TOL_IN;
             gapTol = GAP_TOL_IN;
         }
-        else {
+        else
+        {
             arcTol = ARC_TOL_IN * 25.4f;
             gapTol = GAP_TOL_IN * 25.4f;
         }
@@ -98,13 +98,19 @@ public:
 
             Move2D curOff;
             offsetMove(raw, curOff);
-            
-            // Z-only move: no XY displacement, nothing to offset — pass through directly
+            validate(curOff);   
+
+            // Z-only move: no XY displacement, nothing to offset
             if (!raw.hasXY && raw.hasZ)
             {
+                if (havePrevMove2D)
+                {
+                    curOff.p_0 = prevOff.p_0;
+                    curOff.p_1 = prevOff.p_0;
+                }
                 if (!outHasSpace(1))
                     return false;
-                pushOut(raw);
+                pushOut(curOff);
                 continue;
             }
 
@@ -211,8 +217,8 @@ public:
 
     Move2D makeBevel(const Move2D &a, const Move2D &b) const
     {
-        // DBG_PRINTLN("Bevel needed");
         Move2D m;
+        m.hasXY = true;
         m.type = MOT_LINE;
         m.feed = (a.feed > 0) ? a.feed : b.feed;
         m.p_0 = a.p_1;
@@ -285,6 +291,7 @@ public:
         dst.type = src.type; // keep rapid vs feed
         dst.p_0 = src.p_0 + off;
         dst.p_1 = src.p_1 + off;
+        dst.origDir = src.startDir; // keep original direction.
         return true;
     }
 
@@ -329,14 +336,12 @@ public:
         dst.radius = r1;
         dst.p_0 = src.center + v0 * (r1 / lv0);
         dst.p_1 = src.center + v1 * (r1 / lv1);
-
+        dst.origDir = src.startDir; // keep original direction.
         return true;
     }
 
     bool trimToTIP(Move2D &a, Move2D &b, Vec2 tip)
     {
-        if (!performTrim)
-            return false;
         a.p_1 = tip;
         b.p_0 = tip;
 
@@ -345,13 +350,12 @@ public:
 
         validate(a);
         validate(b);
+
         return a.valid && b.valid;
     }
 
     bool extendToFIP(Move2D &a, Move2D &b, Vec2 fip)
     {
-        if (!performTrim)
-            return false;
         float fipDir1 = dot(fip - a.p_1, a.endDir);
         float fipDir2 = dot(fip - b.p_0, b.startDir);
         if (fipDir1 > 0 && fipDir2 < 0)
@@ -454,7 +458,6 @@ public:
             out[outCountLocal++] = bevel;
             return outCountLocal;
         }
-
 
         if (a.type == MOT_LINE)
         {
@@ -600,10 +603,13 @@ public:
     bool insertRollOrCorner(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
         int startCount = insertCount;
-        
+
+        // with a very small offset we don't want to roll or bevel,
+        // just connect them directly to avoid creating tiny segments that could cause issues later.
         float gap = len(b.p_0 - a.p_1);
         bool nearlyConnected = gap < gapTol;
-        if(nearlyConnected){
+        if (nearlyConnected)
+        {
             // make a bevel to close the tiny gap
             Move2D bevel = makeBevel(a, b);
             if (!validate(bevel))
@@ -612,7 +618,6 @@ public:
             return true;
         }
 
-
         if (cornerTreatment == CORNER_ROLL)
         {
             Move2D roll = makeRollArc(a, b);
@@ -620,16 +625,20 @@ public:
                 return false;
             if (!validate(roll))
                 return false;
-
+            roll.hasXY = true;
             inserts[insertCount++] = roll;
             return true;
         }
 
+        // else cornerTreatment == CORNER_CHAMFER
         Move2D cornerSegs[3];
         int cornerCount = makeCornerTreatment(a, b, cornerSegs);
 
         for (int i = 0; i < cornerCount && insertCount < 3; ++i)
+        {
+            cornerSegs[i].hasXY = true;
             inserts[insertCount++] = cornerSegs[i];
+        }
 
         return insertCount > startCount;
     }
@@ -665,20 +674,27 @@ public:
         // 1) TIP: true intersection within both finite segments -> trim
         if (tip)
         {
-            if (trimToTIP(a, b, ip))
-                return;
+            trimToTIP(a, b, ip);
+            if (!a.valid)
+            {
+                b.p_0 = a.p_1;
+            }
+            if (!b.valid)
+            {
+                a.p_1 = b.p_0;
+            }
+            return;
         }
 
-        // direction gate (same condition used inside ExtendToCommonFIP)
+        // direction gate
         float fipDir1 = dot(ip - a.p_1, a.endDir);
         float fipDir2 = dot(ip - b.p_0, b.startDir);
         bool dirOK = (fipDir1 > 0 && fipDir2 < 0);
 
-
         float gap = len(b.p_0 - a.p_1);
         bool nearlyConnected = gap < gapTol;
- 
-        if ((nearlyConnected||comping) && dirOK)
+
+        if ((nearlyConnected || comping) && dirOK)
         {
             if (extendToFIP(a, b, ip))
             {
@@ -705,7 +721,8 @@ public:
             return;
         }
 
-        // If we get here: concave or no-good FIP -> bevel locally (prevents diagonals)
+        // If we get here: concave or no-good FIP -> just bevel.
+        // It's better to have a small bevel than an unresolved gap or weird logic issues later.
         inserts[insertCount++] = makeBevel(a, b);
     }
 
@@ -779,7 +796,7 @@ public:
         // trivial check for chained elements
         if (is_near(a.p_1, b.p_0))
         {
-            b.p_0 = a.p_1; // perfectly connected, just make sure the points are exactly the same to avoid numerical issues later.
+            b.p_0 = a.p_1; // connected within tolerance, snap together to avoid numerical issues later.
             return;        // already connected, no need to roll or trim.
         }
 
@@ -796,8 +813,8 @@ public:
         }
 
         // Evaluate TIP: point must lie on finite line segment and on arc sweep
-        /* Pre-compute arc angles once (avoids redundant atan2f when
-           testing multiple line-circle intersection candidates). */
+        /* Pre-compute arc angles once
+        (avoids redundant atan2f when testing multiple line-circle intersection candidates). */
         ArcAngles arca = precomputeArcAngles(*arc);
 
         bool tip1 = false, tip2 = false;
@@ -806,9 +823,9 @@ public:
         if (count == 2)
             tip2 = pointOnSegment(lin->p_0, lin->p_1, p2) && pointOnArcCached(*arc, p2, arca);
 
-        // TODO:unreachable? tangent logic: if directions match -> extend one side else roll
         if (it == IT_TANGENT)
-        {
+        { // testing suggests that this never gets hit because the elements are chained (see above).
+            // low probability
             if (isNearDir(a.endDir, b.startDir))
             {
                 if (arcFirst)
@@ -1133,13 +1150,13 @@ public:
             Move2D &a = moves[ia];
             Move2D &b = moves[ib];
 
-            // we know they are connected because all invalid motions are skipped,
+             // we know they are connected because all invalid motions are skipped,
             // so just check colinearity and merge if so.
             if (isColinearWith(a, b))
             {
                 // Extend a to b end and invalidate b
                 a.p_1 = b.p_1;
-                update_vectors(a);
+                //update_vectors(a);
 
                 b.valid = false;
                 merges++;

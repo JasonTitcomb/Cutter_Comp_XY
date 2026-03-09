@@ -38,8 +38,7 @@ static void emit_move_as_gcode(FILE *f, const Move2D &m, bool inchUnits = true)
     const int posDigits = inchUnits ? 4 : 3;
     const int centerDigits = inchUnits ? 4 : 3;
     const int zDigits = inchUnits ? 4 : 3;
-
-    if (m.type == MOT_LINE || m.type == MOT_RAPID)
+    if ( m.type == MOT_LINE || m.type == MOT_RAPID)
     {
         if (m.seqNum != 0)
             std::fprintf(f, "N%d ", (int)m.seqNum);

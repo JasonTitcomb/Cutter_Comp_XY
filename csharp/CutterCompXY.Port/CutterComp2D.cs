@@ -99,12 +99,18 @@ public sealed class CutterComp2D
 
             Move2D curOff;
             OffsetMove(raw, out curOff);
+            CcMath.Validate(ref curOff);
 
             if (!raw.hasXY && raw.hasZ)
             {
+                if (havePrevMove2D)
+                {
+                    curOff.p_0 = prevOff.p_0;
+                    curOff.p_1 = prevOff.p_0;
+                }
                 if (!OutHasSpace(1))
                     return false;
-                PushOut(raw);
+                PushOut(curOff);
                 continue;
             }
 
@@ -197,6 +203,7 @@ public sealed class CutterComp2D
     private Move2D MakeBevel(in Move2D a, in Move2D b)
     {
         Move2D m = new Move2D();
+        m.hasXY = true;
         m.type = MotionType.MOT_LINE;
         m.feed = a.feed > 0 ? a.feed : b.feed;
         m.p_0 = a.p_1;
@@ -312,9 +319,6 @@ public sealed class CutterComp2D
 
     private bool TrimToTIP(ref Move2D a, ref Move2D b, in Vec2 tip)
     {
-        if (!performTrim)
-            return false;
-
         a.p_1 = tip;
         b.p_0 = tip;
         CcMath.UpdateVectors(ref a);
@@ -326,9 +330,6 @@ public sealed class CutterComp2D
 
     private bool ExtendToFIP(ref Move2D a, ref Move2D b, in Vec2 fip)
     {
-        if (!performTrim)
-            return false;
-
         float fipDir1 = CcMath.Dot(fip - a.p_1, a.endDir);
         float fipDir2 = CcMath.Dot(fip - b.p_0, b.startDir);
         if (fipDir1 > 0 && fipDir2 < 0)
@@ -566,6 +567,7 @@ public sealed class CutterComp2D
             if (!CcMath.Validate(ref roll))
                 return false;
 
+            roll.hasXY = true;
             inserts[insertCount++] = roll;
             return true;
         }
@@ -574,7 +576,10 @@ public sealed class CutterComp2D
         int cornerCount = MakeCornerTreatment(ref a, ref b, cornerSegs);
 
         for (int i = 0; i < cornerCount && insertCount < 3; i++)
+        {
+            cornerSegs[i].hasXY = true;
             inserts[insertCount++] = cornerSegs[i];
+        }
 
         return insertCount > startCount;
     }
@@ -603,8 +608,12 @@ public sealed class CutterComp2D
 
         if (tip)
         {
-            if (TrimToTIP(ref a, ref b, ip))
-                return;
+            TrimToTIP(ref a, ref b, ip);
+            if (!a.valid)
+                b.p_0 = a.p_1;
+            if (!b.valid)
+                a.p_1 = b.p_0;
+            return;
         }
 
         float fipDir1 = CcMath.Dot(ip - a.p_1, a.endDir);
@@ -723,7 +732,9 @@ public sealed class CutterComp2D
             }
             else
             {
-                inserts[insertCount++] = MakeRollArc(a, b);
+                Move2D roll = MakeRollArc(a, b);
+                roll.hasXY = true;
+                inserts[insertCount++] = roll;
             }
             return;
         }
@@ -1007,7 +1018,6 @@ public sealed class CutterComp2D
             if (CcMath.IsColinearWith(a, b))
             {
                 a.p_1 = b.p_1;
-                CcMath.UpdateVectors(ref a);
                 b.valid = false;
                 moves[ia] = a;
                 moves[ib] = b;

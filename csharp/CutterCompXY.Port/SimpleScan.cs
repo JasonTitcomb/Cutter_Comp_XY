@@ -423,15 +423,6 @@ public static class SimpleScan
             return output;
         }
 
-        // Z-only blocks should stay linear/rapid even if current modal motion is arc.
-        if (s.hasZ && !s.hasX && !s.hasY)
-        {
-            output.type = modeState.motionG == 0 ? MotionType.MOT_RAPID : MotionType.MOT_LINE;
-            modeState.pos = p1;
-            modeState.z = z1;
-            return output;
-        }
-
         if ((modeState.motionG == 2 || modeState.motionG == 3) && anyXYZ)
         {
             output.type = MotionType.MOT_ARC;

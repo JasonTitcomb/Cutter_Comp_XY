@@ -16,20 +16,6 @@ public static class CcConst
     public const float IN_TO_MM = 25.4f;
 }
 
-public struct Vec3
-{
-    public float x;
-    public float y;
-    public float z;
-
-    public Vec3(float xIn, float yIn, float zIn)
-    {
-        x = xIn;
-        y = yIn;
-        z = zIn;
-    }
-}
-
 public struct Vec2
 {
     public float x;

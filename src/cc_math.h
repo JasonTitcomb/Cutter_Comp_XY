@@ -19,16 +19,6 @@ float arcTol = ARC_TOL_IN;
 float gapTol = GAP_TOL_IN;
 static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi
                                                                                              : x; }
-struct Vec3
-{
-  float x = 0.0f;
-  float y = 0.0f;
-  float z = 0.0f;
-
-  Vec3() = default;
-  Vec3(float X, float Y, float Z) : x(X), y(Y), z(Z) {}
-};
-
 struct Vec2
 {
   float x = 0.0f;
@@ -43,8 +33,6 @@ struct Vec2
 };
 
 static inline Vec2 v2(float x, float y) { return {x, y}; }
-static inline Vec3 v3(float x, float y, float z) { return {x, y, z}; }
-
 static inline float dot(const Vec2 &a, const Vec2 &b) { return a.x * b.x + a.y * b.y; }
 static inline float cross(const Vec2 &a, const Vec2 &b) { return a.x * b.y - a.y * b.x; }
 static inline float len(const Vec2 &v) { return sqrtf(dot(v, v)); }
@@ -149,11 +137,13 @@ struct Move2D
   Vec2 center{0, 0};
   Vec2 startDir{0, 0};
   Vec2 endDir{0, 0};
+  Vec2 origDir{0, 0};
   AABB2 bounds; // bounding box.
   float radius = 0.0f;
   float feed = 0.0f;
   float z_0 = 0.0f;
   float z_1 = 0.0f;
+  //float length = 0.0f;
   uint32_t seqNum = 0; // for debugging
 
   MotionType type = MOT_EMPTY;
@@ -199,8 +189,6 @@ static inline bool is_radius_consistent(const Move2D &m)
   float r0 = len(m.p_0 - m.center);
   float r1 = len(m.p_1 - m.center);
   bool isValid = fabsf(r0 - r1) <= arcTol;
-  if (!isValid)
-    reportCompError(CE_ARC_RADIUS_MISMATCH, m.seqNum);
   return isValid;
 }
 
@@ -232,7 +220,7 @@ static inline float wrap2pi(float a)
   return a;
 }
 
-static inline float arcSweepDeg(const Move2D &m)
+static inline float arcSweepDeg(Move2D &m)
 {
   float a0 = wrap2pi(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
   float a1 = wrap2pi(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
@@ -242,6 +230,9 @@ static inline float arcSweepDeg(const Move2D &m)
     float sw = a1 - a0;
     if (sw < 0)
       sw += TWO_PI;
+
+    // calculate length from sweep and radius.
+    //m.length = fabsf(m.radius) * sw;
     return sw * (180.0f / PI); // [0, 360)
   }
   else
@@ -249,8 +240,10 @@ static inline float arcSweepDeg(const Move2D &m)
     float sw = a0 - a1;
     if (sw < 0)
       sw += TWO_PI;
+    //m.length = fabsf(m.radius) * sw;
     return sw * (180.0f / PI); // [0, 360)
   }
+
 }
 
 static inline float sweepCCW(float a0, float a1)
@@ -354,6 +347,14 @@ static inline float distFromStart_along(const Move2D &m, Vec2 p)
   return 0.0f;
 }
 
+
+static inline bool isNearDir(Vec2 a, Vec2 b)
+{
+  a = normalize(a); // should be pre-normalized by caller (e.g. update_vectors) to avoid redundant normalizations in hot paths?
+  b = normalize(b);
+  return dot(a, b) > 0.9995f;
+}
+
 static inline bool validate(Move2D &m)
 {
   float d = 0;
@@ -363,7 +364,8 @@ static inline bool validate(Move2D &m)
 
   if (m.type == MOT_LINE)
   {
-    m.valid = (len(m.p_1 - m.p_0) >= TOL);
+    //m.length = len(m.p_1 - m.p_0);
+    m.valid = len(m.p_1 - m.p_0) >= TOL;
   }
   if (m.type == MOT_ARC)
   {
@@ -372,10 +374,11 @@ static inline bool validate(Move2D &m)
     sw = arcSweepDeg(m);
     sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
     m.valid = d >= TOL && radius_ok && sweepOk;
+    if (!radius_ok)
+      reportCompError(CE_ARC_RADIUS_MISMATCH, m.seqNum);
+    if (!sweepOk)
+      reportCompError(CE_INVALID_MOVE, m.seqNum);
   }
-  // add a debugger break if m.valid is false
-  if (!m.valid)
-    reportCompError(CE_INVALID_MOVE, m.seqNum);
   return m.valid;
 }
 
@@ -702,11 +705,4 @@ static inline Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
   Vec2 da = a - ref;
   Vec2 db = b - ref;
   return (dot(da, da) <= dot(db, db)) ? a : b;
-}
-
-static inline bool isNearDir(Vec2 a, Vec2 b)
-{
-  a = normalize(a);
-  b = normalize(b);
-  return dot(a, b) > 0.9995f;
 }

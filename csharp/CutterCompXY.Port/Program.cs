@@ -114,13 +114,11 @@ internal static class Program
         }
     }
 
-    private static bool EmitCompProfileDelta(StreamWriter sw, int nextEmitIndex, int holdBackCount, bool flushAll, bool inchUnits, float activeToolRadius, out int newNextEmitIndex)
+    private static bool EmitCompProfile(StreamWriter sw, int nextEmitIndex, int holdBackCount, bool flushAll, bool inchUnits, out int newNextEmitIndex)
     {
         int profileSize = profile.Count;
         if (nextEmitIndex < 0)
             nextEmitIndex = 0;
-
-        float minCompLen = activeToolRadius < 0 ? -activeToolRadius : activeToolRadius;
 
         int emitLimit = profileSize;
         if (!flushAll)
@@ -141,17 +139,6 @@ internal static class Program
             Move2D m = profile[i];
             if (!m.valid || m.type == MotionType.MOT_EMPTY)
                 continue;
-
-            if (m.compMode == CompMode.CM_IN || m.compMode == CompMode.CM_OUT)
-            {
-                float moveLen = m.type == MotionType.MOT_ARC ? CcMath.DistFromStartAlong(m, m.p_1) : CcMath.Len(m.p_1 - m.p_0);
-                if (moveLen <= minCompLen)
-                {
-                    newNextEmitIndex = nextEmitIndex;
-                    return false;
-                }
-            }
-
             EmitMoveAsGcode(sw, m, inchUnits);
         }
 
@@ -335,7 +322,7 @@ internal static class Program
                     if (!TrimAndMergePendingProfile(emittedProfileCount, trimResumeIndex, out trimResumeIndex))
                         return false;
 
-                    if (!EmitCompProfileDelta(outFile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits, activeToolRadius, out emittedProfileCount))
+                    if (!EmitCompProfile(outFile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits, out emittedProfileCount))
                         return false;
 
                     outFile.WriteLine("(comp batch emit)");
@@ -350,7 +337,7 @@ internal static class Program
                 if (!TrimAndMergePendingProfile(emittedProfileCount, trimResumeIndex, out trimResumeIndex))
                     return false;
 
-                if (!EmitCompProfileDelta(outFile, emittedProfileCount, 0, true, inchUnits, activeToolRadius, out emittedProfileCount))
+                if (!EmitCompProfile(outFile, emittedProfileCount, 0, true, inchUnits, out emittedProfileCount))
                     return false;
 
                 outFile.WriteLine("(comp stop: G40)");
@@ -364,7 +351,7 @@ internal static class Program
             if (!TrimAndMergePendingProfile(emittedProfileCount, trimResumeIndex, out trimResumeIndex))
                 return false;
 
-            if (!EmitCompProfileDelta(outFile, emittedProfileCount, 0, true, inchUnits, activeToolRadius, out emittedProfileCount))
+            if (!EmitCompProfile(outFile, emittedProfileCount, 0, true, inchUnits, out emittedProfileCount))
                 return false;
         }
 

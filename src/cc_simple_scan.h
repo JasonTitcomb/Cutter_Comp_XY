@@ -461,15 +461,6 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         return out;
     }
 
-    // Z-only blocks should stay linear/rapid even if current modal motion is arc.
-    if (s.hasZ && !s.hasX && !s.hasY)
-    {
-        out.type = (modeState.motionG == 0) ? MOT_RAPID : MOT_LINE;
-        modeState.pos = p1;
-        modeState.z = z1;
-        return out;
-    }
-
     if ((modeState.motionG == 2 || modeState.motionG == 3) && anyXYZ)
     {
         out.type = MOT_ARC;

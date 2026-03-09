@@ -31,9 +31,10 @@
 
 // -------------------- Config --------------------
 static constexpr bool STOP_ON_FIRST_ERRORS = true;
-static constexpr float TOOL_RADIUS = 0.05f;
+static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool PERFORM_TRIM = true;                     // whether to perform trimming of moves after compensation (generally should be true to get correct results, but can be disabled for testing/debugging purposes)
+static constexpr bool TRIM_CROSSING = true;
+static constexpr bool MERGE_COLINEAR = true;
 static constexpr int MAX_LOOKAHEAD = 10;
 // Crossing search can inspect up to (src + 2 + MAX_LOOKAHEAD), so we must
 // keep at least that many tail elements un-emitted between batches.
@@ -145,19 +146,16 @@ static inline void update_units_mode_from_line(const char *line, bool &inchUnits
   }
 }
 
-static bool emit_comp_profile_delta(FILE *f,
+static bool emit_comp_profile(FILE *f,
                                     const std::vector<Move2D> &moves,
                                     int &nextEmitIndex,
                                     int holdBackCount,
                                     bool flushAll,
-                                    bool inchUnits,
-                                    float activeToolRadius)
+                                    bool inchUnits)
 {
   const int profileSize = (int)moves.size();
   if (nextEmitIndex < 0)
     nextEmitIndex = 0;
-
-  const float minCompLen = (activeToolRadius < 0.0f) ? -activeToolRadius : activeToolRadius;
 
   int emitLimit = profileSize;
   if (!flushAll)
@@ -339,14 +337,18 @@ static bool trim_and_merge_pending_profile(int emittedProfileCount, int &trimRes
 
   int srcIdx = trimStart;
   int retTargetIdx = -1;
-  if (!cc.trimCrossingElements(profile.data(), srcIdx, profileSize, MAX_LOOKAHEAD, retTargetIdx))
-    return false;
+
+  if(TRIM_CROSSING)
+    if (!cc.trimCrossingElements(profile.data(), srcIdx, profileSize, MAX_LOOKAHEAD, retTargetIdx))
+      return false;
 
   // Merge needs one-element overlap to catch boundary joins.
   int mergeStart = trimStart;
   if (mergeStart > emittedProfileCount)
     mergeStart -= 1;
-  cc.merge_all_colinear(profile.data() + mergeStart, profileSize - mergeStart);
+
+  if (MERGE_COLINEAR)  
+    cc.merge_all_colinear(profile.data() + mergeStart, profileSize - mergeStart);
 
   // Keep overlap so older tail elements can be re-checked against new arrivals.
   int nextTrimStart = profileSize - TRIM_OVERLAP_MOVES;
@@ -376,7 +378,6 @@ static bool run_profile_streaming(const char *inputPath,
   float activeToolRadius = toolRadius;
   cc.setToolRadius(activeToolRadius);
   cc.setCornerTreatment(cornerTreatment);
-  cc.setPerformTrim(PERFORM_TRIM);
   cc.setErrorCallback(compErrorHandler);
   cc.setComp(COMP_OFF);
 
@@ -461,7 +462,7 @@ static bool run_profile_streaming(const char *inputPath,
           return false;
         }
 
-        if (!emit_comp_profile_delta(out, profile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits, activeToolRadius))
+        if (!emit_comp_profile(out, profile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits))
         {
           std::fclose(out);
           return false;
@@ -480,7 +481,7 @@ static bool run_profile_streaming(const char *inputPath,
         return false;
       }
 
-      if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, activeToolRadius))
+      if (!emit_comp_profile(out, profile, emittedProfileCount, 0, true, inchUnits))
       {
         std::fclose(out);
         return false;
@@ -500,7 +501,7 @@ static bool run_profile_streaming(const char *inputPath,
       return false;
     }
 
-    if (!emit_comp_profile_delta(out, profile, emittedProfileCount, 0, true, inchUnits, activeToolRadius))
+    if (!emit_comp_profile(out, profile, emittedProfileCount, 0, true, inchUnits))
     {
       std::fclose(out);
       return false;
@@ -529,11 +530,13 @@ int main()
   //  const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
   const char *default_file = "../../data/TortureTestG90.nc";
+  //const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
-  //  const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //  const char *default_file = "../../data/SimpleSquarePocket.nc";
   // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   // const char *default_file = "../../data/CompErrorTest.nc";
+  // const char *default_file = "../../data/Tangent_ArcLine.nc";
   const std::string inputFilePath(default_file);
   const std::string inputBaseName = basename_no_ext(inputFilePath);
 
