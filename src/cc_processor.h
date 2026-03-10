@@ -1,14 +1,81 @@
-// CutterComp2D.h - 2D cutter compensation with logic
+/*
+ * cc_processor.h - 2D cutter compensation with logic
+ * Jason Titcomb 2026
+ * MIT License – see LICENSE file in repository root
+ */
 
 #pragma once
 #include "cc_math.h"
+typedef void (*CcOutputCB)(const char *text, size_t len);
+typedef void (*CcErrorCB)(const char *message, CompError err, uint32_t seqNum);
+
+struct CcMainOptions
+{
+    struct CcMainCallbacks
+    {
+        CcOutputCB output = nullptr;
+        CcErrorCB error = nullptr;
+    } callbacks;
+
+    float toolRadius = 0.0f;
+    CornerType cornerTreatment = CORNER_ROLL;
+    bool trimCrossing = true;
+    bool outputInchUnits = true;
+};
 
 class CutterComp2D
 {
 private:
-    Units units = UNITS_MM;
+    CcOutputCB outputCB_ = nullptr;
+    CcErrorCB errorCB_ = nullptr;
 
 public:
+    void setErrorCallback(CcErrorCB cb) { errorCB_ = cb; }
+
+    void reportCompError(CompError err, uint32_t seqNum) const
+    {
+        char msg[64];
+        snprintf(msg, sizeof(msg), "CompError %u N%u", (unsigned)err, (unsigned)seqNum);
+        if (errorCB_)
+            errorCB_(msg, err, seqNum);
+    }
+
+    Units units = UNITS_MM;
+    // --- Moved from cc_math.h ---
+    bool validate(Move2D &m) const
+    {
+        float d = 0;
+        bool radius_ok = true;
+        float sw = 0;
+        bool sweepOk = true;
+
+        if (m.type == MOT_LINE)
+        {
+            m.valid = len(m.p_1 - m.p_0) >= TOL;
+        }
+        if (m.type == MOT_ARC)
+        {
+            d = distFromStart_along(m, m.p_1);
+            radius_ok = is_radius_consistent(m);
+            sw = arcSweepDeg(m);
+            sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
+            m.valid = d >= TOL && radius_ok && sweepOk;
+            if (!radius_ok)
+                reportCompError(CE_ARC_RADIUS_MISMATCH, m.seqNum);
+            if (!sweepOk)
+                reportCompError(CE_INVALID_MOVE, m.seqNum);
+        }
+        return m.valid;
+    }
+
+    void invalidateRange(Move2D *moves, int i, int j)
+    {
+        for (int k = i + 1; k < j; ++k)
+        {
+            moves[k].valid = false;
+        }
+    }
+
     CornerType cornerTreatment = CORNER_ROLL; // cornerTreatment flag
     // Buffers
     static constexpr int IN_CAP = 2;
@@ -31,7 +98,6 @@ public:
     Move2D prevOff;
 
     void setCornerTreatment(CornerType ct) { cornerTreatment = ct; }
-    void setErrorCallback(CompErrorCB cb) { g_compErrorCB = cb; }
     void setUnits(Units u)
     {
         units = u;
@@ -98,7 +164,7 @@ public:
 
             Move2D curOff;
             offsetMove(raw, curOff);
-            validate(curOff);   
+            validate(curOff);
 
             // Z-only move: no XY displacement, nothing to offset
             if (!raw.hasXY && raw.hasZ)
@@ -305,7 +371,7 @@ public:
 
         // complete copy.
         dst = src;
-        validate(dst); // validate before offsetting
+        CutterComp2D::validate(dst); // validate before offsetting
 
         dst.src_1 = src.p_1;
 
@@ -374,7 +440,7 @@ public:
     Move2D makeRollArc(const Move2D &a, const Move2D &b) const
     {
         Move2D roll;
-        roll.seqNum = (a.seqNum * 10) + 5; // for debugging
+        // roll.seqNum = (a.seqNum * 10) + 5; // for debugging
         roll.type = MOT_ARC;
         roll.compMode = CM_STEADY;
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
@@ -524,7 +590,7 @@ public:
         cap.p_0 = ipForL1;
         cap.p_1 = ipForL2;
         // if the cap length is smaller than the tolerance.
-        if (!validate(cap))
+        if (!CutterComp2D::validate(cap))
             return 0;
 
         if (a.type == MOT_LINE)
@@ -532,7 +598,7 @@ public:
             a.p_1 = ipForL1;
             // a.o_1 = a.p_1;
             update_vectors(a);
-            if (!validate(a))
+            if (!CutterComp2D::validate(a))
                 return 0;
         }
 
@@ -541,7 +607,7 @@ public:
             b.p_0 = ipForL2;
             // b.o_0 = b.p_0;
             update_vectors(b);
-            if (!validate(b))
+            if (!CutterComp2D::validate(b))
                 return 0;
         }
 
@@ -549,7 +615,7 @@ public:
         {
             extA.p_1 = ipForL1;
             update_vectors(extA);
-            if (!validate(extA))
+            if (!CutterComp2D::validate(extA))
                 return 0;
             out[outCountLocal++] = extA;
         }
@@ -561,7 +627,7 @@ public:
             extB.p_0 = ipForL2;
             extB.p_1 = b.p_0;
             update_vectors(extB);
-            if (!validate(extB))
+            if (!CutterComp2D::validate(extB))
                 return 0;
             out[outCountLocal++] = extB;
         }
@@ -695,7 +761,6 @@ public:
 
         float gap = len(b.p_0 - a.p_1);
         bool nearlyConnected = gap < gapTol;
-
         if ((nearlyConnected || comping) && dirOK)
         {
             if (extendToFIP(a, b, ip))
@@ -735,9 +800,10 @@ public:
             return; // connected and concentric arcs are already tangent. No need to roll or trim.
         }
 
-        Vec2 p1{}, p2{};
+        Vec2 ip1{}, ip2{};
         int tipCt = 0;
-        IntersectType it = intersectCircleCircle(a, b, p1, p2, tipCt);
+        IntersectType it = intersectCircleCircle(a, b, ip1, ip2, tipCt);
+
         if (it == IT_NONE || it == IT_TANGENT) // no intersection so close the gap with a chamfer or roll.
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
@@ -751,18 +817,31 @@ public:
         ArcAngles ba = precomputeArcAngles(b);
 
         // Determine TIP(true intersection point) candidates
-        bool tip1 = (tipCt >= 1) && pointOnArcCached(a, p1, aa) && pointOnArcCached(b, p1, ba);
-        bool tip2 = (tipCt == 2) && pointOnArcCached(a, p2, aa) && pointOnArcCached(b, p2, ba);
+        bool tip1 = (tipCt >= 1) && pointOnArcCached(a, ip1, aa) && pointOnArcCached(b, ip1, ba);
+        bool tip2 = (tipCt == 2) && pointOnArcCached(a, ip2, aa) && pointOnArcCached(b, ip2, ba);
 
         if (tip1 || tip2)
         {
-            Vec2 tip = tip1 ? p1 : p2;
+            Vec2 tip = tip1 ? ip1 : ip2;
             if (tip1 && tip2)
-                tip = pickClosest(a.p_1, p1, p2);
+                tip = pickClosest(a.p_1, ip1, ip2);
 
             if (trimToTIP(a, b, tip))
                 return;
         }
+
+       // no tip but small gap: try extending to FIP (false intersection point)
+        float gap = len(b.p_0 - a.p_1);
+        bool nearlyConnected = gap < gapTol;
+        if (nearlyConnected)
+        {
+            Vec2 tip = pickClosest(a.p_1, ip1, ip2);
+            if (extendToFIP(a, b, tip))
+            {
+                return;
+            }
+        }
+
 
         if (!insertRollOrCorner(a, b, inserts, insertCount))
             reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
@@ -795,9 +874,9 @@ public:
         }
 
         // Intersect infinite line with circle
-        Vec2 p1{}, p2{};
+        Vec2 ip1{}, ip2{};
         int count = 0;
-        IntersectType it = intersectLineCircle(lin->p_0, lin->p_1, arc->center, arc->radius, p1, p2, count);
+        IntersectType it = intersectLineCircle(lin->p_0, lin->p_1, arc->center, arc->radius, ip1, ip2, count);
 
         if (it == IT_NONE)
         {
@@ -813,21 +892,33 @@ public:
 
         bool tip1 = false, tip2 = false;
         if (count >= 1)
-            tip1 = pointOnSegment(lin->p_0, lin->p_1, p1) && pointOnArcCached(*arc, p1, arca);
+            tip1 = pointOnSegment(lin->p_0, lin->p_1, ip1) && pointOnArcCached(*arc, ip1, arca);
         if (count == 2)
-            tip2 = pointOnSegment(lin->p_0, lin->p_1, p2) && pointOnArcCached(*arc, p2, arca);
+            tip2 = pointOnSegment(lin->p_0, lin->p_1, ip2) && pointOnArcCached(*arc, ip2, arca);
 
- 
         // If any TIP exists: trim
         if (tip1 || tip2)
         {
-            Vec2 tip = tip1 ? p1 : p2;
+            Vec2 tip = tip1 ? ip1 : ip2;
             if (tip1 && tip2)
-                tip = pickClosest(a.p_1, p1, p2);
+                tip = pickClosest(a.p_1, ip1, ip2);
             if (trimToTIP(a, b, tip))
                 return;
         }
 
+        // no tip but small gap: try extending to FIP (false intersection point)
+        float gap = len(b.p_0 - a.p_1);
+        bool nearlyConnected = gap < gapTol;
+        if (nearlyConnected)
+        {
+            Vec2 tip = pickClosest(a.p_1, ip1, ip2);
+            if (extendToFIP(a, b, tip))
+            {
+                return;
+            }
+        }
+
+        // fallback to roll or chamfer if no intersection or extension possible.
         if (!insertRollOrCorner(a, b, inserts, insertCount))
             reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
     }
@@ -858,9 +949,9 @@ public:
             const Move2D &L = (A.type == MOT_LINE) ? A : B;
             const Move2D &C = (A.type == MOT_ARC) ? A : B;
 
-            Vec2 p1{}, p2{};
+            Vec2 ip1{}, ip2{};
             int count = 0;
-            IntersectType it = intersectLineCircle(L.p_0, L.p_1, C.center, C.radius, p1, p2, count);
+            IntersectType it = intersectLineCircle(L.p_0, L.p_1, C.center, C.radius, ip1, ip2, count);
             if (it == IT_NONE)
                 return 0;
 
@@ -869,14 +960,14 @@ public:
             ArcAngles ca = precomputeArcAngles(C);
 
             int n = 0;
-            if (count >= 1 && pointOnSegment(L.p_0, L.p_1, p1) && pointOnArcCached(C, p1, ca))
-                tip1 = p1, n++;
-            if (count == 2 && pointOnSegment(L.p_0, L.p_1, p2) && pointOnArcCached(C, p2, ca))
+            if (count >= 1 && pointOnSegment(L.p_0, L.p_1, ip1) && pointOnArcCached(C, ip1, ca))
+                tip1 = ip1, n++;
+            if (count == 2 && pointOnSegment(L.p_0, L.p_1, ip2) && pointOnArcCached(C, ip2, ca))
             {
                 if (n == 0)
-                    tip1 = p2;
+                    tip1 = ip2;
                 else
-                    tip2 = p2;
+                    tip2 = ip2;
                 n++;
             }
             return n;
@@ -889,9 +980,9 @@ public:
             if (is_near(A.p_1, B.p_0) || is_near(A.center, B.center))
                 return 0;
 
-            Vec2 p1{}, p2{};
+            Vec2 ip1{}, ip2{};
             int count = 0;
-            IntersectType it = intersectCircleCircle(A, B, p1, p2, count);
+            IntersectType it = intersectCircleCircle(A, B, ip1, ip2, count);
             if (it == IT_NONE)
                 return 0;
 
@@ -901,14 +992,14 @@ public:
             ArcAngles ba = precomputeArcAngles(B);
 
             int n = 0;
-            if (count >= 1 && pointOnArcCached(A, p1, aa) && pointOnArcCached(B, p1, ba))
-                tip1 = p1, n++;
-            if (count == 2 && pointOnArcCached(A, p2, aa) && pointOnArcCached(B, p2, ba))
+            if (count >= 1 && pointOnArcCached(A, ip1, aa) && pointOnArcCached(B, ip1, ba))
+                tip1 = ip1, n++;
+            if (count == 2 && pointOnArcCached(A, ip2, aa) && pointOnArcCached(B, ip2, ba))
             {
                 if (n == 0)
-                    tip1 = p2;
+                    tip1 = ip2;
                 else
-                    tip2 = p2;
+                    tip2 = ip2;
                 n++;
             }
             return n;
@@ -1088,7 +1179,7 @@ public:
             if (!shouldTrim)
             {
                 (void)trimToTIP(moves[srcIdx], moves[hitTargetIdx], crossing.tip);
-                invalidateRange(moves, srcIdx, hitTargetIdx);
+                CutterComp2D::invalidateRange(moves, srcIdx, hitTargetIdx);
             }
             // trimmedTo becomes new srcElement
             srcIdx = hitTargetIdx;
@@ -1119,13 +1210,13 @@ public:
             Move2D &a = moves[ia];
             Move2D &b = moves[ib];
 
-             // we know they are connected because all invalid motions are skipped,
+            // we know they are connected because all invalid motions are skipped,
             // so just check colinearity and merge if so.
             if (isColinearWith(a, b))
             {
                 // Extend a to b end and invalidate b
                 a.p_1 = b.p_1;
-                //update_vectors(a);
+                // update_vectors(a);
 
                 b.valid = false;
                 merges++;

@@ -5,8 +5,6 @@
 #include <fstream>
 #include <sstream>
 #include <cctype>
-// #include <algorithm>
-// #include <cmath>
 #include <iostream>
 
 #define DBG_PRINTLN(x)             \
@@ -16,8 +14,8 @@
   } while (0)
 #define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
 
-#include "cc_main.h"
 #include "cc_simple_scan.h"
+#include "cc_main.h"
 #include "writer.h"
 /*
   This is a desktop test harness for the CutterComp2D class, which performs 2D cutter compensation on linear and arc moves.
@@ -31,30 +29,14 @@
 
 // -------------------- Config --------------------
 static constexpr bool STOP_ON_FIRST_ERRORS = true;
-static constexpr float TOOL_RADIUS = 0.05f;
+static constexpr float TOOL_RADIUS = 0.005f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool TRIM_CROSSING = true;
 static constexpr bool MERGE_COLINEAR = true;
 static constexpr int MAX_LOOKAHEAD = 10;
-// Crossing search can inspect up to (src + 2 + MAX_LOOKAHEAD), so we must
-// keep at least that many tail elements un-emitted between batches.
-static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
-static constexpr int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
-static_assert(EMIT_HOLDBACK >= TRIM_OVERLAP_MOVES, "EMIT_HOLDBACK must preserve trim overlap across batches");
-// Trigger a batch emit when the pending profile window grows beyond overlap
-// plus a target chunk size. This reduces trim/merge cadence overhead while
-// keeping memory bounded for streaming/embedded use.
-// Throughput knob: independent from MAX_LOOKAHEAD correctness settings.
-static constexpr int TARGET_BATCH_EMIT_MOVES = 20;
-static constexpr int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
-static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be positive");
 
 // ------------------------------------------------
-
-static ModalState modalState;
 static CutterComp2D cc;
-static bool hasStopError = false;
-
 struct HostRunnerContext
 {
   FILE *out = nullptr;
@@ -67,18 +49,13 @@ static void host_output_cb(const char *text, size_t len)
 {
   if (!g_hostRunnerContext || !g_hostRunnerContext->out || !text || len == 0)
     return;
-
   fwrite(text, 1, len, g_hostRunnerContext->out);
 }
 
 static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
 {
-  if (g_hostRunnerContext)
-    g_hostRunnerContext->sawError = true;
-
   if (message)
     std::fprintf(stderr, "%s\n", message);
-
   if (err != CE_NONE)
     std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
 }
@@ -157,35 +134,6 @@ static std::string basename_no_ext(const std::string &path)
   return name;
 }
 
-static std::string sanitize_radius_for_filename(float radius)
-{
-  char tmp[64];
-  std::snprintf(tmp, sizeof(tmp), "%.6f", radius);
-  std::string s(tmp);
-
-  while (!s.empty() && s.back() == '0')
-    s.pop_back();
-  if (!s.empty() && s.back() == '.')
-    s.pop_back();
-  if (s.empty())
-    s = "0";
-
-  std::string out;
-  out.reserve(s.size() + 2);
-  out.push_back('R');
-  for (char ch : s)
-  {
-    if (ch == '-')
-      out.push_back('m');
-    else if (ch == '.')
-      out.push_back('_');
-    else if (std::isalnum((unsigned char)ch))
-      out.push_back(ch);
-    else
-      out.push_back('_');
-  }
-  return out;
-}
 
 static bool run_profile_streaming(const char *inputPath,
                                   const char *emitGcodePath,
@@ -218,17 +166,17 @@ static bool run_profile_streaming(const char *inputPath,
   options.cornerTreatment = cornerTreatment;
   options.trimCrossing = TRIM_CROSSING;
   options.outputInchUnits = true;
+  options.callbacks.output = host_output_cb;
+  options.callbacks.error = host_error_cb;
 
-  CcMainCallbacks callbacks;
-  callbacks.output = host_output_cb;
-  callbacks.error = host_error_cb;
 
-  bool ok = runner.begin(options, callbacks);
+  bool ok = runner.begin(options);
   std::string line;
   while (ok && std::getline(in, line))
   {
     if (!line.empty() && line.back() == '\r')
       line.pop_back();
+      
     ok = runner.processLine(line.c_str());
   }
 
@@ -243,15 +191,15 @@ static bool run_profile_streaming(const char *inputPath,
 
 int main()
 {
-  // const char *default_file = "../../data/RapidComp.nc";
+  //  const char *default_file = "../../data/RapidComp.nc";
   //  const char *default_file = "../../data/G41_1.nc";
-  //const char *default_file = "../../data/G41_2.nc";
-  // const char *default_file = "../../data/TortureTestG91.nc";
+  //  const char *default_file = "../../data/G41_2.nc";
+  //  const char *default_file = "../../data/TortureTestG91.nc";
   //  const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-   const char *default_file = "../../data/TortureTestG90.nc";
+  const char *default_file = "../../data/TortureTestG90.nc";
   //const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
   // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
@@ -264,11 +212,8 @@ int main()
 
   float toolRadius = TOOL_RADIUS;
 
-  const CornerType cornerTreatment = CORNER_TREATMENT;
-  const std::string radiusTag = sanitize_radius_for_filename(toolRadius);
-  // const std::string outBaseName = std::string(radiusTag + "_" + inputBaseName);
+  CornerType cornerTreatment = CORNER_TREATMENT;
   const std::string outBaseName = std::string(inputBaseName);
-  // const std::string outBaseName = std::string("out");
   const std::string svgPath = "../../output/" + outBaseName + ".svg";
   const std::string ngcPath = "../../output/" + outBaseName + ".ngc";
 

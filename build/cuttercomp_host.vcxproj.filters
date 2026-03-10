@@ -4,9 +4,6 @@
     <ClCompile Include="D:\Repos\Cutter_Comp_XY\host\main_host.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="D:\Repos\Cutter_Comp_XY\src\cc_main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="D:\Repos\Cutter_Comp_XY\host\CMakeLists.txt" />

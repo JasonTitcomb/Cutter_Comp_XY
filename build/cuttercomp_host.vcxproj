@@ -361,7 +361,6 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D:\Repos\Cutter_Comp_XY\host\main_host.cpp" />
-    <ClCompile Include="D:\Repos\Cutter_Comp_XY\src\cc_main.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

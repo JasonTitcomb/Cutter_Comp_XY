@@ -1,3 +1,10 @@
+
+/*
+ * cc_simple_scan.h
+ * Jason Titcomb 2026
+ * MIT License – see LICENSE file in repository root
+ */
+
 #pragma once
 //#include <stddef.h> // size_t
 #include "cc_math.h"

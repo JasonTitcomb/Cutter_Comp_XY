@@ -1,3 +1,10 @@
+
+/*
+ * cc_math.h
+ * Jason Titcomb 2026
+ * MIT License – see LICENSE file in repository root
+ */
+
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
@@ -15,8 +22,8 @@
 #define MIN_ARC_LEN 0.001f
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-extern float arcTol;
-extern float gapTol;
+float arcTol = ARC_TOL_IN;
+float gapTol = GAP_TOL_IN;
 static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi
                                                                                              : x; }
 struct Vec2
@@ -114,15 +121,6 @@ struct CrossingHit
   Vec2 tip{0, 0};
   float dist = 0;
 };
-
-typedef void (*CompErrorCB)(CompError err, uint32_t seqNum);
-static CompErrorCB g_compErrorCB = nullptr;
-
-static inline void reportCompError(CompError err, uint32_t seqNum)
-{
-  if (g_compErrorCB)
-    g_compErrorCB(err, seqNum);
-}
 
 struct AABB2
 {
@@ -356,40 +354,6 @@ static inline bool isNearDir(Vec2 a, Vec2 b)
   return dot(a, b) > 0.9995f;
 }
 
-static inline bool validate(Move2D &m)
-{
-  float d = 0;
-  bool radius_ok = true;
-  float sw = 0;
-  bool sweepOk = true;
-
-  if (m.type == MOT_LINE)
-  {
-    //m.length = len(m.p_1 - m.p_0);
-    m.valid = len(m.p_1 - m.p_0) >= TOL;
-  }
-  if (m.type == MOT_ARC)
-  {
-    d = distFromStart_along(m, m.p_1);
-    radius_ok = is_radius_consistent(m);
-    sw = arcSweepDeg(m);
-    sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
-    m.valid = d >= TOL && radius_ok && sweepOk;
-    if (!radius_ok)
-      reportCompError(CE_ARC_RADIUS_MISMATCH, m.seqNum);
-    if (!sweepOk)
-      reportCompError(CE_INVALID_MOVE, m.seqNum);
-  }
-  return m.valid;
-}
-
-static inline void invalidateRange(Move2D *moves, int i, int j)
-{
-  for (int k = i + 1; k < j; ++k)
-  {
-    moves[k].valid = false;
-  }
-}
 // ----- helpers -----
 static inline bool is_near(const Vec2 &a, const Vec2 &b)
 {
