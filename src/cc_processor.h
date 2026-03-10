@@ -187,10 +187,9 @@ public:
     bool outHasSpace(int n) const
     {
         bool ok = (outCount + n) <= OUT_CAP;
-#ifndef NDEBUG
         if (!ok)
-            DBG_PRINTLN("outHasSpace: output buffer full");
-#endif
+            reportCompError(CE_OUTPUT_BUFFER_OVERFLOW, 0);
+
         return ok;
     }
 
@@ -206,7 +205,7 @@ public:
     {
         if (outCount >= OUT_CAP)
         {
-            DBG_PRINTLN("Output buffer overflow prevented");
+            reportCompError(CE_OUTPUT_BUFFER_OVERFLOW, m.seqNum);
             return;
         }
         output_buffer[(outHead + outCount) % OUT_CAP] = m;
@@ -788,7 +787,7 @@ public:
         }
 
         // trivial check for chained elements
-        // chained arc/line implies tangent if created from offsetting adjacent elements.
+        // chained arc/line implies tangent if created from offsetting tangent adjacent elements.
         if (is_near(a.p_1, b.p_0))
         {
             b.p_0 = a.p_1; // snap together to avoid numerical issues later.

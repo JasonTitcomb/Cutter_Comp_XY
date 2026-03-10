@@ -1,6 +1,6 @@
 # Embedded Cutter Compensation Flow
 
-This document captures the recommended embedded runtime flow for `CutterComp2D` based on the current host-side behavior.
+This document captures the recommended embedded runtime flow for `CcMainRunner` (which wraps `CutterComp2D`) based on the current host-side behavior.
 
 ## High-level flow
 
@@ -18,6 +18,30 @@ This document captures the recommended embedded runtime flow for `CutterComp2D` 
   - If this move carries `G40`, call `flush`, then `setComp(COMP_OFF)`, then drain `popOut` again.
 - At program end, call final `flush` and drain `popOut`.
 
+## Preferred embedded entrypoint
+
+Use `CcMainRunner` for embedded/firmware integration unless you are intentionally testing low-level `CutterComp2D` behavior.
+
+```cpp
+CcMainRunner runner;
+CcMainOptions options;
+CcMainCallbacks callbacks;
+
+callbacks.output = serial_output_cb;
+callbacks.error = serial_error_cb;
+
+bool ok = runner.begin(options, callbacks);
+while (ok && read_next_gcode_line(raw))
+    ok = runner.processLine(raw);
+
+if (ok)
+    ok = runner.finish();
+```
+
+Callback signatures in current code:
+- `void serial_output_cb(const char *text, size_t len)`
+- `void serial_error_cb(const char *message, CompError err, uint32_t seqNum)`
+
 ## Firmware-style pseudocode
 
 ```cpp
@@ -34,7 +58,6 @@ modalState.pos = v2(0, 0);
 cc.setToolRadius(TOOL_RADIUS);
 cc.setCornerTreatment(CORNER_TREATMENT);
 cc.setErrorCallback(compErrorHandler);
-cc.setUnits();
 cc.setComp(COMP_OFF);
 
 while (read_next_gcode_line(raw))

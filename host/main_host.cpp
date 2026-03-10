@@ -16,8 +16,8 @@
   } while (0)
 #define DBG_PRINT(x, ...) std::printf(x, ##__VA_ARGS__)
 
+#include "cc_main.h"
 #include "cc_simple_scan.h"
-#include "cc_processor.h"
 #include "writer.h"
 /*
   This is a desktop test harness for the CutterComp2D class, which performs 2D cutter compensation on linear and arc moves.
@@ -31,7 +31,7 @@
 
 // -------------------- Config --------------------
 static constexpr bool STOP_ON_FIRST_ERRORS = true;
-static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr float TOOL_RADIUS = 0.05f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool TRIM_CROSSING = true;
 static constexpr bool MERGE_COLINEAR = true;
@@ -54,55 +54,38 @@ static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be posi
 static ModalState modalState;
 static CutterComp2D cc;
 static bool hasStopError = false;
-static void compErrorHandler(CompError err, uint32_t seqNum)
+
+struct HostRunnerContext
 {
-  const char *msg = "Unknown comp error";
-  switch (err)
-  {
-  case CE_ARC_RADIUS_MISMATCH:
-    msg = "Arc radius inconsistency";
-    break;
-  case CE_INVALID_MOVE:
-    msg = "Invalid move";
-    break;
-  case CE_COMP_MOVE_TOO_SHORT:
-    msg = "Comp move too short";
-    break;
-  case CE_FLIPPED_ARC:
-    msg = "Flipped arc";
-    break;
-  case CE_COMP_IN_CROSSING:
-    msg = "Comp-in crossing";
-    break;
-  case CE_COMP_OUT_CROSSING:
-    msg = "Comp-out crossing";
-    break;
-  case CE_UNRESOLVED_GAP:
-    msg = "Unresolved gap";
-    break;
-  default:
-    break;
-  }
-  std::printf("CompError: %s (N%u)\n", msg, (unsigned)seqNum);
+  FILE *out = nullptr;
+  bool sawError = false;
+};
+
+static HostRunnerContext *g_hostRunnerContext = nullptr;
+
+static void host_output_cb(const char *text, size_t len)
+{
+  if (!g_hostRunnerContext || !g_hostRunnerContext->out || !text || len == 0)
+    return;
+
+  fwrite(text, 1, len, g_hostRunnerContext->out);
+}
+
+static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
+{
+  if (g_hostRunnerContext)
+    g_hostRunnerContext->sawError = true;
+
+  if (message)
+    std::fprintf(stderr, "%s\n", message);
+
+  if (err != CE_NONE)
+    std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
 }
 
 // -------------------- Profile buffer --------------------
 static std::vector<Move2D> profile;
 static int profileCount = 0;
-
-static void profile_reset()
-{
-  profile.clear();
-  profileCount = 0;
-}
-
-static void profile_push(const Move2D &m)
-{
-  Move2D t = m;
-  t.valid = true;
-  profile.push_back(t);
-  profileCount++;
-}
 
 static inline void copy_gcode_line(char *dst, size_t dstSize, const char *src)
 {
@@ -114,127 +97,6 @@ static inline void copy_gcode_line(char *dst, size_t dstSize, const char *src)
 #endif
 }
 
-static inline void update_units_mode_from_line(const char *line, bool &inchUnits)
-{
-  const char *p = line;
-  while (*p)
-  {
-    if (up(*p) != 'G')
-    {
-      ++p;
-      continue;
-    }
-
-    ++p;
-    while (*p == ' ' || *p == '\t')
-      ++p;
-
-    if (!std::isdigit((unsigned char)*p))
-      continue;
-
-    int code = 0;
-    while (std::isdigit((unsigned char)*p))
-    {
-      code = code * 10 + (*p - '0');
-      ++p;
-    }
-
-    if (code == 20)
-      inchUnits = true;
-    else if (code == 21)
-      inchUnits = false;
-  }
-}
-
-static bool emit_comp_profile(FILE *f,
-                                    const std::vector<Move2D> &moves,
-                                    int &nextEmitIndex,
-                                    int holdBackCount,
-                                    bool flushAll,
-                                    bool inchUnits)
-{
-  const int profileSize = (int)moves.size();
-  if (nextEmitIndex < 0)
-    nextEmitIndex = 0;
-
-  int emitLimit = profileSize;
-  if (!flushAll)
-  {
-    emitLimit = profileSize - holdBackCount;
-    if (emitLimit < 0)
-      emitLimit = 0;
-  }
-
-  if (nextEmitIndex >= emitLimit)
-    return true;
-
-  for (int i = nextEmitIndex; i < emitLimit; ++i)
-  {
-    const Move2D &m = moves[i];
-    if (!m.valid || m.type == MOT_EMPTY)
-      continue;
-    emit_move_as_gcode(f, m, inchUnits);
-  }
-
-  nextEmitIndex = emitLimit;
-  return true;
-}
-
-// -------------------- Pipeline --------------------
-static bool process_one_gcode_line(ScanLine s)
-{
-
-  Move2D mv = interpret_move(s, modalState);
-
-  // copy raw line for testing only
-  // copy_gcode_line(mv.gcode_line, sizeof(mv.gcode_line), raw);
-
-  if ((s.sawG41 || s.sawG42))
-  {
-    // comp mode is now LEFT/RIGHT; set in cutter comp BEFORE processing this move.
-    cc.setComp(modalState.comp);
-  }
-
-  if (!cc.pushIn(mv))
-  {
-    std::puts("(comp input buffer full)");
-    return false;
-  }
-
-  // main pump-----------------------------------------
-
-     bool success = cc.process();
-    if (!success)
-    {
-      std::puts("(comp processing failed)");
-      success = false;
-      return false;
-    }
- 
-  //-------------------------------------------------
-
-  Move2D out;
-  while (cc.popOut(out))
-    profile_push(out);
-
-  if (s.sawG40)
-  {
-    cc.flush();
-    cc.setComp(COMP_OFF); // cancel comp mode; flush any delayed moves through comp with comp OFF
-
-    while (cc.popOut(out))
-      profile_push(out);
-  }
-  return true;
-}
-
-static void flush_pipeline()
-{
-  cc.flush();
-  Move2D out;
-  while (cc.popOut(out))
-    profile_push(out);
-}
 
 static std::vector<std::string> load_program_from_file(const char *path)
 {
@@ -325,78 +187,17 @@ static std::string sanitize_radius_for_filename(float radius)
   return out;
 }
 
-static bool trim_and_merge_pending_profile(int emittedProfileCount, int &trimResumeIndex)
-{
-  const int profileSize = (int)profile.size();
-  int trimStart = trimResumeIndex;
-  if (trimStart < emittedProfileCount)
-    trimStart = emittedProfileCount;
-
-  if (trimStart >= profileSize)
-    return true;
-
-  int srcIdx = trimStart;
-  int retTargetIdx = -1;
-
-  if(TRIM_CROSSING)
-    if (!cc.trimCrossingElements(profile.data(), srcIdx, profileSize, MAX_LOOKAHEAD, retTargetIdx))
-      return false;
-
-  // Merge needs one-element overlap to catch boundary joins.
-  int mergeStart = trimStart;
-  if (mergeStart > emittedProfileCount)
-    mergeStart -= 1;
-
-  if (MERGE_COLINEAR)  
-    cc.merge_all_colinear(profile.data() + mergeStart, profileSize - mergeStart);
-
-  // Keep overlap so older tail elements can be re-checked against new arrivals.
-  int nextTrimStart = profileSize - TRIM_OVERLAP_MOVES;
-  if (nextTrimStart < emittedProfileCount)
-    nextTrimStart = emittedProfileCount;
-  if (nextTrimStart < 0)
-    nextTrimStart = 0;
-  trimResumeIndex = nextTrimStart;
-  return true;
-}
-
 static bool run_profile_streaming(const char *inputPath,
                                   const char *emitGcodePath,
                                   float toolRadius,
                                   CornerType cornerTreatment = CORNER_ROLL)
 {
-  modalState = ModalState{};
-  modalState.planeXY = true;
-  modalState.absXYZ = true;
-  modalState.motionG = 0;
-  modalState.comp = COMP_OFF;
-  modalState.feed = 0;
-  modalState.pos = v2(0, 0);
-  modalState.z = 0.0f;
-
-  cc = CutterComp2D{};
-  float activeToolRadius = toolRadius;
-  cc.setToolRadius(activeToolRadius);
-  cc.setCornerTreatment(cornerTreatment);
-  cc.setErrorCallback(compErrorHandler);
-  cc.setComp(COMP_OFF);
-
-  profile_reset();
-
   std::ifstream in(inputPath);
   if (!in)
   {
     std::fprintf(stderr, "Failed to open input file: %s\n", inputPath);
     return false;
   }
-
-  bool sawCompStart = false;
-  bool sawG40 = false;
-  bool compClosed = false;
-  int emittedProfileCount = 0;
-  bool inchUnits = true;
-  int trimResumeIndex = 0;
-  std::string line;
 
   FILE *out = open_file_write_binary(emitGcodePath);
   if (!out)
@@ -405,118 +206,39 @@ static bool run_profile_streaming(const char *inputPath,
     return false;
   }
 
-  while (std::getline(in, line))
-  {
-    if (STOP_ON_FIRST_ERRORS && hasStopError)
-    {
-      std::puts("(stopped due to previous errors)");
-      break;
-    }
+  HostRunnerContext ctx;
 
+  ctx.out = out;
+
+  g_hostRunnerContext = &ctx;
+
+  CcMainRunner runner;
+  CcMainOptions options;
+  options.toolRadius = toolRadius;
+  options.cornerTreatment = cornerTreatment;
+  options.trimCrossing = TRIM_CROSSING;
+  options.outputInchUnits = true;
+
+  CcMainCallbacks callbacks;
+  callbacks.output = host_output_cb;
+  callbacks.error = host_error_cb;
+
+  bool ok = runner.begin(options, callbacks);
+  std::string line;
+  while (ok && std::getline(in, line))
+  {
     if (!line.empty() && line.back() == '\r')
       line.pop_back();
-
-    char clean[160];
-    strip_comments(line.c_str(), clean, sizeof(clean));
-    // is empty line then skip early to avoid affecting units mode
-    if (clean[0] == 0)
-      continue;
-
-    update_units_mode_from_line(clean, inchUnits);
-
-    ScanLine s;
-    scan_line(clean, s);
-
-    const bool compIsOff = (cc.comp_state == COMP_OFF);
-    const bool entersComp = compIsOff && (s.sawG41 || s.sawG42) && !compClosed;
-
-    if (entersComp)
-    {
-      sawCompStart = true;
-      std::fprintf(out, "(comp start: %s)\n", s.sawG41 ? "G41" : "G42");
-    }
-
-    if (compIsOff && !entersComp)
-    {
-      // pass through unmodified until comp starts
-      interpret_move(s, modalState);
-      if (!s.sawG40)
-        std::fprintf(out, "%s\n", line.c_str());
-      continue;
-    }
-
-    if (!process_one_gcode_line(s))
-    {
-      std::fclose(out);
-      return false;
-    }
-
-    if (cc.comp_state != COMP_OFF)
-    {
-      const int pendingProfileWindow = (int)profile.size() - emittedProfileCount;
-      if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
-      {
-        if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
-        {
-          std::fclose(out);
-          return false;
-        }
-
-        if (!emit_comp_profile(out, profile, emittedProfileCount, EMIT_HOLDBACK, false, inchUnits))
-        {
-          std::fclose(out);
-          return false;
-        }
-        std::fprintf(out, "(comp batch emit)\n");
-      }
-    }
-
-    if (cc.comp_state == COMP_OFF && sawCompStart)
-    {
-      sawG40 = true;
-      compClosed = true;
-      if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
-      {
-        std::fclose(out);
-        return false;
-      }
-
-      if (!emit_comp_profile(out, profile, emittedProfileCount, 0, true, inchUnits))
-      {
-        std::fclose(out);
-        return false;
-      }
-
-      std::fprintf(out, "(comp stop: G40)\n");
-    }
+    ok = runner.processLine(line.c_str());
   }
 
-  if (sawCompStart && !compClosed)
-  {
-    flush_pipeline();
+  if (ok)
+    ok = runner.finish();
 
-    if (!trim_and_merge_pending_profile(emittedProfileCount, trimResumeIndex))
-    {
-      std::fclose(out);
-      return false;
-    }
-
-    if (!emit_comp_profile(out, profile, emittedProfileCount, 0, true, inchUnits))
-    {
-      std::fclose(out);
-      return false;
-    }
-  }
+  g_hostRunnerContext = nullptr;
 
   std::fclose(out);
-
-  if (!sawG40)
-    std::puts("(warning: reached EOF before G40)");
-
-  if (sawCompStart && profile.empty())
-    return false;
-
-  return true;
+  return ok && !ctx.sawError;
 }
 
 int main()
@@ -557,9 +279,12 @@ int main()
   std::vector<std::string> program = load_program_from_file(default_file);
   if (program.empty())
     return 1;
-  auto orig = build_original_moves(program);
 
-  write_svg(svgPath.c_str(), profile, &orig, false, true, fabs(toolRadius * 2.0f),
+  auto orig = build_original_moves(program);
+  std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
+  auto compensated = build_original_moves(compProgram);
+
+  write_svg(svgPath.c_str(), compensated, &orig, false, true, fabs(toolRadius * 2.0f),
             false, true, false, inputBaseName.c_str(), toolRadius); // mirror for better visualization
 
   std::printf("Wrote: %s, %s\n", svgPath.c_str(), ngcPath.c_str());

@@ -15,8 +15,8 @@
 #define MIN_ARC_LEN 0.001f
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
-float arcTol = ARC_TOL_IN;
-float gapTol = GAP_TOL_IN;
+extern float arcTol;
+extern float gapTol;
 static inline float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi
                                                                                              : x; }
 struct Vec2
@@ -97,7 +97,8 @@ enum CompError : uint8_t
   CE_FLIPPED_ARC,
   CE_COMP_IN_CROSSING,
   CE_COMP_OUT_CROSSING,
-  CE_UNRESOLVED_GAP
+  CE_UNRESOLVED_GAP,
+  CE_OUTPUT_BUFFER_OVERFLOW
 };
 
 enum Units : uint8_t
