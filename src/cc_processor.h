@@ -675,13 +675,16 @@ public:
         if (tip)
         {
             trimToTIP(a, b, ip);
+            // when trimming we can get small segments that are invalid after trimming,
             if (!a.valid)
             {
                 b.p_0 = a.p_1;
+                return;
             }
             if (!b.valid)
             {
                 a.p_1 = b.p_0;
+                return;
             }
             return;
         }
@@ -736,7 +739,7 @@ public:
         Vec2 p1{}, p2{};
         int tipCt = 0;
         IntersectType it = intersectCircleCircle(a, b, p1, p2, tipCt);
-        if (it == IT_NONE) // no intersection so close the gap with a chamfer or roll.
+        if (it == IT_NONE || it == IT_TANGENT) // no intersection so close the gap with a chamfer or roll.
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
@@ -752,21 +755,12 @@ public:
         bool tip1 = (tipCt >= 1) && pointOnArcCached(a, p1, aa) && pointOnArcCached(b, p1, ba);
         bool tip2 = (tipCt == 2) && pointOnArcCached(a, p2, aa) && pointOnArcCached(b, p2, ba);
 
-        if (it == IT_TANGENT)
-        {
-            if (tip1)
-            {
-                if (trimToTIP(a, b, p1))
-                    return;
-            }
-            return;
-        }
-
         if (tip1 || tip2)
         {
             Vec2 tip = tip1 ? p1 : p2;
             if (tip1 && tip2)
                 tip = pickClosest(a.p_1, p1, p2);
+
             if (trimToTIP(a, b, tip))
                 return;
         }
@@ -794,9 +788,10 @@ public:
         }
 
         // trivial check for chained elements
+        // chained arc/line implies tangent if created from offsetting adjacent elements.
         if (is_near(a.p_1, b.p_0))
         {
-            b.p_0 = a.p_1; // connected within tolerance, snap together to avoid numerical issues later.
+            b.p_0 = a.p_1; // snap together to avoid numerical issues later.
             return;        // already connected, no need to roll or trim.
         }
 
@@ -823,32 +818,7 @@ public:
         if (count == 2)
             tip2 = pointOnSegment(lin->p_0, lin->p_1, p2) && pointOnArcCached(*arc, p2, arca);
 
-        if (it == IT_TANGENT)
-        { // testing suggests that this never gets hit because the elements are chained (see above).
-            // low probability
-            if (isNearDir(a.endDir, b.startDir))
-            {
-                if (arcFirst)
-                {
-                    // a is arc: extend start of b to a end
-                    b.p_0 = a.p_1;
-                    update_vectors(b);
-                }
-                else
-                {
-                    // a is line: extend end of a to b start
-                    a.p_1 = b.p_0;
-                    update_vectors(a);
-                }
-            }
-            else
-            {
-                // if (cornerRolling)
-                inserts[insertCount++] = makeRollArc(a, b);
-            }
-            return;
-        }
-
+ 
         // If any TIP exists: trim
         if (tip1 || tip2)
         {

@@ -657,7 +657,7 @@ public sealed class CutterComp2D
             return;
 
         IntersectType it = CcMath.IntersectCircleCircle(a, b, out Vec2 p1, out Vec2 p2, out int tipCt);
-        if (it == IntersectType.IT_NONE)
+        if (it == IntersectType.IT_NONE || it == IntersectType.IT_TANGENT)
         {
             if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
                 CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
@@ -669,13 +669,6 @@ public sealed class CutterComp2D
 
         bool tip1 = (tipCt >= 1) && CcMath.PointOnArcCached(a, p1, aa) && CcMath.PointOnArcCached(b, p1, ba);
         bool tip2 = (tipCt == 2) && CcMath.PointOnArcCached(a, p2, aa) && CcMath.PointOnArcCached(b, p2, ba);
-
-        if (it == IntersectType.IT_TANGENT)
-        {
-            if (tip1 && TrimToTIP(ref a, ref b, p1))
-                return;
-            return;
-        }
 
         if (tip1 || tip2)
         {
@@ -714,30 +707,6 @@ public sealed class CutterComp2D
         ArcAngles arca = CcMath.PrecomputeArcAngles(arc);
         bool tip1 = count >= 1 && CcMath.PointOnSegment(lin.p_0, lin.p_1, p1) && CcMath.PointOnArcCached(arc, p1, arca);
         bool tip2 = count == 2 && CcMath.PointOnSegment(lin.p_0, lin.p_1, p2) && CcMath.PointOnArcCached(arc, p2, arca);
-
-        if (it == IntersectType.IT_TANGENT)
-        {
-            if (CcMath.IsNearDir(a.endDir, b.startDir))
-            {
-                if (arcFirst)
-                {
-                    b.p_0 = a.p_1;
-                    CcMath.UpdateVectors(ref b);
-                }
-                else
-                {
-                    a.p_1 = b.p_0;
-                    CcMath.UpdateVectors(ref a);
-                }
-            }
-            else
-            {
-                Move2D roll = MakeRollArc(a, b);
-                roll.hasXY = true;
-                inserts[insertCount++] = roll;
-            }
-            return;
-        }
 
         if (tip1 || tip2)
         {
