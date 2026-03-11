@@ -8,13 +8,15 @@
 #include "cc_math.h"
 typedef void (*CcOutputCB)(const char *text, size_t len);
 typedef void (*CcErrorCB)(const char *message, CompError err, uint32_t seqNum);
-
+typedef void (*CcStartCompCB)(int toolRegister, int diaRegister);
+    
 struct CcMainOptions
 {
     struct CcMainCallbacks
     {
         CcOutputCB output = nullptr;
         CcErrorCB error = nullptr;
+        CcStartCompCB startComp = nullptr;
     } callbacks;
 
     float toolRadius = 0.0f;
@@ -1120,6 +1122,11 @@ private:
             {
                 continue;
             }
+
+            // compare the Z values within a tolerance
+            //special case for helix moves.
+            if(fabsf(src.z_0 - target.z_0) > TOL || fabsf(src.z_0 - target.z_1) > TOL)
+                continue;
 
             Vec2 t1, t2;
             int n = commonTIP_any(src, target, t1, t2);

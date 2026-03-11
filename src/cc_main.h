@@ -35,6 +35,7 @@ private:
     CcMainOptions options_{};
     CcOutputCB outputCB_ = nullptr;
     CcErrorCB errorCB_ = nullptr;
+    CcStartCompCB startCompCB_ = nullptr;
     
     ModalState modalState_{};
     CutterComp2D cc_{};
@@ -72,7 +73,7 @@ private:
 
         outputCB_ = options_.callbacks.output;
         errorCB_ = options_.callbacks.error;
-
+        startCompCB_ = options_.callbacks.startComp;
         profile_reset();
         emittedProfileCount_ = 0;
         trimResumeIndex_ = 0;
@@ -102,6 +103,10 @@ private:
         {
             sawCompStart_ = true;
             emit_status("(COMP ON)\n");
+            if (startCompCB_)
+            {
+                startCompCB_(modalState_.T_Register, modalState_.D_Register);
+            }
         }
 
         if (canEmitRaw)
@@ -351,10 +356,20 @@ private:
         {
             n += snprintf(line + n, sizeof(line) - (size_t)n, "%s", (m.type == MOT_RAPID) ? "G0" : "G1");
 
+            float dx = m.p_1.x - m.p_0.x;
+            float dy = m.p_1.y - m.p_0.y;
+            float dz = m.z_1 - m.z_0;
+            bool isAbs = modalState_.absXYZ;
+
             if (m.hasXY)
             {
-                n = append_coord(line, sizeof(line), n, "X", m.p_1.x, posDigits);
-                n = append_coord(line, sizeof(line), n, "Y", m.p_1.y, posDigits);
+                if (isAbs) {
+                    n = append_coord(line, sizeof(line), n, "X", m.p_1.x, posDigits);
+                    n = append_coord(line, sizeof(line), n, "Y", m.p_1.y, posDigits);
+                } else {
+                    n = append_coord(line, sizeof(line), n, "X", dx, posDigits);
+                    n = append_coord(line, sizeof(line), n, "Y", dy, posDigits);
+                }
             }
 
             if (m.feed > 0.0f && (!hasLastFeed || m.feed != lastFeed))
@@ -365,7 +380,7 @@ private:
             }
 
             if (m.hasZ)
-                n = append_coord(line, sizeof(line), n, "Z", m.z_1, posDigits);
+                n = append_coord(line, sizeof(line), n, "Z", isAbs ? m.z_1 : dz, posDigits);
 
             n = append_text(line, sizeof(line), n, "\n");
         }
@@ -374,8 +389,13 @@ private:
             Vec2 dCenter = m.center - m.p_0;
             n += snprintf(line + n, sizeof(line) - (size_t)n, "%s", (m.arcDir == ARC_CW) ? "G2" : "G3");
 
-            n = append_coord(line, sizeof(line), n, "X", m.p_1.x, posDigits);
-            n = append_coord(line, sizeof(line), n, "Y", m.p_1.y, posDigits);
+            float dx = m.p_1.x - m.p_0.x;
+            float dy = m.p_1.y - m.p_0.y;
+            float dz = m.z_1 - m.z_0;
+            bool isAbs = modalState_.absXYZ;
+
+            n = append_coord(line, sizeof(line), n, "X", isAbs ? m.p_1.x : dx, posDigits);
+            n = append_coord(line, sizeof(line), n, "Y", isAbs ? m.p_1.y : dy, posDigits);
             n = append_coord(line, sizeof(line), n, "I", dCenter.x, posDigits);
             n = append_coord(line, sizeof(line), n, "J", dCenter.y, posDigits);
 
@@ -387,7 +407,7 @@ private:
             }
 
             if (m.hasZ)
-                n = append_coord(line, sizeof(line), n, "Z", m.z_1, posDigits);
+                n = append_coord(line, sizeof(line), n, "Z", isAbs ? m.z_1 : dz, posDigits);
 
             n = append_text(line, sizeof(line), n, "\n");
         }
@@ -458,7 +478,7 @@ private:
 
         if (!cc_.process())
         {
-            report_error("(comp processing failed due to insufficient output buffer space)", CE_NONE, 0);
+            report_error("(comp processing failed!)", CE_NONE, 0);
             return false;
         }
 

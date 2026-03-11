@@ -51,6 +51,13 @@ static void host_output_cb(const char *text, size_t len)
   fwrite(text, 1, len, g_hostRunnerContext->out);
 }
 
+static void start_comp_cb(int toolRegister, int diaRegister)
+{
+//placeholder for start of comp callback, which could be used to log or track when compensation starts, and with which tool/dia registers.
+  //std::printf("Start comp with tool register %d and dia register %d\n", toolRegister, diaRegister);
+}
+
+
 static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
 {
   if (message)
@@ -167,6 +174,7 @@ static bool run_profile_streaming(const char *inputPath,
   options.outputInchUnits = true;
   options.callbacks.output = host_output_cb;
   options.callbacks.error = host_error_cb;
+  options.callbacks.startComp = start_comp_cb;
 
 
   bool ok = runner.begin(options);
@@ -192,16 +200,19 @@ int main()
 {
   //  const char *default_file = "../../data/RapidComp.nc";
   //  const char *default_file = "../../data/G41_1.nc";
-    const char *default_file = "../../data/G41_2.nc";
+  //const char *default_file = "../../data/ThreadMill.nc";
+  //const char *default_file = "../../data/G41_2.nc";
   //  const char *default_file = "../../data/TortureTestG91.nc";
   //  const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-  // const char *default_file = "../../data/TortureTestG90.nc";
+  const char *default_file = "../../data/TortureTestG90.nc";
+  //const char *default_file = "../../data/TortureTestLinux.nc";
+  //const char *default_file = "../../data/ArcTooSmall.nc";
   //const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
-  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  //const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //  const char *default_file = "../../data/SimpleSquarePocket.nc";
   // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   // const char *default_file = "../../data/CompErrorTest.nc";

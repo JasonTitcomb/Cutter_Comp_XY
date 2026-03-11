@@ -15,8 +15,13 @@ incorrectly. Review the code and test carefully before using it on real hardware
 - Coordinate modes: `G90` absolute and `G91` incremental.
 - Arc input formats: `I/J` incremental center offsets and `R`-based arc definition.
 - Comment stripping support for both `;` and `( ... )` comments.
-- Optional corner rolling / fillet-style transition behavior.
-- Optional self-intersection trimming and geometry cleanup pass.
+- Corner rolling / bevel-style transition behavior.
+- Optional global self-intersection trimming and geometry cleanup pass.
+- Configurable look ahead for gouge detection and buffer sizing.
+- +- offset values supported for wear compensation.
+- Incremental/Absolute support.
+- Z allowed but not used for calculations.
+- Global self intersections are ignored if the Z positions do not match to allow for thread milling.
 
 ## Project Layout
 - `src/` - Core parser + compensation engine (`cc_simple_scan.h`, `cc_processor.h`, `cc_main.h`, `cc_main.cpp`).
@@ -52,17 +57,6 @@ Input examples are provided under `data/` (`G41_1.nc`, `G42_1.nc`, `TortureTestG
 ## Notes and Scope
 - This project focuses on 2D XY compensation behavior and geometry handling.
 - The host harness is for algorithm validation and visualization; it is not a machine controller.
-
-## Cutter Comp Types in Fusion360
-- In computer 
-Tool compensation is calculated automatically by the program
-
- - In control - Tool compensation is not calculated, but rather G41/G42 codes are output to allow the operator to set the compensation amount and wear on the machine tool control.
-
- - Wear - Works as if In computer was selected, but also outputs the G41/G42 codes. This lets the machine tool operator adjust tool wear at the machine tool control by entering the difference in tool size as a negative number.
-
- - Inverse wear - Identical to the Wear option, except that the wear adjustment is entered as a positive number.
-
 
 
 ## 1. Full Tool Radius / Diameter Compensation ("Control" or "In Control" comp)

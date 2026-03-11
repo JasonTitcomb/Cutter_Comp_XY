@@ -33,6 +33,8 @@ struct ScanLine
     float F = 0;
     bool hasD = false;
     int32_t D = 0;
+    bool hasT = false;
+    int32_t T = 0;
     bool hasS = false;
     float S = 0;
 
@@ -61,6 +63,7 @@ struct ModalState
     CompMode compMode = CM_NONE;
     float feed = 0.0f;
     int32_t D_Register = 0;
+    int32_t T_Register = 0;
     float speed = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
     float z = 0.0f;
@@ -281,6 +284,11 @@ static inline void scan_line(const char *line, ScanLine &s)
                 s.hasD = true;
                 p = parse_int(p, s.D);
             }
+            else if (c == 'T')
+            {
+                s.hasT = true;
+                p = parse_int(p, s.T);
+            }
             else if (c == 'S')
             {
                 s.hasS = true;
@@ -362,8 +370,8 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         modeState.D_Register = s.D;
     if (s.hasS)
         modeState.speed = s.S;
-    if (s.hasD)
-        modeState.D_Register = s.D;
+    if (s.hasT)
+        modeState.T_Register = s.T;
 
     // Update motion mode if explicitly provided
     if (s.sawG0)

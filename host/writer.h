@@ -32,59 +32,6 @@ static inline FILE *open_file_write_binary(const char *path)
 #endif
 }
 
-// -------------------- Emit helpers (host files) --------------------
-static void emit_move_as_gcode(FILE *f, const Move2D &m, bool inchUnits = true)
-{
-    const int posDigits = inchUnits ? 4 : 3;
-    const int centerDigits = inchUnits ? 4 : 3;
-    const int zDigits = inchUnits ? 4 : 3;
-    if ( m.type == MOT_LINE || m.type == MOT_RAPID)
-    {
-        if (m.seqNum != 0)
-            std::fprintf(f, "N%d ", (int)m.seqNum);
-        std::fprintf(f, "%s", m.type == MOT_RAPID ? "G0" : "G1");
-        if (m.hasXY)
-            std::fprintf(f, " X%.*f Y%.*f", posDigits, m.p_1.x, posDigits, m.p_1.y);
-        if (m.hasZ)
-            std::fprintf(f, " Z%.*f", zDigits, m.z_1);
-        std::fprintf(f, "\n");
-        return;
-    }
-
-    if (m.type == MOT_ARC)
-    {
-        Vec2 dCenter = m.center - m.p_0;
-        if (m.seqNum != 0)
-            std::fprintf(f, "N%d ", (int)m.seqNum);
-        std::fprintf(f, "%s X%.*f Y%.*f I%.*f J%.*f",
-                     (m.arcDir == ARC_CW) ? "G2" : "G3",
-                     posDigits, m.p_1.x, posDigits, m.p_1.y,
-                     centerDigits, dCenter.x, centerDigits, dCenter.y);
-        if (m.hasZ)
-            std::fprintf(f, " Z%.*f", zDigits, m.z_1);
-        std::fprintf(f, "\n");
-        return;
-    }
-}
-
-void write_gcode(const char *path,
-                 const std::vector<Move2D> &moves,
-                 float toolRadius = 0.0f,
-                 bool inchUnits = true)
-{
-    // G-code file
-    if (FILE *f = open_file_write_binary(path))
-    {
-        std::fprintf(f, "(tool_radius=%.6f)\n", toolRadius);
-        for (auto &m : moves)
-        {
-            if (!m.valid || m.type == MOT_EMPTY)
-                continue;
-            emit_move_as_gcode(f, m, inchUnits);
-        }
-        std::fclose(f);
-    }
-}
 
 static void svg_polyline(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke, float stroke_width = 0.002f)
 {
