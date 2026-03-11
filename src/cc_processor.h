@@ -28,19 +28,41 @@ class CutterComp2D
 private:
     CcOutputCB outputCB_ = nullptr;
     CcErrorCB errorCB_ = nullptr;
-
-public:
-    void setErrorCallback(CcErrorCB cb) { errorCB_ = cb; }
+    Units units = UNITS_MM;
 
     void reportCompError(CompError err, uint32_t seqNum) const
     {
-        char msg[64];
-        snprintf(msg, sizeof(msg), "CompError %u N%u", (unsigned)err, (unsigned)seqNum);
         if (errorCB_)
-            errorCB_(msg, err, seqNum);
+        {
+            switch (err)
+            {
+            case CE_ARC_RADIUS_MISMATCH:
+                errorCB_("Arc radius inconsistency", err, seqNum);
+                break;
+            case CE_INVALID_MOVE:
+                errorCB_("Invalid move", err, seqNum);
+                break;
+            case CE_COMP_MOVE_TOO_SHORT:
+                errorCB_("Comp move too short", err, seqNum);
+                break;
+            case CE_FLIPPED_ARC:
+                errorCB_("Flipped arc", err, seqNum);
+                break;
+            case CE_COMP_IN_CROSSING:
+                errorCB_("Comp-in crossing", err, seqNum);
+                break;
+            case CE_COMP_OUT_CROSSING:
+                errorCB_("Comp-out crossing", err, seqNum);
+                break;
+            case CE_UNRESOLVED_GAP:
+                errorCB_("Unresolved gap", err, seqNum);
+                break;
+            default:
+                errorCB_("Unknown comp error", err, seqNum);
+            }
+        }
     }
 
-    Units units = UNITS_MM;
     // --- Moved from cc_math.h ---
     bool validate(Move2D &m) const
     {
@@ -91,12 +113,13 @@ public:
     // Settings
     float toolR = 0.0f;
     int8_t toolSign = 0;
-    CompSide comp_state = COMP_OFF;
-
     // Delayed output state
     bool havePrevMove2D = false;
     Move2D prevOff;
 
+public:
+    CompSide comp_state = COMP_OFF;
+    void setErrorCallback(CcErrorCB cb) { errorCB_ = cb; }
     void setCornerTreatment(CornerType ct) { cornerTreatment = ct; }
     void setUnits(Units u)
     {
@@ -249,6 +272,7 @@ public:
         return true;
     }
 
+private:
     // ---------- small helpers ----------
     bool outHasSpace(int n) const
     {
@@ -310,6 +334,64 @@ public:
     {
         int cw = get_winding_dir(a.endDir, b.startDir);
         return convex_from_winding(cw);
+    }
+
+    int next_valid_index(const Move2D *moves, int count, int i)
+    {
+        for (int k = i + 1; k < count; ++k)
+        {
+            if (isMotionValid(moves[k]))
+                return k;
+        }
+        return -1;
+    }
+
+    int prev_valid_index(const Move2D *moves, int i)
+    {
+        for (int k = i - 1; k >= 0; --k)
+        {
+            if (isMotionValid(moves[k]))
+                return k;
+        }
+        return -1;
+    }
+
+    int first_valid_index(const Move2D *moves, int count)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            if (isMotionValid(moves[i]))
+                return i;
+        }
+        return -1;
+    }
+
+    // Find the first move after a CM_IN move
+    int first_comp_move(const Move2D *moves, int count)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            if (moves[i].compMode == CM_IN)
+            {
+                // Found a CM_IN move, now find the next valid move
+                return next_valid_index(moves, count, i);
+            }
+        }
+        return -1; // No CM_IN found
+    }
+
+    // Find the last move before a CM_OUT move
+    int last_comp_move(const Move2D *moves, int count, int startAt)
+    {
+        for (int i = startAt; i < count; ++i)
+        {
+            if (moves[i].compMode == CM_OUT)
+            {
+                // Found a CM_OUT move, now find the last valid move before it
+                return prev_valid_index(moves, i);
+            }
+        }
+        return -1; // No CM_OUT found
     }
 
     // ---------- offset primitives ----------
@@ -754,14 +836,9 @@ public:
             return;
         }
 
-        // direction gate
-        float fipDir1 = dot(ip - a.p_1, a.endDir);
-        float fipDir2 = dot(ip - b.p_0, b.startDir);
-        bool dirOK = (fipDir1 > 0 && fipDir2 < 0);
-
-        float gap = len(b.p_0 - a.p_1);
+        float gap = dist(b.p_0, a.p_1);
         bool nearlyConnected = gap < gapTol;
-        if ((nearlyConnected || comping) && dirOK)
+        if ((nearlyConnected || comping))
         {
             if (extendToFIP(a, b, ip))
             {
@@ -781,7 +858,7 @@ public:
             return;
         }
 
-        if (is_convex(a, b)) // TODO: do i need a convex test? line to line non-convex would cross and should be handled above.
+        if (is_convex(a, b))
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
@@ -830,7 +907,7 @@ public:
                 return;
         }
 
-       // no tip but small gap: try extending to FIP (false intersection point)
+        // no tip but small gap: try extending to FIP (false intersection point)
         float gap = len(b.p_0 - a.p_1);
         bool nearlyConnected = gap < gapTol;
         if (nearlyConnected)
@@ -841,7 +918,6 @@ public:
                 return;
             }
         }
-
 
         if (!insertRollOrCorner(a, b, inserts, insertCount))
             reportCompError(CE_UNRESOLVED_GAP, a.seqNum);

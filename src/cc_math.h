@@ -43,6 +43,7 @@ static inline Vec2 v2(float x, float y) { return {x, y}; }
 static inline float dot(const Vec2 &a, const Vec2 &b) { return a.x * b.x + a.y * b.y; }
 static inline float cross(const Vec2 &a, const Vec2 &b) { return a.x * b.y - a.y * b.x; }
 static inline float len(const Vec2 &v) { return sqrtf(dot(v, v)); }
+static inline float dist(const Vec2 &a, const Vec2 &b) { return len(a - b); }
 
 static inline Vec2 normalize(const Vec2 &v)
 {
@@ -346,7 +347,6 @@ static inline float distFromStart_along(const Move2D &m, Vec2 p)
   return 0.0f;
 }
 
-
 static inline bool isNearDir(Vec2 a, Vec2 b)
 {
   a = normalize(a); // should be pre-normalized by caller (e.g. update_vectors) to avoid redundant normalizations in hot paths?
@@ -354,7 +354,6 @@ static inline bool isNearDir(Vec2 a, Vec2 b)
   return dot(a, b) > 0.9995f;
 }
 
-// ----- helpers -----
 static inline bool is_near(const Vec2 &a, const Vec2 &b)
 {
   Vec2 d = a - b;
@@ -405,64 +404,6 @@ static inline bool isColinearWith(const Move2D &a, const Move2D &b)
 
 // Currently unused helper chain with includedAngle*.
 static inline float rad2deg(float r) { return r * (180.0f / (float)M_PI); }
-
-static int next_valid_index(const Move2D *moves, int count, int i)
-{
-  for (int k = i + 1; k < count; ++k)
-  {
-    if (isMotionValid(moves[k]))
-      return k;
-  }
-  return -1;
-}
-
-static int prev_valid_index(const Move2D *moves, int i)
-{
-  for (int k = i - 1; k >= 0; --k)
-  {
-    if (isMotionValid(moves[k]))
-      return k;
-  }
-  return -1;
-}
-
-static int first_valid_index(const Move2D *moves, int count)
-{
-  for (int i = 0; i < count; ++i)
-  {
-    if (isMotionValid(moves[i]))
-      return i;
-  }
-  return -1;
-}
-
-// Find the first move after a CM_IN move
-static int first_comp_move(const Move2D *moves, int count)
-{
-  for (int i = 0; i < count; ++i)
-  {
-    if (moves[i].compMode == CM_IN)
-    {
-      // Found a CM_IN move, now find the next valid move
-      return next_valid_index(moves, count, i);
-    }
-  }
-  return -1; // No CM_IN found
-}
-
-// Find the last move before a CM_OUT move
-static int last_comp_move(const Move2D *moves, int count, int startAt)
-{
-  for (int i = startAt; i < count; ++i)
-  {
-    if (moves[i].compMode == CM_OUT)
-    {
-      // Found a CM_OUT move, now find the last valid move before it
-      return prev_valid_index(moves, i);
-    }
-  }
-  return -1; // No CM_OUT found
-}
 
 static inline bool angleOnSweepCCW(float a0, float a1, float ap)
 {

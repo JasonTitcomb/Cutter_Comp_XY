@@ -616,14 +616,10 @@ public sealed class CutterComp2D
             return;
         }
 
-        float fipDir1 = CcMath.Dot(ip - a.p_1, a.endDir);
-        float fipDir2 = CcMath.Dot(ip - b.p_0, b.startDir);
-        bool dirOK = fipDir1 > 0 && fipDir2 < 0;
-
         float gap = CcMath.Len(b.p_0 - a.p_1);
         bool nearlyConnected = gap < gapTol;
 
-        if ((nearlyConnected || comping) && dirOK)
+        if (nearlyConnected || comping)
         {
             if (ExtendToFIP(ref a, ref b, ip))
                 return;
@@ -679,6 +675,18 @@ public sealed class CutterComp2D
                 return;
         }
 
+       // no tip but small gap: try extending to FIP (false intersection point)
+        float gap = len(b.p_0 - a.p_1);
+        bool nearlyConnected = gap < gapTol;
+        if (nearlyConnected)
+        {
+            Vec2 tip = pickClosest(a.p_1, ip1, ip2);
+            if (extendToFIP(a, b, tip))
+            {
+                return;
+            }
+        }
+
         if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
             CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
     }
@@ -715,6 +723,18 @@ public sealed class CutterComp2D
                 tip = CcMath.PickClosest(a.p_1, p1, p2);
             if (TrimToTIP(ref a, ref b, tip))
                 return;
+        }
+
+        // no tip but small gap: try extending to FIP (false intersection point)
+        float gap = len(b.p_0 - a.p_1);
+        bool nearlyConnected = gap < gapTol;
+        if (nearlyConnected)
+        {
+            Vec2 tip = pickClosest(a.p_1, ip1, ip2);
+            if (extendToFIP(a, b, tip))
+            {
+                return;
+            }
         }
 
         if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))

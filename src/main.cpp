@@ -13,32 +13,25 @@ static constexpr uint32_t BAUD = 115200;
 
 static void serial_output_cb(const char *text, size_t len)
 {
-#ifdef ARDUINO
   Serial.write((const uint8_t *)text, len);
-#else
-  std::fwrite(text, 1, len, stdout);
-#endif
+
 }
 
 static void serial_error_cb(const char *message, CompError err, uint32_t seqNum)
 {
   (void)err;
   (void)seqNum;
-#ifdef ARDUINO
+
   Serial.println(message);
-#else
-  std::fprintf(stderr, "%s\n", message);
-#endif
+
 }
 
 void setup()
 {
   Serial.begin(BAUD);
-#ifdef ARDUINO
-  while (!Serial)
+ while (!Serial)
   {
   }
-#endif
 
   CcMainRunner runner;
   CcMainOptions options;
@@ -60,11 +53,8 @@ void setup()
     ok = runner.finish();
 
   if (!ok)
-#ifdef ARDUINO
     Serial.println("(run failed)");
-#else
-    std::fprintf(stderr, "(run failed)\n");
-#endif
+
 }
 
 void loop()

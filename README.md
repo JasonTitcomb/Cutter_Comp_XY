@@ -1,4 +1,10 @@
 # Cutter_Comp_XY
+⚠️ Safety Notice
+
+This is hobby-grade experimental code developed for personal CNC equipment.
+It has not been validated for safety-critical use.
+Running motion-control software can damage machines or cause injury if used
+incorrectly. Review the code and test carefully before using it on real hardware.
 
 2D cutter compensation engine for XY toolpaths with both Arduino-target and desktop-host execution paths.
 

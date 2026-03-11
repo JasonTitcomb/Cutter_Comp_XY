@@ -29,11 +29,10 @@
 
 // -------------------- Config --------------------
 static constexpr bool STOP_ON_FIRST_ERRORS = true;
-static constexpr float TOOL_RADIUS = 0.005f;
+static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool TRIM_CROSSING = true;
-static constexpr bool MERGE_COLINEAR = true;
-static constexpr int MAX_LOOKAHEAD = 10;
+
 
 // ------------------------------------------------
 static CutterComp2D cc;
@@ -193,13 +192,13 @@ int main()
 {
   //  const char *default_file = "../../data/RapidComp.nc";
   //  const char *default_file = "../../data/G41_1.nc";
-  //  const char *default_file = "../../data/G41_2.nc";
+    const char *default_file = "../../data/G41_2.nc";
   //  const char *default_file = "../../data/TortureTestG91.nc";
   //  const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc";
+  // const char *default_file = "../../data/TortureTestG90.nc";
   //const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
   // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
