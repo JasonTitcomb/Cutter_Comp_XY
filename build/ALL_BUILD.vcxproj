@@ -174,9 +174,9 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
-    <ProjectReference Include="D:\Repos\Cutter_Comp_XY\build\cuttercomp_host.vcxproj">
-      <Project>{A9738E93-69AE-3523-9855-C0E6664B29A8}</Project>
-      <Name>cuttercomp_host</Name>
+    <ProjectReference Include="D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj">
+      <Project>{536524A9-D8E5-3BFA-8F9D-72EAA30A6C62}</Project>
+      <Name>cc_runner</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

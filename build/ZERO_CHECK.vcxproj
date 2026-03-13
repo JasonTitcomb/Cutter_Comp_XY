@@ -113,7 +113,7 @@
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|win32'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|win32'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|win32'">setlocal
-"C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Repos/Cutter_Comp_XY/host -BD:/Repos/Cutter_Comp_XY/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Repos/Cutter_Comp_XY/build/cuttercomp_host.sln
+"C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Repos/Cutter_Comp_XY/host -BD:/Repos/Cutter_Comp_XY/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Repos/Cutter_Comp_XY/build/cc_runner.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -127,7 +127,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Release|win32'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|win32'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|win32'">setlocal
-"C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Repos/Cutter_Comp_XY/host -BD:/Repos/Cutter_Comp_XY/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Repos/Cutter_Comp_XY/build/cuttercomp_host.sln
+"C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Repos/Cutter_Comp_XY/host -BD:/Repos/Cutter_Comp_XY/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Repos/Cutter_Comp_XY/build/cc_runner.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -141,7 +141,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|win32'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|win32'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|win32'">setlocal
-"C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Repos/Cutter_Comp_XY/host -BD:/Repos/Cutter_Comp_XY/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Repos/Cutter_Comp_XY/build/cuttercomp_host.sln
+"C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Repos/Cutter_Comp_XY/host -BD:/Repos/Cutter_Comp_XY/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Repos/Cutter_Comp_XY/build/cc_runner.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -155,7 +155,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|win32'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|win32'">Checking Build System</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|win32'">setlocal
-"C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Repos/Cutter_Comp_XY/host -BD:/Repos/Cutter_Comp_XY/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Repos/Cutter_Comp_XY/build/cuttercomp_host.sln
+"C:\Program Files\Microsoft Visual Studio\18\Insiders\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe" -SD:/Repos/Cutter_Comp_XY/host -BD:/Repos/Cutter_Comp_XY/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Repos/Cutter_Comp_XY/build/cc_runner.sln
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone

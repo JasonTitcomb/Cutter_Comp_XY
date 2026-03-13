@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
-project(cuttercomp_host LANGUAGES CXX)
+project(cc_runner LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(cuttercomp_host
+add_executable(cc_runner
   main_host.cpp
 )
 
@@ -12,7 +12,7 @@ add_executable(cuttercomp_host
 # Typical PlatformIO layout:
 #   include/  (headers)
 #   src/      (headers + code)
-target_include_directories(cuttercomp_host PRIVATE
+target_include_directories(cc_runner PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}        # host/
   ${CMAKE_CURRENT_LIST_DIR}/../src # <-- change if your headers aren't in src
   ${CMAKE_CURRENT_LIST_DIR}/../include
@@ -20,12 +20,12 @@ target_include_directories(cuttercomp_host PRIVATE
 
 # Optional: warnings help a lot on desktop
 if (MSVC)
-  target_compile_options(cuttercomp_host PRIVATE /W4)
+  target_compile_options(cc_runner PRIVATE /W4)
 else()
-  target_compile_options(cuttercomp_host PRIVATE -Wall -Wextra -Wpedantic)
+  target_compile_options(cc_runner PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # If your code uses math constants on MSVC:
 if (MSVC)
-  target_compile_definitions(cuttercomp_host PRIVATE _USE_MATH_DEFINES)
+  target_compile_definitions(cc_runner PRIVATE _USE_MATH_DEFINES)
 endif()

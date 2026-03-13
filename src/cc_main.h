@@ -20,16 +20,11 @@ class CcMainRunner
 {
 private:
     /// These values can be set to 1 to disable lookahead
-    static constexpr int MAX_LOOKAHEAD = 10;
-    static constexpr int TARGET_BATCH_EMIT_MOVES = 20;
+    static constexpr int MAX_LOOKAHEAD = 20;
+    static constexpr int TARGET_BATCH_EMIT_MOVES = 40;
     static constexpr int PROFILE_BURST_MARGIN = 2;
 
-    /// minimal lookahead settings to account for immediate neighbor crossing and still trim.
-    // static constexpr int MAX_LOOKAHEAD = 1;
-    // static constexpr int TARGET_BATCH_EMIT_MOVES = 1;
-    // static constexpr int PROFILE_BURST_MARGIN = 1;
-
-    static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
+     static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
     static constexpr int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
     static constexpr int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
     static constexpr int MAX_PROFILE_MOVES = MIN_PENDING_BEFORE_BATCH + PROFILE_BURST_MARGIN;
@@ -57,6 +52,7 @@ private:
     bool runActive_ = false;
     bool globalTrim_ = false;
     bool emitComments_ = true;
+    bool inchMode_ = true;
 
     public:
     bool begin(const CcMainOptions &options)
@@ -73,6 +69,10 @@ private:
         modalState_.speed = 0;
         modalState_.pos = v2(0, 0);
         modalState_.N_number = 0;
+        modalState_.T_Register = 0;
+        modalState_.D_Register = 0;
+        modalState_.inchMode = true;   
+        inchMode_ = true;
 
         cc_.setOptions(options_);
 
@@ -355,7 +355,7 @@ private:
     {
         char line[160];
         int n = 0;
-        const int posDigits = options_.outputInchUnits ? 4 : 3;
+        const int posDigits = inchMode_ ? 4 : 3;
         static bool hasLastFeed = false;
         static float lastFeed = 0.0f;
 

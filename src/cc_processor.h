@@ -22,9 +22,7 @@ struct CcMainOptions
     float toolRadius = 0.0f;
     CornerType cornerTreatment = CORNER_ROLL;
     bool globalTrimCrossing = true;
-    bool outputInchUnits = true;
     bool emitStatusComments = true;
-    bool absoluteMode = true;
 };
 
 class CutterComp2D
@@ -154,7 +152,6 @@ public:
         options = opts;
         setToolRadius(opts.toolRadius);
         cornerTreatment = opts.cornerTreatment;
-        setUnits(opts.outputInchUnits ? UNITS_INCH : UNITS_MM);
         outputCB_ = opts.callbacks.output;
         errorCB_ = opts.callbacks.error;
     }

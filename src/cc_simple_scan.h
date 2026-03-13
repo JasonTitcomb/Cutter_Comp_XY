@@ -44,6 +44,8 @@ struct ScanLine
     bool sawG41 = false;
     bool sawG42 = false;
     bool sawG40 = false;
+    bool sawG20 = false; // G20: inch
+    bool sawG21 = false; // G21: mm
 
     // Motion mode tracking
     bool sawG0 = false;
@@ -68,6 +70,8 @@ struct ModalState
     float speed = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
     float z = 0.0f;
+    // Units: true = inch, false = mm (default)
+    bool inchMode = true;
 };
 
 // -------------------------
@@ -234,6 +238,10 @@ static inline void scan_line(const char *line, ScanLine &s)
                     s.sawG3 = true;
                 if (s.G == 17)
                     s.sawG17 = true;
+                if (s.G == 20)
+                    s.sawG20 = true;
+                if (s.G == 21)
+                    s.sawG21 = true;
                 if (s.G == 90)
                     s.sawG90 = true;
                 if (s.G == 91)
@@ -355,6 +363,10 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     // Update modal toggles first
     if (s.sawG17)
         modeState.planeXY = true;
+    if (s.sawG20)
+        modeState.inchMode = true;
+    if (s.sawG21)
+        modeState.inchMode = false;
     if (s.sawG90)
         modeState.absoluteMode = true;
     if (s.sawG91)

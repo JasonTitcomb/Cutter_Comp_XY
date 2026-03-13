@@ -32,7 +32,7 @@ incorrectly. Review the code and test carefully before using it on real hardware
 - `platformio.ini` - Arduino board environments.
 
 ## Host Workflow (Recommended for development)
-1. Build `cuttercomp_host` (CMake/VS task).
+1. Build `cc_runner` (CMake/VS task).
 2. Run the executable.
 3. The program loads one NC file (configured in `host/main_host.cpp`) and runs compensation.
 4. Generated outputs:

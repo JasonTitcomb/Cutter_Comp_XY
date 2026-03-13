@@ -28,11 +28,10 @@
 */
 
 // -------------------- Config --------------------
-static constexpr bool STOP_ON_FIRST_ERRORS = true;
+
 static constexpr float TOOL_RADIUS = 0.0620f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;
-
 
 // ------------------------------------------------
 static CutterComp2D cc;
@@ -53,10 +52,8 @@ static void host_output_cb(const char *text, size_t len)
 
 static void start_comp_cb(int toolRegister, int diaRegister)
 {
-//placeholder for start of comp callback, which could be used to log or track when compensation starts, and with which tool/dia registers.
-  //std::printf("Start comp with tool register %d and dia register %d\n", toolRegister, diaRegister);
+  // placeholder for start of comp callback, which could be used to log or track when compensation starts, and with which tool/dia registers.
 }
-
 
 static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
 {
@@ -69,17 +66,6 @@ static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
 // -------------------- Profile buffer --------------------
 static std::vector<Move2D> profile;
 static int profileCount = 0;
-
-static inline void copy_gcode_line(char *dst, size_t dstSize, const char *src)
-{
-#ifdef _MSC_VER
-  strncpy_s(dst, dstSize, src, _TRUNCATE);
-#else
-  std::strncpy(dst, src, dstSize - 1);
-  dst[dstSize - 1] = '\0';
-#endif
-}
-
 
 static std::vector<std::string> load_program_from_file(const char *path)
 {
@@ -140,7 +126,6 @@ static std::string basename_no_ext(const std::string &path)
   return name;
 }
 
-
 static bool run_profile_streaming(const char *inputPath,
                                   const char *emitGcodePath,
                                   float toolRadius,
@@ -153,8 +138,8 @@ static bool run_profile_streaming(const char *inputPath,
     return false;
   }
 
-  FILE *out = open_file_write_binary(emitGcodePath);
-  if (!out)
+  FILE *outputFile = open_file_write_binary(emitGcodePath);
+  if (!outputFile)
   {
     std::fprintf(stderr, "Failed to open output file: %s\n", emitGcodePath);
     return false;
@@ -162,7 +147,7 @@ static bool run_profile_streaming(const char *inputPath,
 
   HostRunnerContext ctx;
 
-  ctx.out = out;
+  ctx.out = outputFile;
 
   g_hostRunnerContext = &ctx;
 
@@ -171,11 +156,9 @@ static bool run_profile_streaming(const char *inputPath,
   options.toolRadius = toolRadius;
   options.cornerTreatment = cornerTreatment;
   options.globalTrimCrossing = GLOBAL_TRIM_CROSSING;
-  options.outputInchUnits = true;
   options.callbacks.output = host_output_cb;
   options.callbacks.error = host_error_cb;
   options.callbacks.startComp = start_comp_cb;
-
 
   bool ok = runner.begin(options);
   std::string line;
@@ -183,7 +166,7 @@ static bool run_profile_streaming(const char *inputPath,
   {
     if (!line.empty() && line.back() == '\r')
       line.pop_back();
-      
+
     ok = runner.processLine(line.c_str());
   }
 
@@ -192,56 +175,123 @@ static bool run_profile_streaming(const char *inputPath,
 
   g_hostRunnerContext = nullptr;
 
-  std::fclose(out);
+  std::fclose(outputFile);
   return ok && !ctx.sawError;
 }
 
-int main()
+// Command line usage:
+// main_host [inputfile] [outputfolder] [toolradius] [cornerTreatment] [svg]
+// Defaults:
+//   inputfile: default_file
+//   outputfolder: "../../output/"
+//   toolradius: TOOL_RADIUS
+//   cornerTreatment: CORNER_TREATMENT ("roll" or "chamfer")
+//   svg: "svg" (default, output SVG), or "nosvg" (do not output SVG)
+int main(int argc, char *argv[])
 {
   //  const char *default_file = "../../data/RapidComp.nc";
   //  const char *default_file = "../../data/G41_1.nc";
-  //const char *default_file = "../../data/ThreadMill.nc";
-  //const char *default_file = "../../data/G41_2.nc";
+  // const char *default_file = "../../data/ThreadMill.nc";
+  // const char *default_file = "../../data/G41_2.nc";
   //  const char *default_file = "../../data/TortureTestG91.nc";
   //  const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-  // const char *default_file = "../../data/TortureTestG90.nc";
-  //const char *default_file = "../../data/TortureTestLinux.nc";
-  //const char *default_file = "../../data/ArcTooSmall.nc";
-  //const char *default_file = "../../data/TortureTestLines.nc";
+  const char *default_file = "../../data/TortureTestG90.nc";
+  // const char *default_file = "../../data/TortureTestLinux.nc";
+  // const char *default_file = "../../data/ArcTooSmall.nc";
+  // const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
-  const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //  const char *default_file = "../../data/SimpleSquarePocket.nc";
-  //const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
+  // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   // const char *default_file = "../../data/CompErrorTest.nc";
   // const char *default_file = "../../data/Tangent_ArcLine.nc";
-  const std::string inputFilePath(default_file);
+
+  const char *input_file = (argc > 1) ? argv[1] : default_file;
+  const std::string inputFilePath(input_file);
   const std::string inputBaseName = basename_no_ext(inputFilePath);
 
+  std::string outputFolder = (argc > 2) ? argv[2] : "../../output/";
+  if (!outputFolder.empty() && outputFolder.back() != '/' && outputFolder.back() != '\\')
+    outputFolder += '/';
+
   float toolRadius = TOOL_RADIUS;
+  if (argc > 3)
+  {
+    try
+    {
+      toolRadius = std::stof(argv[3]);
+    }
+    catch (...)
+    {
+      std::fprintf(stderr, "Invalid tool radius: %s\n", argv[3]);
+      toolRadius = TOOL_RADIUS;
+    }
+  }
 
   CornerType cornerTreatment = CORNER_TREATMENT;
-  const std::string outBaseName = std::string(inputBaseName);
-  const std::string svgPath = "../../output/" + outBaseName + ".svg";
-  const std::string ngcPath = "../../output/" + outBaseName + ".ngc";
+  if (argc > 4)
+  {
+    std::string ctArg = argv[4];
+    if (ctArg == "roll" || ctArg == "ROLL")
+      cornerTreatment = CORNER_ROLL;
+    else if (ctArg == "chamfer" || ctArg == "CHAMFER")
+      cornerTreatment = CORNER_CHAMFER;
+    else
+      std::fprintf(stderr, "Unknown corner treatment: %s (using default)\n", argv[4]);
+  }
 
-  const bool isvalid = run_profile_streaming(default_file, ngcPath.c_str(), toolRadius, cornerTreatment);
+  bool outputSVG = false;
+  if (argc > 5)
+  {
+    std::string svgArg = argv[5];
+    if (svgArg == "nosvg" || svgArg == "NOSVG")
+      outputSVG = false;
+    else if (svgArg == "svg" || svgArg == "SVG")
+      outputSVG = true;
+    else
+      std::fprintf(stderr, "Unknown SVG option: %s (using default)\n", argv[5]);
+  }
+
+  // Get input file extension (if any)
+  std::string inputExt;
+  size_t dotPos = inputFilePath.find_last_of('.');
+  if (dotPos != std::string::npos && dotPos > inputFilePath.find_last_of("/\\"))
+  {
+    inputExt = inputFilePath.substr(dotPos);
+  }
+  else
+  {
+    inputExt = ".ngc";
+  }
+
+  const std::string outBaseName = inputBaseName;
+  const std::string svgPath = outputFolder + outBaseName + ".svg";
+  const std::string ngcPath = outputFolder + outBaseName + inputExt;
+
+  const bool isvalid = run_profile_streaming(input_file, ngcPath.c_str(), toolRadius, cornerTreatment);
   if (!isvalid)
     std::puts("(warning: profile validation failed)");
 
-  std::vector<std::string> program = load_program_from_file(default_file);
+  std::vector<std::string> program = load_program_from_file(input_file);
   if (program.empty())
     return 1;
 
-  auto orig = build_original_moves(program);
-  std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
-  auto compensated = build_original_moves(compProgram);
+  if (outputSVG)
+  {
+    auto orig = build_original_moves(program);
+    std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
+    auto compensated = build_original_moves(compProgram);
 
-  write_svg(svgPath.c_str(), compensated, &orig, false, true, fabs(toolRadius * 2.0f),
-            false, true, false, inputBaseName.c_str(), toolRadius); // mirror for better visualization
-
-  std::printf("Wrote: %s, %s\n", svgPath.c_str(), ngcPath.c_str());
+    write_svg(svgPath.c_str(), compensated, &orig, false, true, fabs(toolRadius * 2.0f),
+              false, true, false, inputBaseName.c_str(), toolRadius); // mirror for better visualization
+    std::printf("Wrote: %s, %s\n", svgPath.c_str(), ngcPath.c_str());
+  }
+  else
+  {
+    std::printf("Wrote: %s\n", ngcPath.c_str());
+  }
   return 0;
 }

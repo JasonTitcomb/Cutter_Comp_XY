@@ -49,8 +49,6 @@ void setup()
   options.toolRadius = 0.005f;
   options.cornerTreatment = CORNER_ROLL;
   options.globalTrimCrossing = true;
-  options.outputInchUnits = true;
-  options.absoluteMode = false;
  
 
   const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
