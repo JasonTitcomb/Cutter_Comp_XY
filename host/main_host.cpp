@@ -29,9 +29,9 @@
 
 // -------------------- Config --------------------
 static constexpr bool STOP_ON_FIRST_ERRORS = true;
-static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr float TOOL_RADIUS = 0.0620f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool TRIM_CROSSING = true;
+static constexpr bool GLOBAL_TRIM_CROSSING = true;
 
 
 // ------------------------------------------------
@@ -62,7 +62,7 @@ static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
 {
   if (message)
     std::fprintf(stderr, "%s\n", message);
-  if (err != CE_NONE)
+  if (err != CE_ERROR)
     std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
 }
 
@@ -106,7 +106,7 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
   std::vector<Move2D> orig;
   ModalState m{};
   m.planeXY = true;
-  m.absXYZ = true;
+  m.absoluteMode = true;
   m.motionG = 0;
   m.comp = COMP_OFF;
   m.feed = 0;
@@ -170,7 +170,7 @@ static bool run_profile_streaming(const char *inputPath,
   CcMainOptions options;
   options.toolRadius = toolRadius;
   options.cornerTreatment = cornerTreatment;
-  options.trimCrossing = TRIM_CROSSING;
+  options.globalTrimCrossing = GLOBAL_TRIM_CROSSING;
   options.outputInchUnits = true;
   options.callbacks.output = host_output_cb;
   options.callbacks.error = host_error_cb;
@@ -207,14 +207,14 @@ int main()
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc";
+  // const char *default_file = "../../data/TortureTestG90.nc";
   //const char *default_file = "../../data/TortureTestLinux.nc";
   //const char *default_file = "../../data/ArcTooSmall.nc";
   //const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
-  //const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //  const char *default_file = "../../data/SimpleSquarePocket.nc";
-  // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
+  //const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   // const char *default_file = "../../data/CompErrorTest.nc";
   // const char *default_file = "../../data/Tangent_ArcLine.nc";
   const std::string inputFilePath(default_file);

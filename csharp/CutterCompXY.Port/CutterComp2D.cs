@@ -4,27 +4,21 @@ public sealed class CutterComp2D
 {
     public CornerType cornerTreatment = CornerType.CORNER_ROLL;
     public bool performTrim = true;
-
     public const int IN_CAP = 2;
     public const int OUT_CAP = 4;
-
     public readonly Move2D[] input_buffer = new Move2D[IN_CAP];
-    public int inHead = 0;
-    public int inCount = 0;
-
+    public int inHead = 0, inCount = 0;
     public readonly Move2D[] output_buffer = new Move2D[OUT_CAP];
-    public int outHead = 0;
-    public int outCount = 0;
-
+    public int outHead = 0, outCount = 0;
     public float toolR = 0.0f;
     public sbyte toolSign = 0;
     public CompSide comp_state = CompSide.COMP_OFF;
-
     public bool havePrevMove2D = false;
     public Move2D prevOff = new Move2D();
-
     private Units units = Units.UNITS_MM;
     public float gapTol = CcConst.GAP_TOL_IN;
+    public bool hasCompError = false;
+    public uint lastSeqNum = 0;
 
     public struct CrossingHit
     {
@@ -63,6 +57,12 @@ public sealed class CutterComp2D
         ResetState();
     }
 
+    public void ReportCompError(CompError err)
+    {
+        hasCompError = true;
+        CcMath.ReportCompError(err, lastSeqNum);
+    }
+
     public bool PushIn(in Move2D m)
     {
         if (inCount >= IN_CAP)
@@ -74,6 +74,8 @@ public sealed class CutterComp2D
 
     public bool Process()
     {
+        if (hasCompError)
+            return false;
         if (comp_state == CompSide.COMP_OFF || toolR < CcConst.TOL)
         {
             while (inCount > 0)
@@ -92,13 +94,15 @@ public sealed class CutterComp2D
                 return false;
 
             Move2D raw = PopIn();
+            if (raw.seqNum != 0)
+                lastSeqNum = raw.seqNum;
             if (raw.type == MotionType.MOT_EMPTY)
                 continue;
 
             CcMath.UpdateVectors(ref raw);
 
             Move2D curOff;
-            OffsetMove(raw, out curOff);
+            OffsetMove(ref raw, out curOff);
             CcMath.Validate(ref curOff);
 
             if (!raw.hasXY && raw.hasZ)
@@ -119,7 +123,7 @@ public sealed class CutterComp2D
                 float moveLen = CcMath.Len(raw.p_1 - raw.p_0);
                 if (moveLen <= toolR)
                 {
-                    CcMath.ReportCompError(CompError.CE_COMP_MOVE_TOO_SHORT, raw.seqNum);
+                    ReportCompError(CompError.CE_COMP_MOVE_TOO_SHORT);
                     return false;
                 }
             }
@@ -151,9 +155,9 @@ public sealed class CutterComp2D
 
             prevOff = curOff;
         }
-
         return true;
     }
+    // ...existing code...
 
     public void Flush()
     {

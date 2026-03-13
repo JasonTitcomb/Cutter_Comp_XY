@@ -6,7 +6,6 @@ public struct ScanLine
 {
     public bool hasN;
     public int N;
-
     public bool hasG;
     public int G;
     public bool hasX;
@@ -24,16 +23,20 @@ public struct ScanLine
     public bool hasF;
     public float F;
     public bool hasD;
-    public float D;
+    public int D;
+    public bool hasT;
+    public int T;
     public bool hasS;
     public float S;
 
+    // Special modal toggles
     public bool sawG17;
     public bool sawG90;
     public bool sawG41;
     public bool sawG42;
     public bool sawG40;
 
+    // Motion mode tracking
     public bool sawG0;
     public bool sawG1;
     public bool sawG2;
@@ -44,12 +47,14 @@ public struct ScanLine
 public struct ModalState
 {
     public bool planeXY;
-    public bool absXYZ;
+    public bool absoluteMode;
     public int motionG;
     public CompSide comp;
     public CompMode compMode;
     public float feed;
-    public float toolDiameterOffset;
+    public int D_Register;
+    public int T_Register;
+    public int N_number;
     public float speed;
     public Vec2 pos;
     public float z;
@@ -57,12 +62,14 @@ public struct ModalState
     public ModalState()
     {
         planeXY = true;
-        absXYZ = true;
+        absoluteMode = true;
         motionG = 0;
         comp = CompSide.COMP_OFF;
         compMode = CompMode.CM_NONE;
         feed = 0.0f;
-        toolDiameterOffset = 0.0f;
+        D_Register = 0;
+        T_Register = 0;
+        N_number = 0;
         speed = 0.0f;
         pos = new Vec2(0, 0);
         z = 0.0f;

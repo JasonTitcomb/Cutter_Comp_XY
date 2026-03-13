@@ -21,7 +21,7 @@ incorrectly. Review the code and test carefully before using it on real hardware
 - +- offset values supported for wear compensation.
 - Incremental/Absolute support.
 - Z allowed but not used for calculations.
-- Global self intersections are ignored if the Z positions do not match to allow for thread milling.
+- Global self intersections are ignored when Z does not match between pairwise comparisons to allow for thread milling.
 
 ## Project Layout
 - `src/` - Core parser + compensation engine (`cc_simple_scan.h`, `cc_processor.h`, `cc_main.h`, `cc_main.cpp`).

@@ -27,9 +27,9 @@
 			"detail": "CMake template build task"
 		},
 		{
-			"label": "Copy cc_* to grblHAL plugins",
+			"label": "Copy cc_* to GRBLHAL Pendant",
 			"type": "shell",
-			"command": "Copy-Item -Path 'src/cc_*' -Destination 'D:/Repos/iMXRT1062/grblHAL_Teensy4/src/plugins' -Force",
+			"command": "Copy-Item -Path 'src/cc_*' -Destination 'D:\\Repos\\GRBLHAL_Pendant\\src' -Force",
 			"problemMatcher": []
 		}
 	]

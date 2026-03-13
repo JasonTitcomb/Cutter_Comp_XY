@@ -19,9 +19,15 @@
 class CcMainRunner
 {
 private:
-     static constexpr int MAX_LOOKAHEAD = 10;
+    /// These values can be set to 1 to disable lookahead
+    static constexpr int MAX_LOOKAHEAD = 10;
     static constexpr int TARGET_BATCH_EMIT_MOVES = 20;
     static constexpr int PROFILE_BURST_MARGIN = 2;
+
+    /// minimal lookahead settings to account for immediate neighbor crossing and still trim.
+    // static constexpr int MAX_LOOKAHEAD = 1;
+    // static constexpr int TARGET_BATCH_EMIT_MOVES = 1;
+    // static constexpr int PROFILE_BURST_MARGIN = 1;
 
     static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
     static constexpr int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
@@ -49,6 +55,8 @@ private:
     bool sawG40_ = false;
     bool compClosed_ = false;
     bool runActive_ = false;
+    bool globalTrim_ = false;
+    bool emitComments_ = true;
 
     public:
     bool begin(const CcMainOptions &options)
@@ -58,29 +66,34 @@ private:
 
         modalState_ = ModalState{};
         modalState_.planeXY = true;
-        modalState_.absXYZ = true;
+        modalState_.absoluteMode = true;
         modalState_.motionG = 0;
         modalState_.comp = COMP_OFF;
         modalState_.feed = 0;
         modalState_.speed = 0;
         modalState_.pos = v2(0, 0);
+        modalState_.N_number = 0;
 
-        cc_.setToolRadius(options_.toolRadius);
-        cc_.setCornerTreatment(options_.cornerTreatment);
-        cc_.setComp(COMP_OFF);
-        cc_.setErrorCallback(options_.callbacks.error);
-        cc_.setUnits(options_.outputInchUnits ? UNITS_INCH : UNITS_MM);
+        cc_.setOptions(options_);
 
         outputCB_ = options_.callbacks.output;
         errorCB_ = options_.callbacks.error;
         startCompCB_ = options_.callbacks.startComp;
-        profile_reset();
+
+        globalTrim_ = options_.globalTrimCrossing;
         emittedProfileCount_ = 0;
         trimResumeIndex_ = 0;
         sawCompStart_ = false;
         sawG40_ = false;
         compClosed_ = false;
+        emitComments_ = options_.emitStatusComments;
+        profile_reset();
         return true;
+    }
+
+    void setToolRadius(float r)
+    {
+        cc_.setToolRadius(r);
     }
 
     bool processLine(const char *line)
@@ -133,14 +146,14 @@ private:
             {
                 if (!trim_and_merge_pending_profile())
                 {
-                    report_error("(trim failed)", CE_NONE, 0);
+                    report_error("(trim failed)", CE_ERROR);
                     runActive_ = false;
                     return false;
                 }
 
                 if (!emit_comp_profile(EMIT_HOLDBACK, false))
                 {
-                    report_error("(emit failed)", CE_NONE, 0);
+                    report_error("(emit failed)", CE_ERROR);
                     runActive_ = false;
                     return false;
                 }
@@ -157,14 +170,14 @@ private:
 
             if (!trim_and_merge_pending_profile())
             {
-                report_error("(trim failed)", CE_NONE, 0);
+                report_error("(trim failed)", CE_ERROR);
                 runActive_ = false;
                 return false;
             }
 
             if (!emit_comp_profile(0, true))
             {
-                report_error("(emit failed)", CE_NONE, 0);
+                report_error("(emit failed)", CE_ERROR);
                 runActive_ = false;
                 return false;
             }
@@ -191,14 +204,14 @@ private:
 
             if (!trim_and_merge_pending_profile())
             {
-                report_error("(final trim failed)", CE_NONE, 0);
+                report_error("(final trim failed)", CE_ERROR);
                 runActive_ = false;
                 return false;
             }
 
             if (!emit_comp_profile(0, true))
             {
-                report_error("(final emit failed)", CE_NONE, 0);
+                report_error("(final emit failed)", CE_ERROR);
                 runActive_ = false;
                 return false;
             }
@@ -207,7 +220,7 @@ private:
         }
 
         if (!sawG40_)
-            report_error("(warning: reached EOF before G40)", CE_NONE, 0);
+            report_error("(warning: reached EOF before G40)", CE_ERROR);
 
         runActive_ = false;
         return true;
@@ -231,16 +244,16 @@ private:
     }
 private:
 
-    void onCompError(CompError err, uint32_t seqNum)
+    void onCompError(CompError err)
     {
         char msg[64];
-        snprintf(msg, sizeof(msg), "CompError %u N%u", (unsigned)err, (unsigned)seqNum);
-        report_error(msg, err, seqNum);
+        snprintf(msg, sizeof(msg), "CompError %u N%u", (unsigned)err, (unsigned)modalState_.N_number);
+        report_error(msg, err);
     }
 
     void emit_status(const char *text)
     {
-        if (outputCB_ && text)
+        if (emitComments_ && outputCB_ && text)
             outputCB_(text, strlen(text));
     }
 
@@ -256,10 +269,10 @@ private:
             outputCB_("\n", 1);
     }
 
-    void report_error(const char *message, CompError err, uint32_t seqNum)
+    void report_error(const char *message, CompError err)
     {
         if (errorCB_)
-            errorCB_(message, err, seqNum);
+            errorCB_(message, err, modalState_.N_number);
     }
 
     void profile_reset()
@@ -359,7 +372,7 @@ private:
             float dx = m.p_1.x - m.p_0.x;
             float dy = m.p_1.y - m.p_0.y;
             float dz = m.z_1 - m.z_0;
-            bool isAbs = modalState_.absXYZ;
+            bool isAbs = modalState_.absoluteMode;
 
             if (m.hasXY)
             {
@@ -392,7 +405,7 @@ private:
             float dx = m.p_1.x - m.p_0.x;
             float dy = m.p_1.y - m.p_0.y;
             float dz = m.z_1 - m.z_0;
-            bool isAbs = modalState_.absXYZ;
+            bool isAbs = modalState_.absoluteMode;
 
             n = append_coord(line, sizeof(line), n, "X", isAbs ? m.p_1.x : dx, posDigits);
             n = append_coord(line, sizeof(line), n, "Y", isAbs ? m.p_1.y : dy, posDigits);
@@ -412,8 +425,8 @@ private:
             n = append_text(line, sizeof(line), n, "\n");
         }
 
-        if (options_.callbacks.output && n > 0)
-            options_.callbacks.output(line, (size_t)n);
+        if (outputCB_ && n > 0)
+            outputCB_(line, n);
     }
 
     bool emit_comp_profile(int holdBackCount, bool flushAll)
@@ -462,7 +475,7 @@ private:
                 {
                     if (!profile_push(out))
                     {
-                        report_error("(profile buffer full)", CE_NONE, 0);
+                        report_error("(profile buffer full)", CE_ERROR);
                         return false;
                     }
                 }
@@ -472,13 +485,13 @@ private:
 
         if (!cc_.pushIn(mv))
         {
-            report_error("(comp input buffer full)", CE_NONE, 0);
+            report_error("(comp input buffer full)", CE_ERROR);
             return false;
         }
 
         if (!cc_.process())
         {
-            report_error("(comp processing failed!)", CE_NONE, 0);
+            report_error("(comp processing failed!)", CE_ERROR);
             return false;
         }
 
@@ -487,7 +500,7 @@ private:
         {
             if (!profile_push(out))
             {
-                report_error("(profile buffer full)", CE_NONE, 0);
+                report_error("(profile buffer full)", CE_ERROR);
                 return false;
             }
         }
@@ -501,7 +514,7 @@ private:
             {
                 if (!profile_push(out))
                 {
-                    report_error("(profile buffer full)", CE_NONE, 0);
+                    report_error("(profile buffer full)", CE_ERROR);
                     return false;
                 }
             }
@@ -525,7 +538,7 @@ private:
         {
             if (!profile_push(out))
             {
-                report_error("(profile buffer full)", CE_NONE, 0);
+                report_error("(profile buffer full)", CE_ERROR);
                 return false;
             }
         }
@@ -534,6 +547,9 @@ private:
 
     bool trim_and_merge_pending_profile()
     {
+        if(!globalTrim_)
+            return true;
+            
         const int currentProfileCount = profileCount_;
         int trimStart = trimResumeIndex_;
         if (trimStart < emittedProfileCount_)
@@ -542,7 +558,7 @@ private:
         if (trimStart >= currentProfileCount)
             return true;
 
-        if (options_.trimCrossing)
+        if (options_.globalTrimCrossing)
         {
             int srcIdx = trimStart;
             int retTargetIdx = -1;

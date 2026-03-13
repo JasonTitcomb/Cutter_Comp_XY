@@ -48,8 +48,9 @@ void setup()
   options.callbacks.startComp = start_comp_cb;
   options.toolRadius = 0.005f;
   options.cornerTreatment = CORNER_ROLL;
-  options.trimCrossing = true;
+  options.globalTrimCrossing = true;
   options.outputInchUnits = true;
+  options.absoluteMode = false;
  
 
   const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));

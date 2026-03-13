@@ -21,8 +21,10 @@ struct CcMainOptions
 
     float toolRadius = 0.0f;
     CornerType cornerTreatment = CORNER_ROLL;
-    bool trimCrossing = true;
+    bool globalTrimCrossing = true;
     bool outputInchUnits = true;
+    bool emitStatusComments = true;
+    bool absoluteMode = true;
 };
 
 class CutterComp2D
@@ -31,42 +33,49 @@ private:
     CcOutputCB outputCB_ = nullptr;
     CcErrorCB errorCB_ = nullptr;
     Units units = UNITS_MM;
+    CcMainOptions options;
+    bool hasCompError = false;
+    uint32_t lastSeqNum = 0;
 
-    void reportCompError(CompError err, uint32_t seqNum) const
+    void reportCompError(CompError err)
     {
+        hasCompError = true;
         if (errorCB_)
         {
             switch (err)
             {
             case CE_ARC_RADIUS_MISMATCH:
-                errorCB_("Arc radius inconsistency", err, seqNum);
+                errorCB_("Arc radius inconsistency", err, lastSeqNum);
                 break;
             case CE_INVALID_MOVE:
-                errorCB_("Invalid move", err, seqNum);
+                errorCB_("Invalid move", err, lastSeqNum);
                 break;
             case CE_COMP_MOVE_TOO_SHORT:
-                errorCB_("Comp move too short", err, seqNum);
+                errorCB_("Comp move too short", err, lastSeqNum);
                 break;
+            case CE_ARC_LT_TOOL_RAD:
+                errorCB_("Arc smaller than tool radius", err, lastSeqNum);
+                break;    
             case CE_FLIPPED_ARC:
-                errorCB_("Flipped arc", err, seqNum);
+                errorCB_("Flipped arc", err, lastSeqNum);
                 break;
             case CE_COMP_IN_CROSSING:
-                errorCB_("Comp-in crossing", err, seqNum);
+                errorCB_("Comp-in crossing", err, lastSeqNum);
                 break;
             case CE_COMP_OUT_CROSSING:
-                errorCB_("Comp-out crossing", err, seqNum);
+                errorCB_("Comp-out crossing", err, lastSeqNum);
                 break;
             case CE_UNRESOLVED_GAP:
-                errorCB_("Unresolved gap", err, seqNum);
+                errorCB_("Unresolved gap", err, lastSeqNum);
                 break;
             default:
-                errorCB_("Unknown comp error", err, seqNum);
+                errorCB_("Unknown comp error", err, lastSeqNum);
             }
         }
     }
 
     // --- Moved from cc_math.h ---
-    bool validate(Move2D &m) const
+    bool validate(Move2D &m)
     {
         float d = 0;
         bool radius_ok = true;
@@ -79,15 +88,34 @@ private:
         }
         if (m.type == MOT_ARC)
         {
+            // if we are not going to do global trim then we should test arc validity here, because we won't have another chance to validate before output.
+            // if comp left and arc is CCW, then the arc must be  > tool rad.
+            if(!options.globalTrimCrossing && comp_state == COMP_LEFT && m.arcDir == ARC_CCW)
+            {
+                if (len(m.p_1 - m.p_0) <= toolR)
+                {
+                    reportCompError(CE_ARC_LT_TOOL_RAD);
+                    return false;
+                }
+            }
+            if(!options.globalTrimCrossing && comp_state == COMP_RIGHT && m.arcDir == ARC_CW)
+            {
+                if (len(m.p_1 - m.p_0) <= toolR)
+                {
+                    reportCompError(CE_ARC_LT_TOOL_RAD);
+                    return false;
+                }
+            }
+
             d = distFromStart_along(m, m.p_1);
             radius_ok = is_radius_consistent(m);
             sw = arcSweepDeg(m);
             sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
             m.valid = d >= TOL && radius_ok && sweepOk;
             if (!radius_ok)
-                reportCompError(CE_ARC_RADIUS_MISMATCH, m.seqNum);
+                reportCompError(CE_ARC_RADIUS_MISMATCH);
             if (!sweepOk)
-                reportCompError(CE_INVALID_MOVE, m.seqNum);
+                reportCompError(CE_INVALID_MOVE);
         }
         return m.valid;
     }
@@ -121,8 +149,16 @@ private:
 
 public:
     CompSide comp_state = COMP_OFF;
-    void setErrorCallback(CcErrorCB cb) { errorCB_ = cb; }
-    void setCornerTreatment(CornerType ct) { cornerTreatment = ct; }
+    void setOptions(const CcMainOptions &opts)
+    {
+        options = opts;
+        setToolRadius(opts.toolRadius);
+        cornerTreatment = opts.cornerTreatment;
+        setUnits(opts.outputInchUnits ? UNITS_INCH : UNITS_MM);
+        outputCB_ = opts.callbacks.output;
+        errorCB_ = opts.callbacks.error;
+    }
+
     void setUnits(Units u)
     {
         units = u;
@@ -162,26 +198,19 @@ public:
     // Main pump
     bool process(void)
     {
-        //  If comp is OFF, just pass through immediately (no delay needed)
-        if (comp_state == COMP_OFF || toolR < TOL)
-        {
-            while (inCount > 0)
-            {
-                if (!outHasSpace(1))
-                    return false;
-                Move2D m = popIn();
-                pushOut(m);
-            }
-            return true;
-        }
-
-        while (inCount > 0)
+        if(hasCompError)
+            return false;
+            
+         while (inCount > 0)
         {
             // Need output space for worst case: prev + up to 3 inserted moves
             if (!outHasSpace(4))
                 return false;
 
             Move2D raw = popIn();
+            if(raw.seqNum != 0)
+                lastSeqNum = raw.seqNum;
+
             if (raw.type == MOT_EMPTY)
                 continue;
 
@@ -211,7 +240,7 @@ public:
                 float moveLen = len(raw.p_1 - raw.p_0);
                 if (moveLen <= toolR)
                 {
-                    reportCompError(CE_COMP_MOVE_TOO_SHORT, raw.seqNum);
+                    reportCompError(CE_COMP_MOVE_TOO_SHORT);
                     return false;
                 }
             }
@@ -276,11 +305,11 @@ public:
 
 private:
     // ---------- small helpers ----------
-    bool outHasSpace(int n) const
+    bool outHasSpace(int n)
     {
         bool ok = (outCount + n) <= OUT_CAP;
         if (!ok)
-            reportCompError(CE_OUTPUT_BUFFER_OVERFLOW, 0);
+            reportCompError(CE_OUTPUT_BUFFER_OVERFLOW);
 
         return ok;
     }
@@ -297,7 +326,7 @@ private:
     {
         if (outCount >= OUT_CAP)
         {
-            reportCompError(CE_OUTPUT_BUFFER_OVERFLOW, m.seqNum);
+            reportCompError(CE_OUTPUT_BUFFER_OVERFLOW);
             return;
         }
         output_buffer[(outHead + outCount) % OUT_CAP] = m;
@@ -306,7 +335,7 @@ private:
 
     void resetState() { havePrevMove2D = false; }
 
-    Move2D makeBevel(const Move2D &a, const Move2D &b) const
+    Move2D makeBevel(const Move2D &a, const Move2D &b)
     {
         Move2D m;
         m.hasXY = true;
@@ -318,7 +347,7 @@ private:
         return m;
     }
 
-    bool convex_from_winding(int cw) const
+    bool convex_from_winding(int cw)
     {
         if (cw == 0)
             return false;
@@ -332,7 +361,7 @@ private:
         return (cw > 0);
     }
 
-    bool is_convex(const Move2D &a, const Move2D &b) const
+    bool is_convex(const Move2D &a, const Move2D &b)
     {
         int cw = get_winding_dir(a.endDir, b.startDir);
         return convex_from_winding(cw);
@@ -455,7 +484,7 @@ private:
 
         // complete copy.
         dst = src;
-        CutterComp2D::validate(dst); // validate before offsetting
+        validate(dst); // validate before offsetting
 
         dst.src_1 = src.p_1;
 
@@ -489,6 +518,7 @@ private:
         return true;
     }
 
+    // Trim elements to a known intersection point.
     bool trimToTIP(Move2D &a, Move2D &b, Vec2 tip)
     {
         a.p_1 = tip;
@@ -503,6 +533,7 @@ private:
         return a.valid && b.valid;
     }
 
+    // Extend the moves so that they meet at the FIP.
     bool extendToFIP(Move2D &a, Move2D &b, Vec2 fip)
     {
         float fipDir1 = dot(fip - a.p_1, a.endDir);
@@ -521,7 +552,7 @@ private:
         return a.valid && b.valid;
     }
 
-    Move2D makeRollArc(const Move2D &a, const Move2D &b) const
+    Move2D makeRollArc(const Move2D &a, const Move2D &b)
     {
         Move2D roll;
         // roll.seqNum = (a.seqNum * 10) + 5; // for debugging
@@ -674,7 +705,7 @@ private:
         cap.p_0 = ipForL1;
         cap.p_1 = ipForL2;
         // if the cap length is smaller than the tolerance.
-        if (!CutterComp2D::validate(cap))
+        if (!validate(cap))
             return 0;
 
         if (a.type == MOT_LINE)
@@ -682,7 +713,7 @@ private:
             a.p_1 = ipForL1;
             // a.o_1 = a.p_1;
             update_vectors(a);
-            if (!CutterComp2D::validate(a))
+            if (!validate(a))
                 return 0;
         }
 
@@ -691,7 +722,7 @@ private:
             b.p_0 = ipForL2;
             // b.o_0 = b.p_0;
             update_vectors(b);
-            if (!CutterComp2D::validate(b))
+            if (!validate(b))
                 return 0;
         }
 
@@ -699,7 +730,7 @@ private:
         {
             extA.p_1 = ipForL1;
             update_vectors(extA);
-            if (!CutterComp2D::validate(extA))
+            if (!validate(extA))
                 return 0;
             out[outCountLocal++] = extA;
         }
@@ -711,7 +742,7 @@ private:
             extB.p_0 = ipForL2;
             extB.p_1 = b.p_0;
             update_vectors(extB);
-            if (!CutterComp2D::validate(extB))
+            if (!validate(extB))
                 return 0;
             out[outCountLocal++] = extB;
         }
@@ -720,7 +751,7 @@ private:
     }
 
     // Creates only the extension line segment for arc<->line/arc without modifying inputs.
-    Move2D makeArcExtensionLineOnly(const Move2D &arc, bool fromEnd) const
+    Move2D makeArcExtensionLineOnly(const Move2D &arc, bool fromEnd)
     {
         Move2D extLnOut;
 
@@ -863,7 +894,7 @@ private:
         if (is_convex(a, b))
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
-                reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
+                reportCompError(CE_UNRESOLVED_GAP);
             return;
         }
 
@@ -876,7 +907,7 @@ private:
     {
         if (is_near(a.p_1, b.p_0) || is_near(a.center, b.center))
         {
-            return; // connected and concentric arcs are already tangent. No need to roll or trim.
+            return; // connected arc or concentric
         }
 
         Vec2 ip1{}, ip2{};
@@ -886,7 +917,7 @@ private:
         if (it == IT_NONE || it == IT_TANGENT) // no intersection so close the gap with a chamfer or roll.
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
-                reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
+                reportCompError(CE_UNRESOLVED_GAP);
             return;
         }
 
@@ -922,7 +953,7 @@ private:
         }
 
         if (!insertRollOrCorner(a, b, inserts, insertCount))
-            reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
+            reportCompError(CE_UNRESOLVED_GAP);
     }
 
     void handleArcLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
@@ -959,7 +990,7 @@ private:
         if (it == IT_NONE)
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
-                reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
+                reportCompError(CE_UNRESOLVED_GAP);
             return;
         }
 
@@ -998,7 +1029,7 @@ private:
 
         // fallback to roll or chamfer if no intersection or extension possible.
         if (!insertRollOrCorner(a, b, inserts, insertCount))
-            reportCompError(CE_UNRESOLVED_GAP, a.seqNum);
+            reportCompError(CE_UNRESOLVED_GAP);
     }
 
     // Returns 0..2 TIPs that lie on BOTH finite elements
@@ -1196,7 +1227,7 @@ public:
             {
                 if (moves[firstCutIdx].type == MOT_ARC && moves[firstCutIdx].radius <= 0)
                 {
-                    reportCompError(CE_FLIPPED_ARC, moves[firstCutIdx].seqNum);
+                    reportCompError(CE_FLIPPED_ARC);
                     return true;
                 }
             }
@@ -1209,7 +1240,7 @@ public:
             {
                 if (moves[lastCutIdx].type == MOT_ARC && moves[lastCutIdx].radius <= 0)
                 {
-                    reportCompError(CE_FLIPPED_ARC, moves[lastCutIdx].seqNum);
+                    reportCompError(CE_FLIPPED_ARC);
                     return true;
                 }
             }
@@ -1243,7 +1274,7 @@ public:
                 if (hitTargetIdx < lastCutIdx)
                 {
                     // comp in should never cross.
-                    reportCompError(CE_COMP_IN_CROSSING, moves[srcIdx].seqNum);
+                    reportCompError(CE_COMP_IN_CROSSING);
                     return false;
                 }
                 srcIdx++;
@@ -1253,7 +1284,7 @@ public:
             if (moves[hitTargetIdx].compMode == CM_OUT)
             {
                 // comp out should never cross.
-                reportCompError(CE_COMP_OUT_CROSSING, moves[hitTargetIdx].seqNum);
+                reportCompError(CE_COMP_OUT_CROSSING);
                 return false;
             }
 

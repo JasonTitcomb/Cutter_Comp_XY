@@ -57,13 +57,14 @@ struct ScanLine
 struct ModalState
 {
     bool planeXY = true; // G17
-    bool absXYZ = true;  // G90/G91
+    bool absoluteMode = true;  // G90/G91
     int motionG = 0;     // 0/1/2/3 modal
     CompSide comp = COMP_OFF;
     CompMode compMode = CM_NONE;
     float feed = 0.0f;
     int32_t D_Register = 0;
     int32_t T_Register = 0;
+    int32_t N_number = 0;
     float speed = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
     float z = 0.0f;
@@ -355,9 +356,9 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     if (s.sawG17)
         modeState.planeXY = true;
     if (s.sawG90)
-        modeState.absXYZ = true;
+        modeState.absoluteMode = true;
     if (s.sawG91)
-        modeState.absXYZ = false;
+        modeState.absoluteMode = false;
     if (s.sawG40)
         modeState.comp = COMP_OFF;
     if (s.sawG41)
@@ -372,6 +373,8 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         modeState.speed = s.S;
     if (s.hasT)
         modeState.T_Register = s.T;
+    if (s.hasN)
+        modeState.N_number = s.N;
 
     // Update motion mode if explicitly provided
     if (s.sawG0)
@@ -392,7 +395,7 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     bool anyXYZ = false;
     if (s.hasX)
     {
-        if (modeState.absXYZ)
+        if (modeState.absoluteMode)
         {
             p1.x = s.X;
         }
@@ -404,7 +407,7 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     }
     if (s.hasY)
     {
-        if (modeState.absXYZ)
+        if (modeState.absoluteMode)
         {
             p1.y = s.Y;
         }
@@ -416,7 +419,7 @@ static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     }
     if (s.hasZ)
     {
-        if (modeState.absXYZ)
+        if (modeState.absoluteMode)
         {
             z1 = s.Z;
         }
