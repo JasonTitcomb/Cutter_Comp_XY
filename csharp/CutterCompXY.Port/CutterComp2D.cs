@@ -1,5 +1,26 @@
+using System;
+using System.Runtime.InteropServices;
 namespace CutterCompXY.Port;
 
+// Native callback delegates matching C++ signatures
+public delegate void CcOutputCB(string text, int len);
+public delegate void CcErrorCB(string message, int err, uint seqNum);
+public delegate void CcStartCompCB(int toolRegister, int diaRegister);
+
+public struct CcMainOptions
+{
+    public struct CcMainCallbacks
+    {
+        public CcOutputCB output;
+        public CcErrorCB error;
+        public CcStartCompCB startComp;
+    }
+    public float toolRadius;
+    public CornerType cornerTreatment;
+    public bool globalTrimCrossing;
+    public bool emitStatusComments;
+    public CcMainCallbacks callbacks;
+}
 public sealed class CutterComp2D
 {
     public CornerType cornerTreatment = CornerType.CORNER_ROLL;
@@ -680,12 +701,12 @@ public sealed class CutterComp2D
         }
 
        // no tip but small gap: try extending to FIP (false intersection point)
-        float gap = len(b.p_0 - a.p_1);
+        float gap = CcMath.Len(b.p_0 - a.p_1);
         bool nearlyConnected = gap < gapTol;
         if (nearlyConnected)
         {
-            Vec2 tip = pickClosest(a.p_1, ip1, ip2);
-            if (extendToFIP(a, b, tip))
+            Vec2 tip = CcMath.PickClosest(a.p_1, ip1, ip2);
+            if (CcMath.ExtendToFIP(ref a, ref b, tip))
             {
                 return;
             }
@@ -734,8 +755,8 @@ public sealed class CutterComp2D
         bool nearlyConnected = gap < gapTol;
         if (nearlyConnected)
         {
-            Vec2 tip = pickClosest(a.p_1, ip1, ip2);
-            if (extendToFIP(a, b, tip))
+            Vec2 tip = CcMath.PickClosest(a.p_1, ip1, ip2);
+            if (CcMath.ExtendToFIP(ref a, ref b, tip))
             {
                 return;
             }

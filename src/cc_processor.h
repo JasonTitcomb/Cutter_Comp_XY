@@ -9,7 +9,20 @@
 typedef void (*CcOutputCB)(const char *text, size_t len);
 typedef void (*CcErrorCB)(const char *message, CompError err, uint32_t seqNum);
 typedef void (*CcStartCompCB)(int toolRegister, int diaRegister);
-    
+
+struct CrossingHit
+{
+    bool hit = false;
+    int j = -1;
+    Vec2 tip{0, 0};
+    float dist = 0;
+};
+
+struct AABB2
+{
+    float minx, miny, maxx, maxy;
+};
+
 struct CcMainOptions
 {
     struct CcMainCallbacks
@@ -53,7 +66,7 @@ private:
                 break;
             case CE_ARC_LT_TOOL_RAD:
                 errorCB_("Arc smaller than tool radius", err, lastSeqNum);
-                break;    
+                break;
             case CE_FLIPPED_ARC:
                 errorCB_("Flipped arc", err, lastSeqNum);
                 break;
@@ -88,7 +101,7 @@ private:
         {
             // if we are not going to do global trim then we should test arc validity here, because we won't have another chance to validate before output.
             // if comp left and arc is CCW, then the arc must be  > tool rad.
-            if(!options.globalTrimCrossing && comp_state == COMP_LEFT && m.arcDir == ARC_CCW)
+            if (!options.globalTrimCrossing && comp_state == COMP_LEFT && m.arcDir == ARC_CCW)
             {
                 if (len(m.p_1 - m.p_0) <= toolR)
                 {
@@ -96,7 +109,7 @@ private:
                     return false;
                 }
             }
-            if(!options.globalTrimCrossing && comp_state == COMP_RIGHT && m.arcDir == ARC_CW)
+            if (!options.globalTrimCrossing && comp_state == COMP_RIGHT && m.arcDir == ARC_CW)
             {
                 if (len(m.p_1 - m.p_0) <= toolR)
                 {
@@ -195,17 +208,17 @@ public:
     // Main pump
     bool process(void)
     {
-        if(hasCompError)
+        if (hasCompError)
             return false;
-            
-         while (inCount > 0)
+
+        while (inCount > 0)
         {
             // Need output space for worst case: prev + up to 3 inserted moves
             if (!outHasSpace(4))
                 return false;
 
             Move2D raw = popIn();
-            if(raw.seqNum != 0)
+            if (raw.seqNum != 0)
                 lastSeqNum = raw.seqNum;
 
             if (raw.type == MOT_EMPTY)
@@ -437,7 +450,6 @@ private:
     {
         // complete copy for non-comp moves or if tool radius is zero (also captures original vectors)
         dst = src;
-        dst.src_1 = src.p_1;
 
         Vec2 v = src.p_1 - src.p_0;
         float l = len(v);
@@ -466,7 +478,6 @@ private:
         dst.type = src.type; // keep rapid vs feed
         dst.p_0 = src.p_0 + off;
         dst.p_1 = src.p_1 + off;
-        dst.origDir = src.startDir; // keep original direction.
         return true;
     }
 
@@ -482,8 +493,6 @@ private:
         // complete copy.
         dst = src;
         validate(dst); // validate before offsetting
-
-        dst.src_1 = src.p_1;
 
         float dr = toolR;
         bool ccw = (src.arcDir == ARC_CCW);
@@ -511,7 +520,6 @@ private:
         dst.radius = r1;
         dst.p_0 = src.center + v0 * (r1 / lv0);
         dst.p_1 = src.center + v1 * (r1 / lv1);
-        dst.origDir = src.startDir; // keep original direction.
         return true;
     }
 
@@ -558,11 +566,10 @@ private:
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
         roll.p_0 = a.p_1;
         roll.p_1 = b.p_0;
-        roll.center = a.src_1; // original non-offset end point to compute the center correctly
 
-        // Find the best arc center for the roll.
-        // We want to preserve the original radius as much as possible to avoid weird geometry changes
-        // that could cause logic issues later.
+        // Calculate the roll arc center using the angle bisector method
+        roll.center = original_endpoint(a.p_1, a.endDir, (comp_state == COMP_LEFT) ^ (toolSign < 0), toolR);
+
         Vec2 v0 = roll.p_0 - roll.center;
         Vec2 v1 = roll.p_1 - roll.center;
         float r0 = len(v0);
@@ -662,7 +669,7 @@ private:
             haveExtB = true;
         }
 
-        Vec2 partCorner = a.src_1;
+        Vec2 partCorner = original_endpoint(a.p_1, a.endDir, (comp_state == COMP_LEFT) ^ (toolSign < 0), toolR);
         // create a bisector
 
         Vec2 vIn = normalize(l1.endDir * -1.0f);
@@ -1114,7 +1121,52 @@ private:
         return 0;
     }
 
-    static CrossingHit lookAheadForCrossing(Move2D *moves, int numMoves,
+    static AABB2 aabb_of(const Move2D &m)
+    {
+        AABB2 b;
+        b.minx = fminf(m.p_0.x, m.p_1.x);
+        b.maxx = fmaxf(m.p_0.x, m.p_1.x);
+        b.miny = fminf(m.p_0.y, m.p_1.y);
+        b.maxy = fmaxf(m.p_0.y, m.p_1.y);
+
+        if (m.type == MOT_ARC && fabsf(m.radius) > TOL)
+        {
+            // Cardinal angles are known constants — no atan2f needed.
+            float a0n = angleNorm(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
+            float a1n = angleNorm(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
+
+            // right (+x) = 0, top (+y) = PI/2, left (-x) = PI, bottom (-y) = 3*PI/2
+            if (angle_on_arc_norm(a0n, a1n, PI, m.arcDir))
+                b.minx = m.center.x - m.radius;
+
+            if (angle_on_arc_norm(a0n, a1n, 0.0f, m.arcDir))
+                b.maxx = m.center.x + m.radius;
+
+            if (angle_on_arc_norm(a0n, a1n, PI * 0.5f, m.arcDir))
+                b.maxy = m.center.y + m.radius;
+
+            if (angle_on_arc_norm(a0n, a1n, PI * 1.5f, m.arcDir))
+                b.miny = m.center.y - m.radius;
+        }
+        return b;
+    }
+
+    // Compute bounding boxes for an array of moves, storing results in a parallel AABB2 array.
+    static void init_all_aabb(const Move2D *moves, AABB2 *bounds, int start, int count)
+    {
+        for (int i = start; i < count; ++i)
+        {
+            if (moves[i].type != MOT_EMPTY && moves[i].valid)
+                bounds[i] = aabb_of(moves[i]);
+        }
+    }
+
+    static bool aabb_intersects(const AABB2 &a, const AABB2 &b)
+    {
+        return !(a.maxx < b.minx || a.minx > b.maxx || a.maxy < b.miny || a.miny > b.maxy);
+    }
+
+    static CrossingHit lookAheadForCrossing(Move2D *moves, AABB2 *bounds, int numMoves,
                                             int srcIdx,
                                             int startTargetIdx,
                                             int maxIdx,
@@ -1146,14 +1198,14 @@ private:
             if (j < srcIdx + 2)
                 continue;
 
-            if (!aabb_intersects(src.bounds, target.bounds))
+            if (!aabb_intersects(bounds[srcIdx], bounds[j]))
             {
                 continue;
             }
 
             // compare the Z values within a tolerance
-            //special case for helix moves.
-            if(fabsf(src.z_0 - target.z_0) > TOL || fabsf(src.z_0 - target.z_1) > TOL)
+            // special case for helix moves.
+            if (fabsf(src.z_0 - target.z_0) > TOL || fabsf(src.z_0 - target.z_1) > TOL)
                 continue;
 
             Vec2 t1, t2;
@@ -1186,19 +1238,13 @@ private:
     }
 
 public:
-    bool testForCrossingElements(Move2D *moves, int &srcIdx, int maxIdx, int lookahead)
-    {
-        CrossingHit crossing = lookAheadForCrossing(moves, maxIdx, srcIdx, srcIdx + 1, maxIdx, lookahead, -1, -1);
-        return crossing.hit;
-    }
-
     // return false if failed to trim (which can only happen if a comp in move is crossing,
-    bool trimCrossingElements(Move2D *moves, int &srcIdx, int maxIdx, int lookahead, int &hitTargetIdx)
+    bool trimCrossingElements(Move2D *moves, AABB2 *bounds, int &srcIdx, int maxIdx, int lookahead, int &hitTargetIdx)
     {
         int compInIdx = -1;
         int compOutIdx = -1;
         // calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
-        init_all_aabb(moves, srcIdx, maxIdx);
+        init_all_aabb(moves, bounds, srcIdx, maxIdx);
 
         // find the moves adjacent to the comp in and comp out.
         // we want to skip these in the crossing logic since they are allowed to "cross" in the sense that they share geometry but should not be trimmed since they are intentionally connected that way as part of the comp.
@@ -1257,7 +1303,7 @@ public:
             if (targetIdx >= maxIdx)
                 break; // if we have no valid targets ahead, we are done.
 
-            CrossingHit crossing = lookAheadForCrossing(moves, maxIdx, srcIdx, targetIdx, maxIdx, lookahead, firstCutIdx, lastCutIdx);
+            CrossingHit crossing = lookAheadForCrossing(moves, bounds, maxIdx, srcIdx, targetIdx, maxIdx, lookahead, firstCutIdx, lastCutIdx);
             if (!crossing.hit)
             {
                 srcIdx++;

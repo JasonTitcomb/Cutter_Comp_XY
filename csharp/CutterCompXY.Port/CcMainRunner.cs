@@ -47,7 +47,6 @@ public sealed class CcMainRunner
         modalState.pos = new Vec2(0, 0);
         modalState.N_number = 0;
 
-        cc.SetOptions(options);
         outputCB = options.callbacks.output;
         errorCB = options.callbacks.error;
         startCompCB = options.callbacks.startComp;
@@ -270,7 +269,7 @@ public sealed class CcMainRunner
                 cc.SetComp(CompSide.COMP_OFF);
                 cc.Flush();
                 Move2D outputMove;
-                while (cc.PopOut(outputMove))
+                while (cc.PopOut(out outputMove))
                 {
                     if (!ProfilePush(outputMove))
                     {

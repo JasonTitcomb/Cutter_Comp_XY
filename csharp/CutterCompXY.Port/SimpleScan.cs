@@ -47,6 +47,7 @@ public struct ScanLine
 public struct ModalState
 {
     public bool planeXY;
+    public bool absXYZ;
     public bool absoluteMode;
     public int motionG;
     public CompSide comp;
@@ -62,6 +63,7 @@ public struct ModalState
     public ModalState()
     {
         planeXY = true;
+        absXYZ = true;
         absoluteMode = true;
         motionG = 0;
         comp = CompSide.COMP_OFF;

@@ -24,7 +24,7 @@ private:
     static constexpr int TARGET_BATCH_EMIT_MOVES = 40;
     static constexpr int PROFILE_BURST_MARGIN = 2;
 
-     static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
+    static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
     static constexpr int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
     static constexpr int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
     static constexpr int MAX_PROFILE_MOVES = MIN_PENDING_BEFORE_BATCH + PROFILE_BURST_MARGIN;
@@ -32,15 +32,15 @@ private:
     static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be positive");
     static_assert(EMIT_HOLDBACK >= TRIM_OVERLAP_MOVES, "EMIT_HOLDBACK must preserve trim overlap across batches");
     static_assert(MAX_PROFILE_MOVES > MIN_PENDING_BEFORE_BATCH, "MAX_PROFILE_MOVES must exceed batch threshold");
-
+  
     CcMainOptions options_{};
     CcOutputCB outputCB_ = nullptr;
     CcErrorCB errorCB_ = nullptr;
     CcStartCompCB startCompCB_ = nullptr;
-    
+
     ModalState modalState_{};
     CutterComp2D cc_{};
-
+    AABB2 aabbs[MAX_PROFILE_MOVES]{};
     Move2D profile_[MAX_PROFILE_MOVES]{};
     int profileCount_ = 0;
 
@@ -54,7 +54,7 @@ private:
     bool emitComments_ = true;
     bool inchMode_ = true;
 
-    public:
+public:
     bool begin(const CcMainOptions &options)
     {
         options_ = options;
@@ -71,7 +71,7 @@ private:
         modalState_.N_number = 0;
         modalState_.T_Register = 0;
         modalState_.D_Register = 0;
-        modalState_.inchMode = true;   
+        modalState_.inchMode = true;
         inchMode_ = true;
 
         cc_.setOptions(options_);
@@ -242,8 +242,8 @@ private:
 
         return finish();
     }
-private:
 
+private:
     void onCompError(CompError err)
     {
         char msg[64];
@@ -309,7 +309,6 @@ private:
             trimResumeIndex_ = 0;
     }
 
-    
     static void trim_trailing_zeros(char *s)
     {
         char *dot = strchr(s, '.');
@@ -376,10 +375,13 @@ private:
 
             if (m.hasXY)
             {
-                if (isAbs) {
+                if (isAbs)
+                {
                     n = append_coord(line, sizeof(line), n, "X", m.p_1.x, posDigits);
                     n = append_coord(line, sizeof(line), n, "Y", m.p_1.y, posDigits);
-                } else {
+                }
+                else
+                {
                     n = append_coord(line, sizeof(line), n, "X", dx, posDigits);
                     n = append_coord(line, sizeof(line), n, "Y", dy, posDigits);
                 }
@@ -547,9 +549,9 @@ private:
 
     bool trim_and_merge_pending_profile()
     {
-        if(!globalTrim_)
+        if (!globalTrim_)
             return true;
-            
+
         const int currentProfileCount = profileCount_;
         int trimStart = trimResumeIndex_;
         if (trimStart < emittedProfileCount_)
@@ -562,7 +564,7 @@ private:
         {
             int srcIdx = trimStart;
             int retTargetIdx = -1;
-            if (!cc_.trimCrossingElements(profile_, srcIdx, currentProfileCount, MAX_LOOKAHEAD, retTargetIdx))
+            if (!cc_.trimCrossingElements(profile_, aabbs, srcIdx, currentProfileCount, MAX_LOOKAHEAD, retTargetIdx))
                 return false;
 
             int mergeStart = trimStart;

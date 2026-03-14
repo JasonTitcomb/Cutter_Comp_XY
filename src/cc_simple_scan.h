@@ -77,10 +77,10 @@ struct ModalState
 // -------------------------
 // Tiny ASCII helpers
 // -------------------------
-static inline bool is_space(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
-static inline char up(char c) { return (c >= 'a' && c <= 'z') ? char(c - ('a' - 'A')) : c; }
+static bool is_space(char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; }
+static char up(char c) { return (c >= 'a' && c <= 'z') ? char(c - ('a' - 'A')) : c; }
 
-static inline const char *skip_ws(const char *p)
+static const char *skip_ws(const char *p)
 {
     while (*p && is_space(*p))
         ++p;
@@ -89,7 +89,7 @@ static inline const char *skip_ws(const char *p)
 
 // Very small float parser: [-]ddd[.ddd]
 // No exponent; good for typical G-code.
-static inline const char *parse_float(const char *p, float &out)
+static const char *parse_float(const char *p, float &out)
 {
     p = skip_ws(p);
     bool neg = false;
@@ -132,7 +132,7 @@ static inline const char *parse_float(const char *p, float &out)
     return p;
 }
 
-static inline const char *parse_int(const char *p, int32_t &out)
+static const char *parse_int(const char *p, int32_t &out)
 {
     float f = 0;
     p = parse_float(p, f);
@@ -143,13 +143,13 @@ static inline const char *parse_int(const char *p, int32_t &out)
 // Remove comments and normalize whitespace.
 // Supported comments:
 // - '(...)' block comments
-// - ';...;' inline comment spans (if closing ';' exists)
+// - ';...;' comment spans (if closing ';' exists)
 // - ';...' to end-of-line when no closing ';' exists
 // Whitespace handling:
 // - Leading/trailing whitespace removed
 // - Multiple consecutive spaces compressed to single space
 // Writes into dst with maxLen, always null-terminated.
-static inline char *strip_comments(const char *src, char *dst, uint32_t maxLen)
+static char *strip_comments(const char *src, char *dst, uint32_t maxLen)
 {
     uint32_t w = 0;
     bool inParen = false;
@@ -204,7 +204,7 @@ static inline char *strip_comments(const char *src, char *dst, uint32_t maxLen)
 
 // Scan one line into ScanLine.
 // Captures letters followed by number: G.. X.. Y.. I.. J.. R.. F.. N..
-static inline void scan_line(const char *line, ScanLine &s)
+static void scan_line(const char *line, ScanLine &s)
 {
     s = ScanLine{}; // reset
     const char *p = line;
@@ -319,7 +319,7 @@ static inline void scan_line(const char *line, ScanLine &s)
 
 // Compute center from R for G2/G3 arc in XY.
 // Chooses the center matching CW/CCW; assumes "shorter" arc when ambiguous.
-static inline bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, ArcDir dir, Vec2 &outC)
+static bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, ArcDir dir, Vec2 &outC)
 {
     float r = fabsf(R);
     Vec2 chord = p1 - p0;
@@ -358,7 +358,7 @@ static inline bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, Ar
 
 // Turn a scanned line into a Move2D (or MOT_EMPTY if no XY motion).
 // Updates modal state (pos, motion mode, comp, feed).
-static inline Move2D interpret_move(const ScanLine &s, ModalState &modeState)
+static Move2D interpret_move(const ScanLine &s, ModalState &modeState)
 {
     // Update modal toggles first
     if (s.sawG17)

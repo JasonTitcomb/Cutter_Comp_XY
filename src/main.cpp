@@ -49,16 +49,19 @@ void setup()
   options.toolRadius = 0.005f;
   options.cornerTreatment = CORNER_ROLL;
   options.globalTrimCrossing = true;
- 
 
   const int lines = (int)(sizeof(demo_program) / sizeof(demo_program[0]));
   bool ok = runner.begin(options);
 
+  unsigned long start = millis();
   for (int i = 0; ok && i < lines; ++i)
     ok = runner.processLine(demo_program[i]);
-
   if (ok)
     ok = runner.finish();
+  unsigned long end = millis();
+
+  Serial.print("Elapsed time (us): ");
+  Serial.println(end - start);
 
   if (!ok)
     Serial.println("(run failed)");

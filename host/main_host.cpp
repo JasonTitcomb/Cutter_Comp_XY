@@ -32,6 +32,7 @@
 static constexpr float TOOL_RADIUS = 0.0620f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;
+static constexpr bool OUTPUT_SVG = true;
 
 // ------------------------------------------------
 static CutterComp2D cc;
@@ -243,7 +244,7 @@ int main(int argc, char *argv[])
       std::fprintf(stderr, "Unknown corner treatment: %s (using default)\n", argv[4]);
   }
 
-  bool outputSVG = false;
+  bool outputSVG = OUTPUT_SVG;
   if (argc > 5)
   {
     std::string svgArg = argv[5];

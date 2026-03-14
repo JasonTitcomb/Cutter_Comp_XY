@@ -76,7 +76,7 @@ public enum CompSide : sbyte
 
 public enum CompError : byte
 {
-    CE_NONE = 0,
+    CE_ERROR = 0,
     CE_ARC_RADIUS_MISMATCH,
     CE_INVALID_MOVE,
     CE_COMP_MOVE_TOO_SHORT,
