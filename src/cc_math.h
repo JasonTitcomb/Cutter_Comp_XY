@@ -527,9 +527,3 @@ static IntersectType intersectLineCircle(Vec2 l1, Vec2 a1, Vec2 ctr, float r, Ve
   return IT_INTERSECT;
 }
 
-static Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
-{
-  Vec2 da = a - ref;
-  Vec2 db = b - ref;
-  return (dot(da, da) <= dot(db, db)) ? a : b;
-}

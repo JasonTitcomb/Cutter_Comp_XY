@@ -38,6 +38,21 @@ struct CcMainOptions
     bool emitStatusComments = true;
 };
 
+enum JunctionType : uint8_t
+{
+    JT_NONE = 0,
+    JT_TRIM_TO_INTERSECTION,
+    JT_EXTEND_TO_INTERSECTION,
+    JT_ROLL_AROUND,
+    JT_GOUGE
+};
+
+struct Junction
+{
+    JunctionType type = JT_NONE;
+    Vec2 p{0, 0};
+};
+
 class CutterComp2D
 {
 private:
@@ -377,6 +392,135 @@ private:
         return convex_from_winding(cw);
     }
 
+    static bool pointOnFiniteElem(const Move2D &m, Vec2 p)
+    {
+        if (m.type == MOT_LINE)
+            return pointOnSegment(m.p_0, m.p_1, p);
+
+        if (m.type == MOT_ARC)
+        {
+            ArcAngles aa = precomputeArcAngles(m);
+            return pointOnArcCached(m, p, aa);
+        }
+
+        return false;
+    }
+
+    static int intersectCarrier(const Move2D &a, const Move2D &b, Vec2 pts[2])
+    {
+        if (a.type == MOT_LINE && b.type == MOT_LINE)
+        {
+            bool tip = false;
+            IntersectType it = intersectLineLine(a, b, pts[0], tip);
+            return (it == IT_NONE) ? 0 : 1;
+        }
+
+        if (a.type == MOT_ARC && b.type == MOT_ARC)
+        {
+            if (is_near(a.center, b.center))
+                return 0;
+
+            int count = 0;
+            IntersectType it = intersectCircleCircle(a, b, pts[0], pts[1], count);
+            if (it == IT_NONE)
+                return 0;
+            return count;
+        }
+
+        const Move2D &line = (a.type == MOT_LINE) ? a : b;
+        const Move2D &arc = (a.type == MOT_ARC) ? a : b;
+        int count = 0;
+        IntersectType it = intersectLineCircle(line.p_0, line.p_1, arc.center, arc.radius, pts[0], pts[1], count);
+        if (it == IT_NONE)
+            return 0;
+        return count;
+    }
+
+    static int finiteIntersectionPoints(const Move2D &a, const Move2D &b, Vec2 pts[2])
+    {
+        Vec2 carrierPts[2]{};
+        int carrierCount = intersectCarrier(a, b, carrierPts);
+        int finiteCount = 0;
+
+        for (int i = 0; i < carrierCount; ++i)
+        {
+            Vec2 p = carrierPts[i];
+            if (!pointOnFiniteElem(a, p) || !pointOnFiniteElem(b, p))
+                continue;
+
+            if (finiteCount > 0 && is_near(pts[0], p))
+                continue;
+
+            pts[finiteCount++] = p;
+        }
+
+        return finiteCount;
+    }
+
+    bool isForwardExtensionPoint(const Move2D &a, const Move2D &b, Vec2 p)
+    {
+        float fipDir1 = dot(p - a.p_1, a.endDir);
+        float fipDir2 = dot(p - b.p_0, b.startDir);
+        return fipDir1 > 0 && fipDir2 < 0;
+    }
+
+    bool solveJunction(const Move2D &a, const Move2D &b, bool allowExtend, Junction &outjunc)
+    {
+        Vec2 trimPts[2]{};
+        int trimCount = finiteIntersectionPoints(a, b, trimPts);
+        Vec2 carrierPts[2]{};
+        int carrierCount = intersectCarrier(a, b, carrierPts);
+
+        float bestTrimScore = 0.0f;
+        float bestExtendScore = 0.0f;
+        bool foundTrim = false;
+        bool foundExtend = false;
+
+        for (int i = 0; i < trimCount; ++i)
+        {
+            Vec2 p = trimPts[i];
+            float score = distFromStart_along(a, p) + distFromStart_along(b, p);
+            if (!foundTrim || score < bestTrimScore)
+            {
+                outjunc.type = JT_TRIM_TO_INTERSECTION;
+                outjunc.p = p;
+                bestTrimScore = score;
+                foundTrim = true;
+            }
+        }
+
+        for (int i = 0; i < carrierCount; ++i)
+        {
+            Vec2 p = carrierPts[i];
+            if (allowExtend && isForwardExtensionPoint(a, b, p))
+            {
+                float score = dist(a.p_1, p) + dist(b.p_0, p);
+                if (!foundExtend || score < bestExtendScore)
+                {
+                    outjunc.type = JT_EXTEND_TO_INTERSECTION;
+                    outjunc.p = p;
+                    bestExtendScore = score;
+                    foundExtend = true;
+                }
+            }
+        }
+
+        if (foundTrim)
+            return true;
+
+        if (foundExtend)
+            return true;
+
+        if (is_convex(a, b))
+        {
+            outjunc.type = JT_ROLL_AROUND;
+            return true;
+        }
+
+        outjunc.type = JT_GOUGE;
+        return false;
+    }
+
     int next_valid_index(const Move2D *moves, int count, int i)
     {
         for (int k = i + 1; k < count; ++k)
@@ -524,7 +668,7 @@ private:
     }
 
     // Trim elements to a known intersection point.
-    bool trimToTIP(Move2D &a, Move2D &b, Vec2 tip)
+    bool trimTo(Move2D &a, Move2D &b, Vec2 tip)
     {
         a.p_1 = tip;
         b.p_0 = tip;
@@ -539,7 +683,7 @@ private:
     }
 
     // Extend the moves so that they meet at the FIP.
-    bool extendToFIP(Move2D &a, Move2D &b, Vec2 fip)
+    bool extendTo(Move2D &a, Move2D &b, Vec2 fip)
     {
         float fipDir1 = dot(fip - a.p_1, a.endDir);
         float fipDir2 = dot(fip - b.p_0, b.startDir);
@@ -623,7 +767,7 @@ private:
         return roll;
     }
 
-    int makeCornerTreatment(Move2D &a, Move2D &b, Move2D out[3])
+    int makeCornerTreatment(Move2D &a, Move2D &b, Move2D outmove[3])
     {
         int outCountLocal = 0;
         Move2D l1, l2;
@@ -639,7 +783,7 @@ private:
             // so just do a simple bevel.
             Move2D bevel = makeBevel(a, b);
             // float l = len(bevel.p_1 - bevel.p_0);
-            out[outCountLocal++] = bevel;
+            outmove[outCountLocal++] = bevel;
             return outCountLocal;
         }
 
@@ -736,10 +880,10 @@ private:
             update_vectors(extA);
             if (!validate(extA))
                 return 0;
-            out[outCountLocal++] = extA;
+            outmove[outCountLocal++] = extA;
         }
 
-        out[outCountLocal++] = cap;
+        outmove[outCountLocal++] = cap;
 
         if (haveExtB)
         {
@@ -748,7 +892,7 @@ private:
             update_vectors(extB);
             if (!validate(extB))
                 return 0;
-            out[outCountLocal++] = extB;
+            outmove[outCountLocal++] = extB;
         }
 
         return outCountLocal;
@@ -849,16 +993,14 @@ private:
 
     void handleLineLine(Move2D &a, Move2D &b, bool comping, Move2D inserts[3], int &insertCount)
     {
-        Vec2 ip;
-        bool tip = false;
-        IntersectType it = intersectLineLine(a, b, ip, tip);
-        if (it == IT_NONE)
-            return;
+        Junction junction;
+        float gap = dist(b.p_0, a.p_1);
+        bool allowExtend = (gap < gapTol) || comping;
+        bool resolved = solveJunction(a, b, allowExtend, junction);
 
-        // 1) TIP: true intersection within both finite segments -> trim
-        if (tip)
+        if (junction.type == JT_TRIM_TO_INTERSECTION)
         {
-            trimToTIP(a, b, ip);
+            trimTo(a, b, junction.p);
             // when trimming we can get small segments that are invalid after trimming,
             if (!a.valid)
             {
@@ -873,11 +1015,9 @@ private:
             return;
         }
 
-        float gap = dist(b.p_0, a.p_1);
-        bool nearlyConnected = gap < gapTol;
-        if ((nearlyConnected || comping))
+        if (junction.type == JT_EXTEND_TO_INTERSECTION)
         {
-            if (extendToFIP(a, b, ip))
+            if (extendTo(a, b, junction.p))
             {
                 return;
             }
@@ -895,7 +1035,7 @@ private:
             return;
         }
 
-        if (is_convex(a, b))
+        if (resolved && junction.type == JT_ROLL_AROUND)
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP);
@@ -914,50 +1054,30 @@ private:
             return; // connected arc or concentric
         }
 
-        Vec2 ip1{}, ip2{};
-        int tipCt = 0;
-        IntersectType it = intersectCircleCircle(a, b, ip1, ip2, tipCt);
+        Junction junction;
+        float gap = len(b.p_0 - a.p_1);
+        bool resolved = solveJunction(a, b, gap < gapTol, junction);
 
-        if (it == IT_NONE || it == IT_TANGENT) // no intersection so close the gap with a chamfer or roll.
+        if (junction.type == JT_TRIM_TO_INTERSECTION)
+        {
+            if (trimTo(a, b, junction.p))
+                return;
+        }
+
+        if (junction.type == JT_EXTEND_TO_INTERSECTION)
+        {
+            if (extendTo(a, b, junction.p))
+                return;
+        }
+
+        if (resolved && junction.type == JT_ROLL_AROUND)
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP);
             return;
         }
 
-        /* Pre-compute arc angles once per arc (2× atan2f each) so that
-           the per-candidate checks only need 1× atan2f for the test point. */
-        ArcAngles aa = precomputeArcAngles(a);
-        ArcAngles ba = precomputeArcAngles(b);
-
-        // Determine TIP(true intersection point) candidates
-        bool tip1 = (tipCt >= 1) && pointOnArcCached(a, ip1, aa) && pointOnArcCached(b, ip1, ba);
-        bool tip2 = (tipCt == 2) && pointOnArcCached(a, ip2, aa) && pointOnArcCached(b, ip2, ba);
-
-        if (tip1 || tip2)
-        {
-            Vec2 tip = tip1 ? ip1 : ip2;
-            if (tip1 && tip2)
-                tip = pickClosest(a.p_1, ip1, ip2);
-
-            if (trimToTIP(a, b, tip))
-                return;
-        }
-
-        // no tip but small gap: try extending to FIP (false intersection point)
-        float gap = len(b.p_0 - a.p_1);
-        bool nearlyConnected = gap < gapTol;
-        if (nearlyConnected)
-        {
-            Vec2 tip = pickClosest(a.p_1, ip1, ip2);
-            if (extendToFIP(a, b, tip))
-            {
-                return;
-            }
-        }
-
-        if (!insertRollOrCorner(a, b, inserts, insertCount))
-            reportCompError(CE_UNRESOLVED_GAP);
+        reportCompError(CE_UNRESOLVED_GAP);
     }
 
     void handleArcLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
@@ -986,54 +1106,30 @@ private:
             return;        // already connected, no need to roll or trim.
         }
 
-        // Intersect infinite line with circle
-        Vec2 ip1{}, ip2{};
-        int count = 0;
-        IntersectType it = intersectLineCircle(lin->p_0, lin->p_1, arc->center, arc->radius, ip1, ip2, count);
+        float gap = len(b.p_0 - a.p_1);
+        Junction junction;
+        bool resolved = solveJunction(a, b, gap < gapTol, junction);
 
-        if (it == IT_NONE)
+        if (junction.type == JT_TRIM_TO_INTERSECTION)
+        {
+            if (trimTo(a, b, junction.p))
+                return;
+        }
+
+        if (junction.type == JT_EXTEND_TO_INTERSECTION)
+        {
+            if (extendTo(a, b, junction.p))
+                return;
+        }
+
+        if (resolved && junction.type == JT_ROLL_AROUND)
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP);
             return;
         }
 
-        // Evaluate TIP: point must lie on finite line segment and on arc sweep
-        /* Pre-compute arc angles once
-        (avoids redundant atan2f when testing multiple line-circle intersection candidates). */
-        ArcAngles arca = precomputeArcAngles(*arc);
-
-        bool tip1 = false, tip2 = false;
-        if (count >= 1)
-            tip1 = pointOnSegment(lin->p_0, lin->p_1, ip1) && pointOnArcCached(*arc, ip1, arca);
-        if (count == 2)
-            tip2 = pointOnSegment(lin->p_0, lin->p_1, ip2) && pointOnArcCached(*arc, ip2, arca);
-
-        // If any TIP exists: trim
-        if (tip1 || tip2)
-        {
-            Vec2 tip = tip1 ? ip1 : ip2;
-            if (tip1 && tip2)
-                tip = pickClosest(a.p_1, ip1, ip2);
-            if (trimToTIP(a, b, tip))
-                return;
-        }
-
-        // no tip but small gap: try extending to FIP (false intersection point)
-        float gap = len(b.p_0 - a.p_1);
-        bool nearlyConnected = gap < gapTol;
-        if (nearlyConnected)
-        {
-            Vec2 tip = pickClosest(a.p_1, ip1, ip2);
-            if (extendToFIP(a, b, tip))
-            {
-                return;
-            }
-        }
-
-        // fallback to roll or chamfer if no intersection or extension possible.
-        if (!insertRollOrCorner(a, b, inserts, insertCount))
-            reportCompError(CE_UNRESOLVED_GAP);
+        reportCompError(CE_UNRESOLVED_GAP);
     }
 
     // Returns 0..2 TIPs that lie on BOTH finite elements
@@ -1042,83 +1138,21 @@ private:
         tip1 = {0, 0};
         tip2 = {0, 0};
 
-        // LINE-LINE
-        if (A.type == MOT_LINE && B.type == MOT_LINE)
-        {
-            Vec2 ip;
-            bool tip = false;
-            IntersectType it = intersectLineLine(A, B, ip, tip);
-            if (it != IT_NONE && tip)
-            {
-                tip1 = ip;
-                return 1;
-            }
-            return 0;
-        }
-
-        // LINE-ARC or ARC-LINE
-        if ((A.type == MOT_LINE && B.type == MOT_ARC) || (A.type == MOT_ARC && B.type == MOT_LINE))
-        {
-            const Move2D &L = (A.type == MOT_LINE) ? A : B;
-            const Move2D &C = (A.type == MOT_ARC) ? A : B;
-
-            Vec2 ip1{}, ip2{};
-            int count = 0;
-            IntersectType it = intersectLineCircle(L.p_0, L.p_1, C.center, C.radius, ip1, ip2, count);
-            if (it == IT_NONE)
-                return 0;
-
-            /* Pre-compute arc angles once (avoids redundant atan2f
-               when testing multiple candidate points on the same arc). */
-            ArcAngles ca = precomputeArcAngles(C);
-
-            int n = 0;
-            if (count >= 1 && pointOnSegment(L.p_0, L.p_1, ip1) && pointOnArcCached(C, ip1, ca))
-                tip1 = ip1, n++;
-            if (count == 2 && pointOnSegment(L.p_0, L.p_1, ip2) && pointOnArcCached(C, ip2, ca))
-            {
-                if (n == 0)
-                    tip1 = ip2;
-                else
-                    tip2 = ip2;
-                n++;
-            }
-            return n;
-        }
-
         // ARC-ARC
         if (A.type == MOT_ARC && B.type == MOT_ARC)
         {
             // early-out for chained or concentric arcs (important)
             if (is_near(A.p_1, B.p_0) || is_near(A.center, B.center))
                 return 0;
-
-            Vec2 ip1{}, ip2{};
-            int count = 0;
-            IntersectType it = intersectCircleCircle(A, B, ip1, ip2, count);
-            if (it == IT_NONE)
-                return 0;
-
-            /* Pre-compute arc angles once per arc — avoids up to 8 redundant
-               atan2f calls when testing two candidates against two arcs. */
-            ArcAngles aa = precomputeArcAngles(A);
-            ArcAngles ba = precomputeArcAngles(B);
-
-            int n = 0;
-            if (count >= 1 && pointOnArcCached(A, ip1, aa) && pointOnArcCached(B, ip1, ba))
-                tip1 = ip1, n++;
-            if (count == 2 && pointOnArcCached(A, ip2, aa) && pointOnArcCached(B, ip2, ba))
-            {
-                if (n == 0)
-                    tip1 = ip2;
-                else
-                    tip2 = ip2;
-                n++;
-            }
-            return n;
         }
 
-        return 0;
+        Vec2 pts[2]{};
+        int count = finiteIntersectionPoints(A, B, pts);
+        if (count >= 1)
+            tip1 = pts[0];
+        if (count >= 2)
+            tip2 = pts[1];
+        return count;
     }
 
     static AABB2 aabb_of(const Move2D &m)
@@ -1335,7 +1369,7 @@ public:
             bool shouldTrim = compInIdx != -1 && compOutIdx != -1 && srcIdx == compInIdx && hitTargetIdx == compOutIdx;
             if (!shouldTrim)
             {
-                (void)trimToTIP(moves[srcIdx], moves[hitTargetIdx], crossing.tip);
+                (void)trimTo(moves[srcIdx], moves[hitTargetIdx], crossing.tip);
                 CutterComp2D::invalidateRange(moves, srcIdx, hitTargetIdx);
             }
             // trimmedTo becomes new srcElement
