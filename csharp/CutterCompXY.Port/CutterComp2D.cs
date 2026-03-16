@@ -412,15 +412,15 @@ public sealed class CutterComp2D
         ArcDir preferredDir = useLeft ? ArcDir.ARC_CW : ArcDir.ARC_CCW;
         roll.arcDir = preferredDir;
 
-        const float turnEps = 1.0e-4f;
-        if (r0 >= CcConst.TOL && r1 >= CcConst.TOL)
-        {
-            float turnSign = CcMath.Cross(v0, v1) / (r0 * r1);
-            if (turnSign > turnEps && preferredDir != ArcDir.ARC_CCW)
-                roll.arcDir = ArcDir.ARC_CCW;
-            else if (turnSign < -turnEps && preferredDir != ArcDir.ARC_CW)
-                roll.arcDir = ArcDir.ARC_CW;
-        }
+        // const float turnEps = 1.0e-4f;
+        // if (r0 >= CcConst.TOL && r1 >= CcConst.TOL)
+        // {
+        //     float turnSign = CcMath.Cross(v0, v1) / (r0 * r1);
+        //     if (turnSign > turnEps && preferredDir != ArcDir.ARC_CCW)
+        //         roll.arcDir = ArcDir.ARC_CCW;
+        //     else if (turnSign < -turnEps && preferredDir != ArcDir.ARC_CW)
+        //         roll.arcDir = ArcDir.ARC_CW;
+        // }
 
         roll.valid = true;
         CcMath.UpdateVectors(ref roll);

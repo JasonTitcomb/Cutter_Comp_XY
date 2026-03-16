@@ -121,6 +121,7 @@ struct Move2D
   Vec2 p_0{0, 0}; // working start
   Vec2 p_1{0, 0}; // working end
   Vec2 center{0, 0};
+  Vec2 rollCtr{0, 0};// center of roll arc for corner treatment.
   Vec2 startDir{0, 0};
   Vec2 endDir{0, 0};
   float radius = 0.0f;
@@ -167,12 +168,12 @@ static void update_vectors(Move2D &m)
   m.endDir = {0, 0};
 }
 
-// Recover the original endpoint of an offset line segment
-static Vec2 original_endpoint(const Vec2 &p_offset, const Vec2 &dir, bool useLeft, float toolR)
-{
-  Vec2 normal = useLeft ? leftNormal(dir) : rightNormal(dir);
-  return p_offset - normal * toolR;
-}
+// // Recover the original endpoint of an offset line segment TODO:BUG:
+// static Vec2 original_endpoint(const Vec2 &p_offset, const Vec2 &dir, bool useLeft, float toolR)
+// {
+//   Vec2 normal = useLeft ? leftNormal(dir) : rightNormal(dir);
+//   return p_offset - normal * toolR;
+// }
 
 static bool is_radius_consistent(const Move2D &m)
 {

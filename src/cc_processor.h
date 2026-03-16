@@ -106,7 +106,7 @@ private:
                 if (len(m.p_1 - m.p_0) <= toolR)
                 {
                     reportCompError(CE_ARC_LT_TOOL_RAD);
-                    return false;
+                    //return false;
                 }
             }
             if (!options.globalTrimCrossing && comp_state == COMP_RIGHT && m.arcDir == ARC_CW)
@@ -114,7 +114,7 @@ private:
                 if (len(m.p_1 - m.p_0) <= toolR)
                 {
                     reportCompError(CE_ARC_LT_TOOL_RAD);
-                    return false;
+                    //return false;
                 }
             }
 
@@ -208,8 +208,8 @@ public:
     // Main pump
     bool process(void)
     {
-        if (hasCompError)
-            return false;
+        //if (hasCompError)
+        //    return false;
 
         while (inCount > 0)
         {
@@ -450,7 +450,7 @@ private:
     {
         // complete copy for non-comp moves or if tool radius is zero (also captures original vectors)
         dst = src;
-
+        dst.rollCtr = src.p_1; // default roll center is the end point.
         Vec2 v = src.p_1 - src.p_0;
         float l = len(v);
         if (l < TOL)
@@ -492,6 +492,8 @@ private:
 
         // complete copy.
         dst = src;
+        dst.rollCtr = src.p_1; // default roll center is the end point.
+
         validate(dst); // validate before offsetting
 
         float dr = toolR;
@@ -568,7 +570,7 @@ private:
         roll.p_1 = b.p_0;
 
         // Calculate the roll arc center using the angle bisector method
-        roll.center = original_endpoint(a.p_1, a.endDir, (comp_state == COMP_LEFT) ^ (toolSign < 0), toolR);
+        roll.center = a.rollCtr; 
 
         Vec2 v0 = roll.p_0 - roll.center;
         Vec2 v1 = roll.p_1 - roll.center;
@@ -601,23 +603,23 @@ private:
 
         roll.arcDir = preferredDir;
 
-        // Fast path: choose minor-arc direction from normalized turn sign.
-        // Keep preferred direction when near-ambiguous (0 or 180 deg).
-        const float turnEps = 1.0e-4f;
-        if (r0 >= TOL && r1 >= TOL)
-        {
-            float turnSign = cross(v0, v1) / (r0 * r1);
-            if (turnSign > turnEps)
-            {
-                if (preferredDir != ARC_CCW)
-                    roll.arcDir = ARC_CCW;
-            }
-            else if (turnSign < -turnEps)
-            {
-                if (preferredDir != ARC_CW)
-                    roll.arcDir = ARC_CW;
-            }
-        }
+        // // Fast path: choose minor-arc direction from normalized turn sign.
+        // // Keep preferred direction when near-ambiguous (0 or 180 deg).
+        // const float turnEps = 1.0e-4f;
+        // if (r0 >= TOL && r1 >= TOL)
+        // {
+        //     float turnSign = cross(v0, v1) / (r0 * r1);
+        //     if (turnSign > turnEps)
+        //     {
+        //         if (preferredDir != ARC_CCW)
+        //             roll.arcDir = ARC_CCW;
+        //     }
+        //     else if (turnSign < -turnEps)
+        //     {
+        //         if (preferredDir != ARC_CW)
+        //             roll.arcDir = ARC_CW;
+        //     }
+        // }
         roll.valid = true;
         update_vectors(roll);
         return roll;
@@ -669,7 +671,7 @@ private:
             haveExtB = true;
         }
 
-        Vec2 partCorner = original_endpoint(a.p_1, a.endDir, (comp_state == COMP_LEFT) ^ (toolSign < 0), toolR);
+        Vec2 partCorner = a.rollCtr;
         // create a bisector
 
         Vec2 vIn = normalize(l1.endDir * -1.0f);
@@ -1031,9 +1033,14 @@ private:
             }
         }
 
-        // fallback to roll or chamfer if no intersection or extension possible.
-        if (!insertRollOrCorner(a, b, inserts, insertCount))
-            reportCompError(CE_UNRESOLVED_GAP);
+        // If we get here: concave or no-good FIP -> just bevel.
+        // It's better to have a small bevel than an unresolved gap or weird logic issues later.
+        inserts[insertCount++] = makeBevel(a, b);
+        return;
+
+        // // fallback to roll or chamfer if no intersection or extension possible.
+        // if (!insertRollOrCorner(a, b, inserts, insertCount))
+        //     reportCompError(CE_UNRESOLVED_GAP);
     }
 
     // Returns 0..2 TIPs that lie on BOTH finite elements
