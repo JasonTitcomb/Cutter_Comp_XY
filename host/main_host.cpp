@@ -6,6 +6,7 @@
 #include <sstream>
 #include <cctype>
 #include <iostream>
+#include <iomanip>
 
 #define DBG_PRINTLN(x)             \
   do                               \
@@ -16,6 +17,8 @@
 
 #include "cc_simple_scan.h"
 #include "cc_main.h"
+#include "cc_xy_adapter.h"
+#include "cc_xy_core.h"
 #include "writer.h"
 /*
   This is a desktop test harness for the CutterComp2D class, which performs 2D cutter compensation on linear and arc moves.
@@ -29,7 +32,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.0020f;
+static constexpr float TOOL_RADIUS = -0.025f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;
 static constexpr bool OUTPUT_SVG = true;
@@ -53,6 +56,8 @@ static void host_output_cb(const char *text, size_t len)
 
 static void start_comp_cb(int toolRegister, int diaRegister)
 {
+  (void)toolRegister;
+  (void)diaRegister;
   // placeholder for start of comp callback, which could be used to log or track when compensation starts, and with which tool/dia registers.
 }
 
@@ -62,6 +67,28 @@ static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
     std::fprintf(stderr, "%s\n", message);
   if (err != CE_ERROR)
     std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
+}
+
+static void host_xy_error_cb(const char *message, CcXyCompError err, uint32_t seqNum)
+{
+  if (message)
+    std::fprintf(stderr, "[cc_xy] %s\n", message);
+  if (err != CCXY_CE_ERROR)
+    std::fprintf(stderr, "[cc_xy] CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
+}
+
+static std::vector<Move2D> *g_simpleProfileOut = nullptr;
+
+static void host_xy_emit_move_cb(const CcXyMove2D *move)
+{
+  if (!g_simpleProfileOut || !move)
+    return;
+  g_simpleProfileOut->push_back(ccxy_to_move2d(*move));
+}
+
+static void host_xy_core_error_cb(CcXyCompError err, uint32_t seqNum)
+{
+  host_xy_error_cb("core wrapper error", err, seqNum);
 }
 
 // -------------------- Profile buffer --------------------
@@ -114,6 +141,214 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
     }
   }
   return orig;
+}
+
+static bool run_profile_simple_xy(const std::vector<std::string> &program,
+                                  float toolRadius,
+                                  std::vector<Move2D> &profileOut)
+{
+  ModalState modal{};
+  modal.planeXY = true;
+  modal.absoluteMode = true;
+  modal.motionG = 0;
+  modal.comp = COMP_OFF;
+  modal.feed = 0;
+  modal.pos = v2(0, 0);
+  modal.z = 0.0f;
+
+  CcXyCoreRunner runner{};
+  CcXyCoreOptions options{};
+  options.toolRadius = toolRadius;
+  options.units = CCXY_UNITS_MM;
+  options.callbacks.emitMove = host_xy_emit_move_cb;
+  options.callbacks.error = host_xy_core_error_cb;
+
+  g_simpleProfileOut = &profileOut;
+  ccxy_core_begin(&runner, &options);
+
+  for (const auto &line : program)
+  {
+    char clean[160];
+    strip_comments(line.c_str(), clean, sizeof(clean));
+
+    ScanLine s;
+    scan_line(clean, s);
+
+    Move2D mv = interpret_move(s, modal);
+
+    ccxy_core_set_units(&runner, modal.inchMode ? CCXY_UNITS_INCH : CCXY_UNITS_MM);
+
+    if (s.sawG41 || s.sawG42)
+      ccxy_core_set_comp(&runner, ccxy_from_comp_side(modal.comp));
+
+    if (mv.type == MOT_EMPTY)
+    {
+      if (s.sawG40)
+      {
+        if (!ccxy_core_flush(&runner))
+        {
+          g_simpleProfileOut = nullptr;
+          return false;
+        }
+        ccxy_core_set_comp(&runner, CCXY_COMP_OFF);
+      }
+      continue;
+    }
+
+    CcXyMove2D xyMove = ccxy_from_move2d(mv);
+    if (!ccxy_core_process_move(&runner, &xyMove))
+    {
+      g_simpleProfileOut = nullptr;
+      return false;
+    }
+
+    if (s.sawG40)
+    {
+      if (!ccxy_core_flush(&runner))
+      {
+        g_simpleProfileOut = nullptr;
+        return false;
+      }
+      ccxy_core_set_comp(&runner, CCXY_COMP_OFF);
+    }
+  }
+
+  if (!ccxy_core_end(&runner))
+  {
+    g_simpleProfileOut = nullptr;
+    return false;
+  }
+
+  g_simpleProfileOut = nullptr;
+  return !runner.engine.hasCompError;
+}
+
+static const char *motion_type_name(MotionType type)
+{
+  switch (type)
+  {
+  case MOT_RAPID:
+    return "rapid";
+  case MOT_LINE:
+    return "line";
+  case MOT_ARC:
+    return "arc";
+  default:
+    return "empty";
+  }
+}
+
+static float compare_vec_delta(const Vec2 &a, const Vec2 &b)
+{
+  return len(a - b);
+}
+
+static void write_xy_compare_report(const char *path,
+                                    const std::vector<Move2D> &fullProfile,
+                                    const std::vector<Move2D> &simpleProfile)
+{
+  std::ofstream out(path);
+  const float compareTol = 0.001f;
+  const size_t sharedCount = std::min(fullProfile.size(), simpleProfile.size());
+  size_t mismatchCount = 0;
+  size_t typeMismatchCount = 0;
+  size_t invalidMismatchCount = 0;
+  int firstMismatch = -1;
+  float maxP0Delta = 0.0f;
+  float maxP1Delta = 0.0f;
+  float maxCenterDelta = 0.0f;
+  float maxRadiusDelta = 0.0f;
+  if (!out)
+    return;
+
+  out << "cc_xy comparison report\n";
+  out << "full profile count: " << fullProfile.size() << "\n";
+  out << "simple profile count: " << simpleProfile.size() << "\n";
+  out << "shared count: " << sharedCount << "\n";
+
+  for (size_t i = 0; i < sharedCount; ++i)
+  {
+    const Move2D &full = fullProfile[i];
+    const Move2D &simple = simpleProfile[i];
+    const float p0Delta = compare_vec_delta(full.p_0, simple.p_0);
+    const float p1Delta = compare_vec_delta(full.p_1, simple.p_1);
+    const float centerDelta = compare_vec_delta(full.center, simple.center);
+    const float radiusDelta = fabsf(full.radius - simple.radius);
+    bool mismatch = false;
+
+    if (p0Delta > maxP0Delta)
+      maxP0Delta = p0Delta;
+    if (p1Delta > maxP1Delta)
+      maxP1Delta = p1Delta;
+    if (centerDelta > maxCenterDelta)
+      maxCenterDelta = centerDelta;
+    if (radiusDelta > maxRadiusDelta)
+      maxRadiusDelta = radiusDelta;
+
+    if (full.type != simple.type)
+    {
+      ++typeMismatchCount;
+      mismatch = true;
+    }
+
+    if (full.valid != simple.valid)
+    {
+      ++invalidMismatchCount;
+      mismatch = true;
+    }
+
+    if (p0Delta > compareTol || p1Delta > compareTol)
+      mismatch = true;
+
+    if ((full.type == MOT_ARC || simple.type == MOT_ARC) &&
+        (centerDelta > compareTol || radiusDelta > compareTol))
+      mismatch = true;
+
+    if (!mismatch)
+      continue;
+
+    if (firstMismatch < 0)
+      firstMismatch = (int)i;
+
+    ++mismatchCount;
+    if (mismatchCount <= 20)
+    {
+      out << "\nindex " << i << " mismatch\n";
+      out << "  full   : type=" << motion_type_name(full.type)
+          << " seq=" << full.seqNum
+          << " p0=(" << full.p_0.x << ", " << full.p_0.y << ")"
+          << " p1=(" << full.p_1.x << ", " << full.p_1.y << ")"
+          << " r=" << full.radius << " valid=" << full.valid << "\n";
+      out << "  simple : type=" << motion_type_name(simple.type)
+          << " seq=" << simple.seqNum
+          << " p0=(" << simple.p_0.x << ", " << simple.p_0.y << ")"
+          << " p1=(" << simple.p_1.x << ", " << simple.p_1.y << ")"
+          << " r=" << simple.radius << " valid=" << simple.valid << "\n";
+      out << std::fixed << std::setprecision(6)
+          << "  delta  : p0=" << p0Delta
+          << " p1=" << p1Delta
+          << " center=" << centerDelta
+          << " radius=" << radiusDelta << "\n";
+      out.unsetf(std::ios::floatfield);
+    }
+  }
+
+  if (fullProfile.size() != simpleProfile.size())
+  {
+    out << "\ncount mismatch: full=" << fullProfile.size()
+        << " simple=" << simpleProfile.size() << "\n";
+  }
+
+  out << "\nsummary\n";
+  out << "  first mismatch index: " << firstMismatch << "\n";
+  out << "  mismatch count: " << mismatchCount << "\n";
+  out << "  type mismatch count: " << typeMismatchCount << "\n";
+  out << "  validity mismatch count: " << invalidMismatchCount << "\n";
+  out << std::fixed << std::setprecision(6)
+      << "  max p0 delta: " << maxP0Delta << "\n"
+      << "  max p1 delta: " << maxP1Delta << "\n"
+      << "  max center delta: " << maxCenterDelta << "\n"
+      << "  max radius delta: " << maxRadiusDelta << "\n";
 }
 
 static std::string basename_no_ext(const std::string &path)
@@ -270,6 +505,8 @@ int main(int argc, char *argv[])
 
   const std::string outBaseName = inputBaseName;
   const std::string svgPath = outputFolder + outBaseName + ".svg";
+  const std::string simpleSvgPath = outputFolder + outBaseName + ".xy.svg";
+  const std::string comparePath = outputFolder + outBaseName + ".xy.compare.txt";
   const std::string ngcPath = outputFolder + outBaseName + inputExt;
 
   const bool isvalid = run_profile_streaming(input_file, ngcPath.c_str(), toolRadius, cornerTreatment);
@@ -280,19 +517,32 @@ int main(int argc, char *argv[])
   if (program.empty())
     return 1;
 
+  std::vector<Move2D> simpleCompensated;
+  const bool simpleValid = run_profile_simple_xy(program, toolRadius, simpleCompensated);
+  if (!simpleValid)
+    std::puts("(warning: standalone cc_xy validation failed)");
+
   if (outputSVG)
   {
     auto orig = build_original_moves(program);
     std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
     auto compensated = build_original_moves(compProgram);
+    write_xy_compare_report(comparePath.c_str(), compensated, simpleCompensated);
 
     write_svg(svgPath.c_str(), compensated, &orig, false, true, fabs(toolRadius * 2.0f),
               false, true, false, inputBaseName.c_str(), toolRadius); // mirror for better visualization
-    std::printf("Wrote: %s, %s\n", svgPath.c_str(), ngcPath.c_str());
+    write_svg(simpleSvgPath.c_str(), simpleCompensated, &orig, false, true, fabs(toolRadius * 2.0f),
+              false, true, false, inputBaseName.c_str(), toolRadius);
+    std::printf("Wrote: %s, %s, %s, %s\n", svgPath.c_str(), simpleSvgPath.c_str(), comparePath.c_str(), ngcPath.c_str());
   }
   else
   {
+    std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
+    auto compensated = build_original_moves(compProgram);
+    write_xy_compare_report(comparePath.c_str(), compensated, simpleCompensated);
     std::printf("Wrote: %s\n", ngcPath.c_str());
+    std::printf("Standalone cc_xy moves: %zu\n", simpleCompensated.size());
+    std::printf("Compare report: %s\n", comparePath.c_str());
   }
   return 0;
 }

@@ -1077,7 +1077,12 @@ private:
             return;
         }
 
-        reportCompError(CE_UNRESOLVED_GAP);
+        // if we are going to do a global trim then we can ignore
+        if(!options.globalTrimCrossing)
+            reportCompError(CE_UNRESOLVED_GAP);
+        
+        inserts[insertCount++] = makeBevel(a, b);
+        
     }
 
     void handleArcLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
@@ -1129,7 +1134,11 @@ private:
             return;
         }
 
-        reportCompError(CE_UNRESOLVED_GAP);
+        // if we are going to do a global trim then we can ignore
+        if(!options.globalTrimCrossing)
+            reportCompError(CE_UNRESOLVED_GAP);
+        
+        inserts[insertCount++] = makeBevel(a, b);
     }
 
     // Returns 0..2 TIPs that lie on BOTH finite elements
