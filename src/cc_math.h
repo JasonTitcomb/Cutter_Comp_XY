@@ -18,7 +18,7 @@
 #define TWO_PI 6.2831853071795864769f
 #define MAX_SWEEP_DEG 359.9f
 #define MIN_ARC_LEN 0.001f
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 
 float arcTol = ARC_TOL_IN;
 float gapTol = GAP_TOL_IN;
@@ -168,7 +168,7 @@ static void update_vectors(Move2D &m)
 }
 
 // Recover the original endpoint of an offset line segment
-static Vec2 original_endpoint(const Vec2 &p_offset, const Vec2 &dir, bool useLeft, float toolR)
+static Vec2 roll_center(const Vec2 &p_offset, const Vec2 &dir, bool useLeft, float toolR)
 {
   Vec2 normal = useLeft ? leftNormal(dir) : rightNormal(dir);
   return p_offset - normal * toolR;

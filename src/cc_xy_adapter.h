@@ -1,54 +1,44 @@
 #pragma once
 
 #include "cc_math.h"
-#include "cc_xy.h"
+#include "../mcu/cutter_comp.h"
 
-static inline CcXyVec2 ccxy_from_vec2(const Vec2 &v)
+static inline vec2 cc_from_vec2(const Vec2 &v)
 {
-    return ccxy_v2(v.x, v.y);
+    return cc_v2(v.x, v.y);
 }
 
-static inline Vec2 ccxy_to_vec2(const CcXyVec2 &v)
+static inline Vec2 cc_to_vec2(const vec2 &v)
 {
     return v2(v.x, v.y);
 }
 
-static inline CcXyCompSide ccxy_from_comp_side(CompSide side)
+static inline comp_side cc_from_comp_side(CompSide side)
 {
     if (side == COMP_LEFT)
-        return CCXY_COMP_LEFT;
+        return CC_COMP_LEFT;
     if (side == COMP_RIGHT)
-        return CCXY_COMP_RIGHT;
-    return CCXY_COMP_OFF;
+        return CC_COMP_RIGHT;
+    return CC_COMP_OFF;
 }
 
-static inline CompSide ccxy_to_comp_side(CcXyCompSide side)
+static inline CompSide cc_to_comp_side(comp_side side)
 {
-    if (side == CCXY_COMP_LEFT)
+    if (side == CC_COMP_LEFT)
         return COMP_LEFT;
-    if (side == CCXY_COMP_RIGHT)
+    if (side == CC_COMP_RIGHT)
         return COMP_RIGHT;
     return COMP_OFF;
 }
 
-static inline CcXyUnits ccxy_from_units(Units units)
+static inline move2d cc_from_move2d(const Move2D &src)
 {
-    return (units == UNITS_INCH) ? CCXY_UNITS_INCH : CCXY_UNITS_MM;
-}
-
-static inline Units ccxy_to_units(CcXyUnits units)
-{
-    return (units == CCXY_UNITS_INCH) ? UNITS_INCH : UNITS_MM;
-}
-
-static inline CcXyMove2D ccxy_from_move2d(const Move2D &src)
-{
-    CcXyMove2D dst{};
-    dst.p_0 = ccxy_from_vec2(src.p_0);
-    dst.p_1 = ccxy_from_vec2(src.p_1);
-    dst.center = ccxy_from_vec2(src.center);
-    dst.startDir = ccxy_from_vec2(src.startDir);
-    dst.endDir = ccxy_from_vec2(src.endDir);
+    move2d dst{};
+    dst.p_0 = cc_from_vec2(src.p_0);
+    dst.p_1 = cc_from_vec2(src.p_1);
+    dst.center = cc_from_vec2(src.center);
+    dst.startDir = cc_from_vec2(src.startDir);
+    dst.endDir = cc_from_vec2(src.endDir);
     dst.radius = src.radius;
     dst.feed = src.feed;
     dst.z_0 = src.z_0;
@@ -57,20 +47,18 @@ static inline CcXyMove2D ccxy_from_move2d(const Move2D &src)
     dst.type = (uint8_t)src.type;
     dst.arcDir = (uint8_t)src.arcDir;
     dst.compMode = (uint8_t)src.compMode;
-    dst.hasXY = src.hasXY;
-    dst.hasZ = src.hasZ;
     dst.valid = src.valid;
     return dst;
 }
 
-static inline Move2D ccxy_to_move2d(const CcXyMove2D &src)
+static inline Move2D cc_to_move2d(const move2d &src)
 {
     Move2D dst{};
-    dst.p_0 = ccxy_to_vec2(src.p_0);
-    dst.p_1 = ccxy_to_vec2(src.p_1);
-    dst.center = ccxy_to_vec2(src.center);
-    dst.startDir = ccxy_to_vec2(src.startDir);
-    dst.endDir = ccxy_to_vec2(src.endDir);
+    dst.p_0 = cc_to_vec2(src.p_0);
+    dst.p_1 = cc_to_vec2(src.p_1);
+    dst.center = cc_to_vec2(src.center);
+    dst.startDir = cc_to_vec2(src.startDir);
+    dst.endDir = cc_to_vec2(src.endDir);
     dst.radius = src.radius;
     dst.feed = src.feed;
     dst.z_0 = src.z_0;
@@ -79,8 +67,6 @@ static inline Move2D ccxy_to_move2d(const CcXyMove2D &src)
     dst.type = (MotionType)src.type;
     dst.arcDir = (ArcDir)src.arcDir;
     dst.compMode = (CompMode)src.compMode;
-    dst.hasXY = src.hasXY;
-    dst.hasZ = src.hasZ;
     dst.valid = src.valid;
     return dst;
 }

@@ -1,8 +1,26 @@
 ================================================================================
 Linker Errors
-Generated: 2026-03-07T14:31:40.829Z
-Total Errors: 1
+Generated: 2026-03-16T19:36:39.028Z
+Total Errors: 7
 ================================================================================
 
-[LNK1168] (MSVC)
-cannot open D:\Repos\Cutter_Comp_XY\build\Debug\cuttercomp_host.exe for writing [D:\Repos\Cutter_Comp_XY\build\cuttercomp_host.vcxproj]
+[LNK2019] (MSVC)
+unresolved external symbol _cc_v2 referenced in function "struct vec2 __cdecl cc_from_vec2(struct Vec2 const &)" (?cc_from_vec2@@YA?AUvec2@@ABUVec2@@@Z) [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_core_begin referenced in function "bool __cdecl run_profile_simple_xy(class std::vector<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >,class std::allocator<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > > const &,float,class std::vector<struct Move2D,class std::allocator<struct Move2D> > &)" (?run_profile_simple_xy@@YA_NABV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@std@@MAAV?$vector@UMove2D@@V?$allocator@UMove2D@@@std@@@2@@Z) [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_core_process_move referenced in function "bool __cdecl run_profile_simple_xy(class std::vector<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >,class std::allocator<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > > const &,float,class std::vector<struct Move2D,class std::allocator<struct Move2D> > &)" (?run_profile_simple_xy@@YA_NABV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@std@@MAAV?$vector@UMove2D@@V?$allocator@UMove2D@@@std@@@2@@Z) [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_core_flush referenced in function "bool __cdecl run_profile_simple_xy(class std::vector<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >,class std::allocator<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > > const &,float,class std::vector<struct Move2D,class std::allocator<struct Move2D> > &)" (?run_profile_simple_xy@@YA_NABV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@std@@MAAV?$vector@UMove2D@@V?$allocator@UMove2D@@@std@@@2@@Z) [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_core_end referenced in function "bool __cdecl run_profile_simple_xy(class std::vector<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >,class std::allocator<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > > const &,float,class std::vector<struct Move2D,class std::allocator<struct Move2D> > &)" (?run_profile_simple_xy@@YA_NABV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@std@@MAAV?$vector@UMove2D@@V?$allocator@UMove2D@@@std@@@2@@Z) [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_core_set_comp referenced in function "bool __cdecl run_profile_simple_xy(class std::vector<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >,class std::allocator<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > > const &,float,class std::vector<struct Move2D,class std::allocator<struct Move2D> > &)" (?run_profile_simple_xy@@YA_NABV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@std@@MAAV?$vector@UMove2D@@V?$allocator@UMove2D@@@std@@@2@@Z) [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK1120] (MSVC)
+6 unresolved externals [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]

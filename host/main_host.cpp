@@ -18,7 +18,6 @@
 #include "cc_simple_scan.h"
 #include "cc_main.h"
 #include "cc_xy_adapter.h"
-#include "cc_xy_core.h"
 #include "writer.h"
 /*
   This is a desktop test harness for the CutterComp2D class, which performs 2D cutter compensation on linear and arc moves.
@@ -32,9 +31,10 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = -0.025f;
+static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;
+static constexpr bool GLOBAL_MERGE = false;
 static constexpr bool OUTPUT_SVG = true;
 
 // ------------------------------------------------
@@ -69,26 +69,21 @@ static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
     std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
 }
 
-static void host_xy_error_cb(const char *message, CcXyCompError err, uint32_t seqNum)
+static void host_xy_error_cb(const char *message, cc_comp_error err, uint32_t seqNum)
 {
   if (message)
     std::fprintf(stderr, "[cc_xy] %s\n", message);
-  if (err != CCXY_CE_ERROR)
+  if (err != CC_CE_ERROR)
     std::fprintf(stderr, "[cc_xy] CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
 }
 
 static std::vector<Move2D> *g_simpleProfileOut = nullptr;
 
-static void host_xy_emit_move_cb(const CcXyMove2D *move)
+static void host_xy_emit_move_cb(const move2d *move)
 {
   if (!g_simpleProfileOut || !move)
     return;
-  g_simpleProfileOut->push_back(ccxy_to_move2d(*move));
-}
-
-static void host_xy_core_error_cb(CcXyCompError err, uint32_t seqNum)
-{
-  host_xy_error_cb("core wrapper error", err, seqNum);
+  g_simpleProfileOut->push_back(cc_to_move2d(*move));
 }
 
 // -------------------- Profile buffer --------------------
@@ -156,15 +151,10 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
   modal.pos = v2(0, 0);
   modal.z = 0.0f;
 
-  CcXyCoreRunner runner{};
-  CcXyCoreOptions options{};
-  options.toolRadius = toolRadius;
-  options.units = CCXY_UNITS_MM;
-  options.callbacks.emitMove = host_xy_emit_move_cb;
-  options.callbacks.error = host_xy_core_error_cb;
+  cc_api_set_tool_radius(toolRadius);
+  cc_api_set_callbacks(host_xy_emit_move_cb, host_xy_error_cb);
 
   g_simpleProfileOut = &profileOut;
-  ccxy_core_begin(&runner, &options);
 
   for (const auto &line : program)
   {
@@ -176,27 +166,25 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     Move2D mv = interpret_move(s, modal);
 
-    ccxy_core_set_units(&runner, modal.inchMode ? CCXY_UNITS_INCH : CCXY_UNITS_MM);
-
     if (s.sawG41 || s.sawG42)
-      ccxy_core_set_comp(&runner, ccxy_from_comp_side(modal.comp));
+      cc_api_set_comp(cc_from_comp_side(modal.comp));
 
     if (mv.type == MOT_EMPTY)
     {
       if (s.sawG40)
       {
-        if (!ccxy_core_flush(&runner))
+        if (!cc_api_process_move(nullptr))
         {
           g_simpleProfileOut = nullptr;
           return false;
         }
-        ccxy_core_set_comp(&runner, CCXY_COMP_OFF);
+        cc_api_set_comp(CC_COMP_OFF);
       }
       continue;
     }
 
-    CcXyMove2D xyMove = ccxy_from_move2d(mv);
-    if (!ccxy_core_process_move(&runner, &xyMove))
+    move2d xyMove = cc_from_move2d(mv);
+    if (!cc_api_process_move(&xyMove))
     {
       g_simpleProfileOut = nullptr;
       return false;
@@ -204,23 +192,23 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     if (s.sawG40)
     {
-      if (!ccxy_core_flush(&runner))
+      if (!cc_api_process_move(nullptr))
       {
         g_simpleProfileOut = nullptr;
         return false;
       }
-      ccxy_core_set_comp(&runner, CCXY_COMP_OFF);
+      cc_api_set_comp(CC_COMP_OFF);
     }
   }
 
-  if (!ccxy_core_end(&runner))
+  if (!cc_api_process_move(nullptr))
   {
     g_simpleProfileOut = nullptr;
     return false;
   }
 
   g_simpleProfileOut = nullptr;
-  return !runner.engine.hasCompError;
+  return true;
 }
 
 static const char *motion_type_name(MotionType type)
@@ -392,6 +380,7 @@ static bool run_profile_streaming(const char *inputPath,
   options.toolRadius = toolRadius;
   options.cornerTreatment = cornerTreatment;
   options.globalTrimCrossing = GLOBAL_TRIM_CROSSING;
+  options.globalMerge = GLOBAL_MERGE;
   options.callbacks.output = host_output_cb;
   options.callbacks.error = host_error_cb;
   options.callbacks.startComp = start_comp_cb;
@@ -428,7 +417,7 @@ int main(int argc, char *argv[])
   //  const char *default_file = "../../data/RapidComp.nc";
   //  const char *default_file = "../../data/G41_1.nc";
   // const char *default_file = "../../data/ThreadMill.nc";
-  const char *default_file = "../../data/G41_2.nc";
+  //const char *default_file = "../../data/G41_2.nc";
   //  const char *default_file = "../../data/TortureTestG91.nc";
   //  const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
@@ -439,7 +428,7 @@ int main(int argc, char *argv[])
   // const char *default_file = "../../data/ArcTooSmall.nc";
   // const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
-  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+   const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //  const char *default_file = "../../data/SimpleSquarePocket.nc";
   // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   // const char *default_file = "../../data/CompErrorTest.nc";

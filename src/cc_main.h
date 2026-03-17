@@ -567,13 +567,18 @@ private:
             if (!cc_.trimCrossingElements(profile_, aabbs, srcIdx, currentProfileCount, MAX_LOOKAHEAD, retTargetIdx))
                 return false;
 
-            int mergeStart = trimStart;
+        }
+
+        if (options_.globalMerge)
+        {
+           int mergeStart = trimStart;
             if (mergeStart > emittedProfileCount_)
                 mergeStart -= 1;
 
             cc_.merge_all_colinear(profile_ + mergeStart, currentProfileCount - mergeStart);
-        }
-
+         }
+ 
+ 
         int nextTrimStart = currentProfileCount - TRIM_OVERLAP_MOVES;
         if (nextTrimStart < emittedProfileCount_)
             nextTrimStart = emittedProfileCount_;

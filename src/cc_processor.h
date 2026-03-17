@@ -35,6 +35,7 @@ struct CcMainOptions
     float toolRadius = 0.0f;
     CornerType cornerTreatment = CORNER_ROLL;
     bool globalTrimCrossing = true;
+    bool globalMerge = true;
     bool emitStatusComments = true;
 };
 
@@ -44,7 +45,6 @@ enum JunctionType : uint8_t
     JT_TRIM_TO_INTERSECTION,
     JT_EXTEND_TO_INTERSECTION,
     JT_ROLL_AROUND,
-    JT_GOUGE
 };
 
 struct Junction
@@ -100,6 +100,25 @@ private:
         }
     }
 
+    CompSide effectiveCompSide() const
+    {
+        if (toolSign >= 0)
+            return comp_state;
+
+        if (comp_state == COMP_LEFT)
+            return COMP_RIGHT;
+
+        if (comp_state == COMP_RIGHT)
+            return COMP_LEFT;
+
+        return comp_state;
+    }
+
+    bool compUsesLeft() const
+    {
+        return effectiveCompSide() == COMP_LEFT;
+    }
+
     // --- Moved from cc_math.h ---
     bool validate(Move2D &m)
     {
@@ -114,9 +133,10 @@ private:
         }
         if (m.type == MOT_ARC)
         {
+            CompSide side = effectiveCompSide();
             // if we are not going to do global trim then we should test arc validity here, because we won't have another chance to validate before output.
             // if comp left and arc is CCW, then the arc must be  > tool rad.
-            if (!options.globalTrimCrossing && comp_state == COMP_LEFT && m.arcDir == ARC_CCW)
+            if (!options.globalTrimCrossing && side == COMP_LEFT && m.arcDir == ARC_CCW)
             {
                 if (len(m.p_1 - m.p_0) <= toolR)
                 {
@@ -124,7 +144,7 @@ private:
                     return false;
                 }
             }
-            if (!options.globalTrimCrossing && comp_state == COMP_RIGHT && m.arcDir == ARC_CW)
+            if (!options.globalTrimCrossing && side == COMP_RIGHT && m.arcDir == ARC_CW)
             {
                 if (len(m.p_1 - m.p_0) <= toolR)
                 {
@@ -377,9 +397,7 @@ private:
         if (cw == 0)
             return false;
 
-        bool isLeft = (comp_state == COMP_LEFT);
-        if (toolSign < 0)
-            isLeft = !isLeft;
+        bool isLeft = compUsesLeft();
 
         if (isLeft)
             return !(cw > 0);
@@ -517,7 +535,7 @@ private:
             return true;
         }
 
-        outjunc.type = JT_GOUGE;
+        outjunc.type = JT_NONE;
         return false;
     }
 
@@ -605,9 +623,7 @@ private:
         Vec2 u = v * (1.0f / l);
 
         // Apply toolSign to flip the offset direction if negative tool radius
-        bool useLeft = (comp_state == COMP_LEFT);
-        if (toolSign < 0)
-            useLeft = !useLeft;
+        bool useLeft = compUsesLeft();
 
         Vec2 n = useLeft ? leftNormal(u) : rightNormal(u);
         Vec2 off = n * toolR;
@@ -640,10 +656,7 @@ private:
 
         float dr = toolR;
         bool ccw = (src.arcDir == ARC_CCW);
-        // Apply toolSign to flip the offset side if negative tool radius
-        bool left = (comp_state == COMP_LEFT);
-        if (toolSign < 0)
-            left = !left;
+        bool left = compUsesLeft();
 
         float r1;
         if (ccw)
@@ -712,7 +725,7 @@ private:
         roll.p_1 = b.p_0;
 
         // Calculate the roll arc center using the angle bisector method
-        roll.center = original_endpoint(a.p_1, a.endDir, (comp_state == COMP_LEFT) ^ (toolSign < 0), toolR);
+        roll.center = roll_center(a.p_1, a.endDir, compUsesLeft(), toolR);
 
         Vec2 v0 = roll.p_0 - roll.center;
         Vec2 v1 = roll.p_1 - roll.center;
@@ -737,31 +750,12 @@ private:
         roll.radius = r;
 
         // Apply toolSign flip to arc direction
-        bool useLeft = (comp_state == COMP_LEFT);
-        if (toolSign < 0)
-            useLeft = !useLeft;
+        bool useLeft = compUsesLeft();
 
         ArcDir preferredDir = useLeft ? ARC_CW : ARC_CCW;
 
         roll.arcDir = preferredDir;
 
-        // Fast path: choose minor-arc direction from normalized turn sign.
-        // Keep preferred direction when near-ambiguous (0 or 180 deg).
-        const float turnEps = 1.0e-4f;
-        if (r0 >= TOL && r1 >= TOL)
-        {
-            float turnSign = cross(v0, v1) / (r0 * r1);
-            if (turnSign > turnEps)
-            {
-                if (preferredDir != ARC_CCW)
-                    roll.arcDir = ARC_CCW;
-            }
-            else if (turnSign < -turnEps)
-            {
-                if (preferredDir != ARC_CW)
-                    roll.arcDir = ARC_CW;
-            }
-        }
         roll.valid = true;
         update_vectors(roll);
         return roll;
@@ -813,7 +807,7 @@ private:
             haveExtB = true;
         }
 
-        Vec2 partCorner = original_endpoint(a.p_1, a.endDir, (comp_state == COMP_LEFT) ^ (toolSign < 0), toolR);
+        Vec2 partCorner = roll_center(a.p_1, a.endDir, compUsesLeft(), toolR);
         // create a bisector
 
         Vec2 vIn = normalize(l1.endDir * -1.0f);
@@ -1070,39 +1064,20 @@ private:
                 return;
         }
 
-        if (resolved && junction.type == JT_ROLL_AROUND)
+        if (insertRollOrCorner(a, b, inserts, insertCount))
         {
-            if (!insertRollOrCorner(a, b, inserts, insertCount))
-                reportCompError(CE_UNRESOLVED_GAP);
             return;
         }
-
-        // if we are going to do a global trim then we can ignore
-        if(!options.globalTrimCrossing)
-            reportCompError(CE_UNRESOLVED_GAP);
-        
-        inserts[insertCount++] = makeBevel(a, b);
-        
+        else
+        {
+            // if we are going to do a global trim then we can ignore
+            if (!options.globalTrimCrossing)
+                reportCompError(CE_UNRESOLVED_GAP);
+        }
     }
 
     void handleArcLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
-        // Determine which is arc/line
-        Move2D *arc = nullptr;
-        Move2D *lin = nullptr;
-        bool arcFirst = (a.type == MOT_ARC);
-
-        if (arcFirst)
-        {
-            arc = &a;
-            lin = &b;
-        }
-        else
-        {
-            arc = &b;
-            lin = &a;
-        }
-
         // trivial check for chained elements
         // chained arc/line implies tangent if created from offsetting tangent adjacent elements.
         if (is_near(a.p_1, b.p_0))
@@ -1135,9 +1110,9 @@ private:
         }
 
         // if we are going to do a global trim then we can ignore
-        if(!options.globalTrimCrossing)
+        if (!options.globalTrimCrossing)
             reportCompError(CE_UNRESOLVED_GAP);
-        
+
         inserts[insertCount++] = makeBevel(a, b);
     }
 

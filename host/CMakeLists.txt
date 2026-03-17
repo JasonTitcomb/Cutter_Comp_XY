@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.16)
-project(cc_runner LANGUAGES CXX)
+project(cc_runner LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(cc_runner
   main_host.cpp
+  ../mcu/cutter_comp.c
 )
 
 # Adjust this include path list to match your repo.
