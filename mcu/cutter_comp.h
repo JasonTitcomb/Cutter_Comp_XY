@@ -18,7 +18,6 @@
 extern "C" {
 #endif
 
-
 #define CC_IN_CAP 2
 #define CC_INSERT_CAP 1
 
@@ -103,17 +102,18 @@ typedef enum
 
 typedef enum
 {
-    CC_CE_ERROR = 0,
-    CC_CE_ARC_RADIUS_MISMATCH,
-    CC_CE_INVALID_MOVE,
-    CC_CE_COMP_MOVE_TOO_SHORT,
-    CC_CE_ARC_LT_TOOL_RAD,
-    CC_CE_FLIPPED_ARC,
-    CC_CE_COMP_IN_CROSSING,
-    CC_CE_COMP_OUT_CROSSING,
-    CC_CE_UNRESOLVED_GAP,
-    CC_CE_OUTPUT_BUFFER_OVERFLOW
-} cc_comp_error;
+    CC_OK = 0,
+    CC_ERROR,
+    CC_ARC_RADIUS_MISMATCH,
+    CC_INVALID_MOVE,
+    CC_COMP_MOVE_TOO_SHORT,
+    CC_ARC_LT_TOOL_RAD,
+    CC_FLIPPED_ARC,
+    CC_COMP_IN_CROSSING,
+    CC_COMP_OUT_CROSSING,
+    CC_UNRESOLVED_GAP,
+    CC_OUTPUT_BUFFER_OVERFLOW
+} cc_comp_status;
 
 
 typedef struct
@@ -134,7 +134,7 @@ typedef struct
     bool valid;
 } move2d;
 
-typedef void (*cc_err_cb)(const char *message, cc_comp_error err, uint32_t seqNum);
+typedef void (*cc_err_cb)(const char *message, cc_comp_status err, uint32_t seqNum);
 typedef void (*emit_move_cb)(const move2d *move);
 
 typedef enum
@@ -160,8 +160,7 @@ typedef struct
 
 typedef struct
 {
-    cc_err_cb errorCB;
-    cc_comp_error lastError;
+    cc_comp_status status;
 
     float toolR;
     int8_t toolSign;
@@ -186,11 +185,9 @@ typedef struct
 
 vec2 cc_v2(float x, float y);
 
-void cc_api_set_callbacks(emit_move_cb emitCb, cc_err_cb errCb);
-bool cc_api_process_move(const move2d *move);
+void cc_api_init(float radius,emit_move_cb emitCb, cc_err_cb errCb);
+cc_comp_status cc_api_process_move(const move2d *move);
 void cc_api_set_comp(comp_side side);
-void cc_api_set_tool_radius(float radius);
-
 
 #ifdef __cplusplus
 }

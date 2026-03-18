@@ -1,14 +1,116 @@
 cc_xy comparison report
-full profile count: 86
+full profile count: 85
 simple profile count: 86
-shared count: 86
+shared count: 85
+
+index 7 mismatch
+  full   : type=arc seq=15 p0=(0, 0.2232) p1=(0, 0.2376) r=0.0072 valid=1
+  simple : type=arc seq=0 p0=(0, 0.2232) p1=(0.0072, 0.2304) r=0.0072 valid=1
+  delta  : p0=0.000000 p1=0.010182 center=0.000000 radius=0.000000
+
+index 8 mismatch
+  full   : type=arc seq=0 p0=(0, 0.2376) p1=(-0.0625, 0.3001) r=0.0625 valid=1
+  simple : type=arc seq=0 p0=(0.0072, 0.2304) p1=(0, 0.2376) r=0.0072 valid=1
+  delta  : p0=0.010182 p1=0.088388 center=0.069700 radius=0.055300
+
+index 9 mismatch
+  full   : type=line seq=17 p0=(-0.0625, 0.3001) p1=(-0.0625, 0.3431) r=0 valid=1
+  simple : type=arc seq=0 p0=(0, 0.2376) p1=(-0.0625, 0.3001) r=0.0625 valid=1
+  delta  : p0=0.088388 p1=0.043000 center=0.300100 radius=0.062500
+
+index 10 mismatch
+  full   : type=arc seq=0 p0=(-0.0625, 0.3431) p1=(0, 0.4056) r=0.0625 valid=1
+  simple : type=line seq=0 p0=(-0.0625, 0.3001) p1=(-0.0625, 0.3431) r=0 valid=1
+  delta  : p0=0.043000 p1=0.088388 center=0.343100 radius=0.062500
+
+index 11 mismatch
+  full   : type=arc seq=18 p0=(0, 0.4056) p1=(0, 0.4172) r=0.00580001 valid=1
+  simple : type=arc seq=0 p0=(-0.0625, 0.3431) p1=(0, 0.4056) r=0.0625 valid=1
+  delta  : p0=0.088388 p1=0.011600 center=0.068300 radius=0.056700
+
+index 12 mismatch
+  full   : type=arc seq=0 p0=(0, 0.4172) p1=(-0.0625, 0.4797) r=0.0625 valid=1
+  simple : type=arc seq=0 p0=(0, 0.4056) p1=(0, 0.4172) r=0.00580001 valid=1
+  delta  : p0=0.011600 p1=0.088388 center=0.068300 radius=0.056700
+
+index 13 mismatch
+  full   : type=line seq=19 p0=(-0.0625, 0.4797) p1=(-0.0625, 0.5134) r=0 valid=1
+  simple : type=arc seq=0 p0=(0, 0.4172) p1=(-0.0625, 0.4797) r=0.0625 valid=1
+  delta  : p0=0.088388 p1=0.033700 center=0.479700 radius=0.062500
+
+index 14 mismatch
+  full   : type=arc seq=0 p0=(-0.0625, 0.5134) p1=(-0.0141, 0.5743) r=0.0625 valid=1
+  simple : type=line seq=0 p0=(-0.0625, 0.4797) p1=(-0.0625, 0.5134) r=0 valid=1
+  delta  : p0=0.033700 p1=0.077791 center=0.513400 radius=0.062500
+
+index 15 mismatch
+  full   : type=arc seq=0 p0=(-0.0141, 0.5743) p1=(-0.0625, 0.6352) r=0.0625109 valid=1
+  simple : type=arc seq=0 p0=(-0.0625, 0.5134) p1=(-0.0140512, 0.5743) r=0.0625 valid=1
+  delta  : p0=0.077791 p1=0.077821 center=0.121800 radius=0.000011
+
+index 16 mismatch
+  full   : type=line seq=21 p0=(-0.0625, 0.6352) p1=(-0.0625, 0.6612) r=0 valid=1
+  simple : type=arc seq=0 p0=(-0.0140512, 0.5743) p1=(-0.0625, 0.6352) r=0.0625 valid=1
+  delta  : p0=0.077821 p1=0.026000 center=0.635200 radius=0.062500
+
+index 17 mismatch
+  full   : type=arc seq=0 p0=(-0.0625, 0.6612) p1=(-0.0141, 0.7221) r=0.0625 valid=1
+  simple : type=line seq=0 p0=(-0.0625, 0.6352) p1=(-0.0625, 0.6612) r=0 valid=1
+  delta  : p0=0.026000 p1=0.077791 center=0.661200 radius=0.062500
+
+index 18 mismatch
+  full   : type=arc seq=0 p0=(-0.0141, 0.7221) p1=(-0.0625, 0.7831) r=0.0625109 valid=1
+  simple : type=arc seq=0 p0=(-0.0625, 0.6612) p1=(-0.0140516, 0.7221) r=0.0625 valid=1
+  delta  : p0=0.077791 p1=0.077899 center=0.121800 radius=0.000011
+
+index 19 mismatch
+  full   : type=line seq=23 p0=(-0.0625, 0.7831) p1=(-0.0625, 1.0238) r=0 valid=1
+  simple : type=arc seq=0 p0=(-0.0140516, 0.7221) p1=(-0.0625, 0.7831) r=0.0625 valid=1
+  delta  : p0=0.077899 p1=0.240700 center=0.783000 radius=0.062500
+
+index 20 mismatch
+  full   : type=arc seq=0 p0=(-0.0625, 1.0238) p1=(-0.0431, 1.069) r=0.0625 valid=1
+  simple : type=line seq=0 p0=(-0.0625, 0.7831) p1=(-0.0625, 1.0238) r=0 valid=1
+  delta  : p0=0.240700 p1=0.049187 center=1.023800 radius=0.062500
+
+index 21 mismatch
+  full   : type=arc seq=0 p0=(-0.0431, 1.069) p1=(-0.0625, 1.1143) r=0.0625276 valid=1
+  simple : type=arc seq=0 p0=(-0.0625, 1.0238) p1=(-0.0431125, 1.06905) r=0.0625 valid=1
+  delta  : p0=0.049187 p1=0.049228 center=0.090500 radius=0.000028
+
+index 22 mismatch
+  full   : type=line seq=29 p0=(-0.0625, 1.1143) p1=(-0.0625, 1.2416) r=0 valid=1
+  simple : type=arc seq=0 p0=(-0.0431125, 1.06905) p1=(-0.0625, 1.1143) r=0.0625 valid=1
+  delta  : p0=0.049228 p1=0.127300 center=1.114300 radius=0.062500
+
+index 23 mismatch
+  full   : type=arc seq=0 p0=(-0.0625, 1.2416) p1=(-0.0362, 1.2925) r=0.0625 valid=1
+  simple : type=line seq=0 p0=(-0.0625, 1.1143) p1=(-0.0625, 1.2416) r=0 valid=1
+  delta  : p0=0.127300 p1=0.057293 center=1.241600 radius=0.062500
+
+index 24 mismatch
+  full   : type=arc seq=0 p0=(-0.0362, 1.2925) p1=(-0.0625, 1.3435) r=0.0625415 valid=1
+  simple : type=arc seq=0 p0=(-0.0625, 1.2416) p1=(-0.0361987, 1.29255) r=0.0625 valid=1
+  delta  : p0=0.057293 p1=0.057338 center=0.101900 radius=0.000042
+
+index 25 mismatch
+  full   : type=line seq=35 p0=(-0.0625, 1.3435) p1=(-0.0625, 1.4461) r=0 valid=1
+  simple : type=arc seq=0 p0=(-0.0361987, 1.29255) p1=(-0.0625, 1.3435) r=0.0625 valid=1
+  delta  : p0=0.057338 p1=0.102600 center=1.343500 radius=0.062500
+
+index 26 mismatch
+  full   : type=arc seq=0 p0=(-0.0625, 1.4461) p1=(-0.0309, 1.5004) r=0.0625 valid=1
+  simple : type=line seq=0 p0=(-0.0625, 1.3435) p1=(-0.0625, 1.4461) r=0 valid=1
+  delta  : p0=0.102600 p1=0.062825 center=1.446100 radius=0.062500
+
+count mismatch: full=85 simple=86
 
 summary
-  first mismatch index: -1
-  mismatch count: 0
-  type mismatch count: 0
+  first mismatch index: 7
+  mismatch count: 76
+  type mismatch count: 47
   validity mismatch count: 0
-  max p0 delta: 0.000298
-  max p1 delta: 0.000299
-  max center delta: 0.000284
-  max radius delta: 0.000045
+  max p0 delta: 1.139000
+  max p1 delta: 1.139000
+  max center delta: 5.152504
+  max radius delta: 0.853922

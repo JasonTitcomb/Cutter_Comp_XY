@@ -78,7 +78,6 @@ public:
 
         outputCB_ = options_.callbacks.output;
         errorCB_ = options_.callbacks.error;
-        startCompCB_ = options_.callbacks.startComp;
 
         globalTrim_ = options_.globalTrimCrossing;
         emittedProfileCount_ = 0;

@@ -90,8 +90,8 @@ enum IntersectType : uint8_t
 enum CompSide : int8_t
 {
   COMP_OFF = 0,
-  COMP_LEFT = +1,
-  COMP_RIGHT = -1
+  COMP_LEFT,
+  COMP_RIGHT
 };
 
 enum CompError : uint8_t

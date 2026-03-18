@@ -29,7 +29,6 @@ struct CcMainOptions
     {
         CcOutputCB output = nullptr;
         CcErrorCB error = nullptr;
-        CcStartCompCB startComp = nullptr;
     } callbacks;
 
     float toolRadius = 0.0f;
