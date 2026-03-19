@@ -1,5 +1,5 @@
 /*
- * cc_xy.h
+ * cutter_comp.c
  * Jason Titcomb 2026
  * MIT License - see LICENSE file in repository root
  *
@@ -8,7 +8,6 @@
  * adjacent moves in millimeters. It does not do any global trim or look-ahead.
  */
 
-
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,8 +15,8 @@
 #include "cutter_comp.h"
 
 #define CC_TOL 0.0001f
-#define CC_ARC_TOL_MM 0.01f
-#define CC_GAP_TOL_MM 0.02f
+#define CC_ARC_TOL_MM 0.001f
+#define CC_GAP_TOL_MM 0.001f
 #define CC_EPS 1e-7f
 #define CC_PARALLEL_TOL 1e-3f
 #define CC_BEVEL_VEC_TOL 1.0e-1f
@@ -25,6 +24,7 @@
 #define CC_TWO_PI 6.2831853071795864769f
 #define CC_MAX_SWEEP_DEG 359.9f
 #define CC_MIN_ARC_LEN 0.001f
+#define CC_MIN_OUTPUT_LEN_MM 0.001f
 
 static cc_context g_core_ctx;
 static emit_move_cb g_core_emit_cb = (emit_move_cb)0;
@@ -134,13 +134,6 @@ static inline vec2 cc_right_normal(vec2 v)
     return cc_v2(v.y, -v.x);
 }
 
-static inline float cc_wrap2pi(float a)
-{
-    a = fmodf(a, CC_TWO_PI);
-    if (a < 0.0f)
-        a += CC_TWO_PI;
-    return a;
-}
 
 static inline float cc_angle_norm(float a)
 {
@@ -243,26 +236,37 @@ static inline bool cc_is_radius_consistent(const move2d *m)
     return fabsf(r0 - r1) <= CC_ARC_TOL_MM;
 }
 
+static inline float cc_wrap2pi(float a)
+{
+    a = fmodf(a, CC_TWO_PI);
+    if (a < 0.0f)
+        a += CC_TWO_PI;
+    return a;
+}
+
 static inline float cc_arc_sweep_deg(const move2d *m)
 {
-    vec2 v0 = cc_sub(m->p_0, m->center);
-    vec2 v1 = cc_sub(m->p_1, m->center);
-    float l0 = cc_len(v0);
-    float l1 = cc_len(v1);
-    float minor;
-    float z;
+    vec2 r0;
+    vec2 r1;
     float sw;
 
-    if (l0 < CC_TOL || l1 < CC_TOL)
-        return 0.0f;
+    r0 = (m->arcDir == CC_ARC_CCW) ? cc_right_normal(m->startDir) : cc_left_normal(m->startDir);
+    r1 = (m->arcDir == CC_ARC_CCW) ? cc_right_normal(m->endDir) : cc_left_normal(m->endDir);
 
-    minor = atan2f(fabsf(cc_cross(v0, v1)), cc_dot(v0, v1));
-    z = cc_cross(v0, v1);
+    r0 = cc_normalize(r0);
+    r1 = cc_normalize(r1);
 
     if (m->arcDir == CC_ARC_CCW)
-        sw = (z >= 0.0f) ? minor : (CC_TWO_PI - minor);
+    {
+        sw = atan2f(cc_cross(r0, r1), cc_dot(r0, r1));
+    }
     else
-        sw = (z <= 0.0f) ? minor : (CC_TWO_PI - minor);
+    {
+        sw = atan2f(cc_cross(r1, r0), cc_dot(r1, r0));
+    }
+
+    if (sw < 0.0f)
+        sw += CC_TWO_PI;
 
     return sw * (180.0f / CC_PI);
 }
@@ -295,6 +299,7 @@ static inline float cc_dist_from_start_along(const move2d *m, vec2 p)
 
     return 0.0f;
 }
+
 
 static inline bool cc_point_on_segment(vec2 a, vec2 b, vec2 p)
 {
@@ -512,7 +517,8 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
 {
     if (m->type == CC_MOT_LINE || m->type == CC_MOT_RAPID)
     {
-        m->valid = cc_len(cc_sub(m->p_1, m->p_0)) >= CC_TOL;
+        float len_mm = cc_len(cc_sub(m->p_1, m->p_0));
+        m->valid = len_mm >= CC_TOL && len_mm >= CC_MIN_OUTPUT_LEN_MM;
         if (!m->valid)
             cc_report_error(ctx, CC_INVALID_MOVE);
         return m->valid;
@@ -520,41 +526,38 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
 
     if (m->type == CC_MOT_ARC)
     {
-        float d = cc_dist_from_start_along(m, m->p_1);
+        float output_len = cc_dist_from_start_along(m, m->p_1);
         bool radius_ok = cc_is_radius_consistent(m);
         float sw = cc_arc_sweep_deg(m);
         bool sweep_ok = !(sw > CC_MAX_SWEEP_DEG || sw < CC_MIN_ARC_LEN);
 
-
 #if !CC_ENABLE_LOOKAHEAD
         comp_side side = cc_effective_comp_side(ctx);
         float chordLen = cc_len(cc_sub(m->p_1, m->p_0));
-        if (side == CC_COMP_LEFT && m->arcDir == CC_ARC_CCW)
+        bool inner_arc = (side == CC_COMP_LEFT && m->arcDir == CC_ARC_CCW) ||
+                         (side == CC_COMP_RIGHT && m->arcDir == CC_ARC_CW);
+        if (inner_arc && chordLen <= ctx->toolR)
         {
-            if (chordLen <= ctx->toolR)
-            {
-                cc_report_error(ctx, CC_ARC_LT_TOOL_RAD);
-                m->valid = false;
-                return false;
-            }
+            cc_report_error(ctx, CC_ARC_LT_TOOL_RAD);
+            m->valid = false;
+            return false;
         }
 
-        if (side == CC_COMP_RIGHT && m->arcDir == CC_ARC_CW)
-        {
-            if (chordLen <= ctx->toolR)
-            {
-                cc_report_error(ctx, CC_ARC_LT_TOOL_RAD);
-                m->valid = false;
-                return false;
-            }
-        }
+        if ((fabsf(m->radius) <= CC_TOL))
+            cc_report_error(ctx, CC_INVALID_MOVE);
+
+        if(output_len <= CC_MIN_OUTPUT_LEN_MM)    
+            cc_report_error(ctx, CC_INVALID_MOVE);
+
 #endif
-        m->valid = d >= CC_TOL && radius_ok && sweep_ok && fabsf(m->radius) >= CC_TOL;
+ 
+        m->valid = radius_ok && sweep_ok;
         if (!radius_ok)
             cc_report_error(ctx, CC_ARC_RADIUS_MISMATCH);
-        if (!sweep_ok || fabsf(m->radius) < CC_TOL)
+        if (!sweep_ok)
             cc_report_error(ctx, CC_INVALID_MOVE);
-        return m->valid;
+        
+            return m->valid;
     }
 
     m->valid = false;
@@ -811,14 +814,14 @@ static inline bool cc_offset_arc(cc_context *ctx, const move2d *src, move2d *dst
         r1 = r0 + (left ? dr : -dr);
 
 #if !CC_ENABLE_LOOKAHEAD
-   if (r1 <= CC_TOL)
+    if (r1 <= CC_TOL)
     {
         cc_report_error(ctx, CC_ARC_LT_TOOL_RAD);
         dst->valid = false;
         return false;
     }
 #endif
- 
+
     v0 = cc_sub(src->p_0, src->center);
     v1 = cc_sub(src->p_1, src->center);
     lv0 = cc_len(v0);
@@ -980,13 +983,13 @@ static inline int cc_common_tip_any(const move2d *a, const move2d *b, vec2 *tip1
 }
 
 static inline cc_crossing_hit cc_look_ahead_for_crossing(move2d *moves,
-                                                          cc_aabb2 *bounds,
-                                                          int numMoves,
-                                                          int srcIdx,
-                                                          int startTargetIdx,
-                                                          int maxLookahead,
-                                                          int firstCutIdx,
-                                                          int lastCutIdx)
+                                                         cc_aabb2 *bounds,
+                                                         int numMoves,
+                                                         int srcIdx,
+                                                         int startTargetIdx,
+                                                         int maxLookahead,
+                                                         int firstCutIdx,
+                                                         int lastCutIdx)
 {
     cc_crossing_hit best;
     int j;
@@ -1313,29 +1316,214 @@ static inline move2d cc_make_roll_arc(const cc_context *ctx, const move2d *a, co
     return roll;
 }
 
-static inline bool cc_insert_roll(cc_context *ctx, move2d *a, move2d *b, move2d inserts[CC_INSERT_CAP], int *insertCount)
+#if CC_ENABLE_CORNER_TREATMENT
+static inline move2d cc_make_arc_extension_line_only(const cc_context *ctx, const move2d *arc, bool fromEnd)
 {
-    float gap = cc_len(cc_sub(b->p_0, a->p_1));
+    move2d ext = {0};
+    vec2 anchor;
+    vec2 dir;
+    float extent;
 
-    if (gap < CC_GAP_TOL_MM)
+    if (arc->type != CC_MOT_ARC)
+        return ext;
+
+    extent = ctx->toolR * 2.0f;
+    anchor = fromEnd ? arc->p_1 : arc->p_0;
+    dir = fromEnd ? arc->endDir : arc->startDir;
+
+    if (cc_len(dir) < CC_TOL)
+        return ext;
+
+    ext.type = CC_MOT_LINE;
+    ext.compMode = arc->compMode;
+    ext.feed = arc->feed;
+    ext.p_0 = anchor;
+    ext.p_1 = cc_add(anchor, cc_scale(dir, extent));
+    ext.startDir = dir;
+    ext.endDir = dir;
+    cc_update_vectors(&ext);
+    cc_validate((cc_context *)ctx, &ext);
+
+    return ext;
+}
+
+static inline int cc_make_corner_treatment(cc_context *ctx, move2d *a, move2d *b, move2d outmove[3])
+{
+    int outCountLocal = 0;
+    move2d l1;
+    move2d l2;
+    move2d extA = {0};
+    move2d extB = {0};
+    bool haveExtA = false;
+    bool haveExtB = false;
+    bool aLineLike;
+    bool bLineLike;
+    float turnSign0;
+    vec2 partCorner;
+    vec2 vIn;
+    vec2 vOut;
+    vec2 bisector;
+    vec2 chamferDir;
+    vec2 offsetCap;
+    move2d cap = {0};
+    vec2 ipForL1;
+    vec2 ipForL2;
+    bool tip;
+    intersect_type it;
+
+    aLineLike = (a->type == CC_MOT_LINE || a->type == CC_MOT_RAPID);
+    bLineLike = (b->type == CC_MOT_LINE || b->type == CC_MOT_RAPID);
+
+    turnSign0 = cc_cross(cc_scale(a->endDir, -1.0f), b->startDir);
+    if (fabsf(turnSign0) <= CC_BEVEL_VEC_TOL)
     {
         move2d bevel = cc_make_bevel(a, b);
-        if (!cc_validate(ctx, &bevel))
-            return false;
-        inserts[(*insertCount)++] = bevel;
-        return true;
+        outmove[outCountLocal++] = bevel;
+        return outCountLocal;
     }
+
+    if (aLineLike)
+    {
+        l1 = *a;
+    }
+    else
+    {
+        extA = cc_make_arc_extension_line_only(ctx, a, true);
+        if (!extA.valid)
+            return 0;
+        l1 = extA;
+        haveExtA = true;
+    }
+
+    if (bLineLike)
+    {
+        l2 = *b;
+    }
+    else
+    {
+        extB = cc_make_arc_extension_line_only(ctx, b, false);
+        if (!extB.valid)
+            return 0;
+        l2 = extB;
+        haveExtB = true;
+    }
+
+    partCorner = cc_roll_center(a->p_1, a->endDir, cc_comp_uses_left(ctx), ctx->toolR);
+    vIn = cc_normalize(cc_scale(l1.endDir, -1.0f));
+    vOut = cc_normalize(l2.startDir);
+    bisector = cc_normalize(cc_add(vIn, vOut));
+    if (cc_len(bisector) < CC_TOL)
+        return 0;
+
+    chamferDir = cc_normalize(cc_left_normal(bisector));
+    if (cc_len(chamferDir) < CC_TOL)
+        return 0;
+
+    offsetCap = cc_add(partCorner, cc_scale(bisector, -ctx->toolR));
+    cap.type = CC_MOT_LINE;
+    cap.compMode = CC_CM_STEADY;
+    cap.feed = (a->feed > 0.0f) ? a->feed : b->feed;
+
+    {
+        float halfLen = 0.5f * (ctx->toolR + 2.0f);
+        cap.p_0 = cc_sub(offsetCap, cc_scale(chamferDir, halfLen));
+        cap.p_1 = cc_add(offsetCap, cc_scale(chamferDir, halfLen));
+    }
+    cc_update_vectors(&cap);
+
+    ipForL1 = cc_v2(0.0f, 0.0f);
+    ipForL2 = cc_v2(0.0f, 0.0f);
+    tip = false;
+    it = cc_intersect_line_line(&l1, &cap, &ipForL1, &tip);
+    if (it == CC_IT_NONE)
+        return 0;
+
+    it = cc_intersect_line_line(&l2, &cap, &ipForL2, &tip);
+    if (it == CC_IT_NONE)
+        return 0;
+
+    cap.p_0 = ipForL1;
+    cap.p_1 = ipForL2;
+    if (!cc_validate(ctx, &cap))
+        return 0;
+
+    if (aLineLike)
+    {
+        a->p_1 = ipForL1;
+        cc_update_vectors(a);
+        if (!cc_validate(ctx, a))
+            return 0;
+    }
+
+    if (bLineLike)
+    {
+        b->p_0 = ipForL2;
+        cc_update_vectors(b);
+        if (!cc_validate(ctx, b))
+            return 0;
+    }
+
+    if (haveExtA)
+    {
+        extA.p_1 = ipForL1;
+        cc_update_vectors(&extA);
+        if (!cc_validate(ctx, &extA))
+            return 0;
+        outmove[outCountLocal++] = extA;
+    }
+
+    outmove[outCountLocal++] = cap;
+
+    if (haveExtB)
+    {
+        extB.p_0 = ipForL2;
+        extB.p_1 = b->p_0;
+        cc_update_vectors(&extB);
+        if (!cc_validate(ctx, &extB))
+            return 0;
+        outmove[outCountLocal++] = extB;
+    }
+
+    return outCountLocal;
+}
+#endif
+
+static inline bool cc_insert_roll_or_corner(cc_context *ctx, move2d *a, move2d *b, move2d inserts[CC_INSERT_CAP], int *insertCount)
+{
+    float gap = cc_len(cc_sub(b->p_0, a->p_1));
+    int startCount = *insertCount;
+
+#if !CC_ENABLE_CORNER_TREATMENT
+    (void)startCount;
+#endif
+
+    if (gap < CC_GAP_TOL_MM){
+         return true;   
+    }
+ 
+#if CC_ENABLE_CORNER_TREATMENT
+    if ((cc_corner_treatment_mode)ctx->cornerTreatmentMode == CC_CTM_CHAMFER)
+    {
+        move2d cornerSegs[3];
+        int cornerCount = cc_make_corner_treatment(ctx, a, b, cornerSegs);
+        int i;
+
+        for (i = 0; i < cornerCount && *insertCount < CC_INSERT_CAP; ++i)
+            inserts[(*insertCount)++] = cornerSegs[i];
+
+        return *insertCount > startCount;
+    }
+#endif
 
     if (*insertCount >= CC_INSERT_CAP)
         return false;
 
-    {
-        move2d roll = cc_make_roll_arc(ctx, a, b);
-        if (!cc_validate(ctx, &roll))
-            return false;
-        inserts[(*insertCount)++] = roll;
-        return true;
-    }
+    move2d roll = cc_make_roll_arc(ctx, a, b);
+    if (!cc_validate(ctx, &roll))
+        return false;
+        
+    inserts[(*insertCount)++] = roll;
+    return true;
 }
 
 static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, bool comping, move2d inserts[CC_INSERT_CAP], int *insertCount)
@@ -1382,7 +1570,7 @@ static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, bo
 
     if (resolved && junction.jtype == CC_JT_ROLL_AROUND)
     {
-        if (!cc_insert_roll(ctx, a, b, inserts, insertCount))
+        if (!cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
             cc_report_error(ctx, CC_UNRESOLVED_GAP);
         return;
     }
@@ -1408,7 +1596,7 @@ static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move
     if (junction.jtype == CC_JT_EXTEND_TO_INTERSECTION && cc_extend_to(ctx, a, b, junction.p))
         return;
 
-    if (cc_insert_roll(ctx, a, b, inserts, insertCount))
+    if (cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
     {
         return;
     }
@@ -1445,7 +1633,7 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
 
     if (resolved && junction.jtype == CC_JT_ROLL_AROUND)
     {
-        if (!cc_insert_roll(ctx, a, b, inserts, insertCount))
+        if (!cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
             cc_report_error(ctx, CC_UNRESOLVED_GAP);
         return;
     }
@@ -1496,10 +1684,10 @@ static void cc_init_internal(cc_context *ctx, float toolRadius)
     ctx->status = CC_OK;
     ctx->toolSign = 1;
     ctx->compState = CC_COMP_OFF;
+    ctx->cornerTreatmentMode = (uint8_t)CC_CORNER_TREATMENT_MODE;
     ctx->toolR = (toolRadius < 0.0f) ? -toolRadius : toolRadius;
     ctx->toolSign = (toolRadius < 0.0f) ? -1 : 1;
 }
-
 
 void cc_set_comp(cc_context *ctx, comp_side side)
 {
@@ -1555,9 +1743,8 @@ bool cc_process(cc_context *ctx)
         cc_update_vectors(&raw);
         if (!cc_offset_move(ctx, &raw, &curOff))
             return false;
-            if (!cc_validate(ctx, &curOff))
-                return false;
-
+        if (!cc_validate(ctx, &curOff))
+            return false;
 
         if (raw.compMode == CC_CM_IN || raw.compMode == CC_CM_OUT)
         {
@@ -1625,7 +1812,6 @@ bool cc_pop_out(cc_context *ctx, move2d *m)
     return true;
 }
 
-
 static inline void cc_core_drain(void)
 {
     move2d out;
@@ -1643,7 +1829,7 @@ static inline bool cc_core_report_error(const char *message, cc_comp_status err)
     return false;
 }
 
-void cc_api_init(float toolRadius,emit_move_cb emitCb, cc_err_cb errCb)
+void cc_api_init(float toolRadius, emit_move_cb emitCb, cc_err_cb errCb)
 {
     cc_init_internal(&g_core_ctx, toolRadius);
     g_core_err_cb = errCb;
@@ -1655,6 +1841,10 @@ void cc_api_set_comp(comp_side side)
     cc_set_comp(&g_core_ctx, side);
 }
 
+void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode)
+{
+    g_core_ctx.cornerTreatmentMode = (uint8_t)mode;
+}
 
 cc_comp_status cc_api_process_move(const move2d *move)
 {
@@ -1672,7 +1862,7 @@ cc_comp_status cc_api_process_move(const move2d *move)
 
     if (!cc_process(&g_core_ctx))
         return g_core_ctx.status;
-    
+
     cc_core_drain();
     return CC_OK;
 }

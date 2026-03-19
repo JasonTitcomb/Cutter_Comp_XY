@@ -75,6 +75,7 @@ public:
         inchMode_ = true;
 
         cc_.setOptions(options_);
+        sync_units_from_modal();
 
         outputCB_ = options_.callbacks.output;
         errorCB_ = options_.callbacks.error;
@@ -93,6 +94,11 @@ public:
     void setToolRadius(float r)
     {
         cc_.setToolRadius(r);
+    }
+    void sync_units_from_modal()
+    {
+        inchMode_ = modalState_.inchMode;
+        cc_.setUnits(inchMode_ ? UNITS_INCH : UNITS_MM);
     }
 
     bool processLine(const char *line)
@@ -461,6 +467,7 @@ private:
     bool process_one_gcode_line(ScanLine s)
     {
         Move2D mv = interpret_move(s, modalState_);
+        sync_units_from_modal();
 
         if (s.sawG41 || s.sawG42)
             cc_.setComp(modalState_.comp);
@@ -527,6 +534,7 @@ private:
     bool process_raw_gcode_line(const char *rawLine, ScanLine s)
     {
         (void)interpret_move(s, modalState_);
+        sync_units_from_modal();
         emit_raw_line(rawLine);
         return true;
     }

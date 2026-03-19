@@ -32,10 +32,10 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr float TOOL_RADIUS = 0.0626f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;
-static constexpr bool GLOBAL_MERGE = true;
+static constexpr bool GLOBAL_MERGE = false;
 static constexpr bool OUTPUT_SVG = true;
 
 // ------------------------------------------------
@@ -459,14 +459,14 @@ int main(int argc, char *argv[])
   //  const char *default_file = "../../data/TortureTestG91.nc";
   //  const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
-  //  const char *default_file = "../../data/TortureTestmm.nc";
+  // const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-  //const char *default_file = "../../data/TortureTestG90.nc";
+  const char *default_file = "../../data/TortureTestG90.nc";//test with 0.0609 Rad
   // const char *default_file = "../../data/TortureTestLinux.nc";
   // const char *default_file = "../../data/ArcTooSmall.nc";
   // const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
-   const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //  const char *default_file = "../../data/SimpleSquarePocket.nc";
   // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   // const char *default_file = "../../data/CompErrorTest.nc";

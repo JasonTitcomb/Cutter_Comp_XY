@@ -187,7 +187,7 @@ static void write_svg(const char *path,
        << minx << " " << miny << " " << w << " " << h << "\">\n";
     ss << "<rect x=\"" << minx << "\" y=\"" << miny << "\" width=\"" << w
        << "\" height=\"" << h << "\" fill=\"white\" />\n";
-    const float textSize = 0.012f * std::max(w, h);
+    const float textSize = 0.006f * std::max(w, h);
     const float textNudge = 0.006f * std::max(w, h);
      if (input_base_name && input_base_name[0] != '\0')
      {
@@ -235,7 +235,7 @@ static void write_svg(const char *path,
                 if (mirror_y)
                     tp.y = b.maxy + b.miny - tp.y;
                 ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
-                   << "\" fill=\"#1f77b4\" font-size=\"" << textSize
+                   << "\" fill=\"#1fb482\" font-size=\"" << textSize
                    << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
                    << m.seqNum << "</text>\n";
             }

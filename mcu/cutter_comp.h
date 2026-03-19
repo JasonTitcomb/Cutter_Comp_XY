@@ -1,10 +1,8 @@
 /*
- * cc_xy_core.h
+ * cutter_comp.h
  * Jason Titcomb 2026
  * MIT License - see LICENSE file in repository root
  *
- * Thin grblHAL-oriented runner for the standalone cc_xy engine.
- * Uses fixed-size callbacks and move structs only.
  */
 
 #ifndef CUTTER_COMP_H
@@ -19,7 +17,28 @@ extern "C" {
 #endif
 
 #define CC_IN_CAP 2
+
+/*
+ * Corner style selection:
+ * CC_ENABLE_CORNER_TREATMENT 0 -> roll path (CC_CORNER_TREATMENT_MODE is ignored).
+ * CC_ENABLE_CORNER_TREATMENT 1 and CC_CORNER_TREATMENT_MODE 0 -> roll.
+ * CC_ENABLE_CORNER_TREATMENT 1 and CC_CORNER_TREATMENT_MODE != 0 -> chamfer-style treatment.
+ */
+#ifndef CC_ENABLE_CORNER_TREATMENT
+#define CC_ENABLE_CORNER_TREATMENT 0
+#endif
+
+#ifndef CC_CORNER_TREATMENT_MODE
+#define CC_CORNER_TREATMENT_MODE 0
+#endif
+
+#ifndef CC_INSERT_CAP
+#if CC_ENABLE_CORNER_TREATMENT
+#define CC_INSERT_CAP 3
+#else
 #define CC_INSERT_CAP 1
+#endif
+#endif
 
 #ifndef CC_ENABLE_LOOKAHEAD
 #define CC_ENABLE_LOOKAHEAD 1
@@ -53,7 +72,7 @@ extern "C" {
 #if CC_ENABLE_LOOKAHEAD
 #define CC_OUT_CAP (CC_LOOKAHEAD_CAP + 1)
 #else
-#define CC_OUT_CAP 2
+#define CC_OUT_CAP (1 + CC_INSERT_CAP)
 #endif
 #endif
 
@@ -99,6 +118,12 @@ typedef enum
     CC_COMP_LEFT = 1,
     CC_COMP_RIGHT = -1
 } comp_side;
+
+typedef enum
+{
+    CC_CTM_ROLL = 0,
+    CC_CTM_CHAMFER = 1
+} cc_corner_treatment_mode;
 
 typedef enum
 {
@@ -165,6 +190,7 @@ typedef struct
     float toolR;
     int8_t toolSign;
     comp_side compState;
+    uint8_t cornerTreatmentMode;
     uint32_t lastSeqNum;
     
     int inHead;
@@ -188,6 +214,9 @@ vec2 cc_v2(float x, float y);
 void cc_api_init(float radius,emit_move_cb emitCb, cc_err_cb errCb);
 cc_comp_status cc_api_process_move(const move2d *move);
 void cc_api_set_comp(comp_side side);
+
+//Requires CC_ENABLE_CORNER_TREATMENT set to 1
+void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);
 
 #ifdef __cplusplus
 }

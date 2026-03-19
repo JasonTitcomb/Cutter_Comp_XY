@@ -121,43 +121,43 @@ private:
     // --- Moved from cc_math.h ---
     bool validate(Move2D &m)
     {
-        float d = 0;
-        bool radius_ok = true;
+        float length = 0;
+        bool consistant = true;
         float sw = 0;
         bool sweepOk = true;
 
         if (m.type == MOT_LINE)
         {
-            m.valid = len(m.p_1 - m.p_0) >= TOL;
+            length = len(m.p_1 - m.p_0);
+            m.valid = length >= TOL;
         }
         if (m.type == MOT_ARC)
         {
             CompSide side = effectiveCompSide();
             // if we are not going to do global trim then we should test arc validity here, because we won't have another chance to validate before output.
             // if comp left and arc is CCW, then the arc must be  > tool rad.
-            if (!options.globalTrimCrossing && side == COMP_LEFT && m.arcDir == ARC_CCW)
+             bool innerArc = (side == COMP_LEFT && m.arcDir == ARC_CCW) || (side == COMP_RIGHT && m.arcDir == ARC_CW);
+            if (!options.globalTrimCrossing && innerArc && len(m.p_1 - m.p_0) <= toolR)
             {
-                if (len(m.p_1 - m.p_0) <= toolR)
-                {
-                    reportCompError(CE_ARC_LT_TOOL_RAD);
-                    return false;
-                }
+                reportCompError(CE_ARC_LT_TOOL_RAD);
+                return false;
             }
-            if (!options.globalTrimCrossing && side == COMP_RIGHT && m.arcDir == ARC_CW)
+            // it is possible for an arc to have near zero r.
+            // but if we are global trimming later then we need to keep it
+            // to further the profile and find the crossing, so we won't invalidate here for small radius if global trim is on.
+            if (!options.globalTrimCrossing && fabsf(m.radius) < TOL)
             {
-                if (len(m.p_1 - m.p_0) <= toolR)
-                {
-                    reportCompError(CE_ARC_LT_TOOL_RAD);
-                    return false;
-                }
+                reportCompError(CE_ARC_LT_TOOL_RAD);
+                return false;
             }
-
-            d = distFromStart_along(m, m.p_1);
-            radius_ok = is_radius_consistent(m);
+            
+            length = distFromStart_along(m, m.p_1);
+            consistant = is_radius_consistent(m);
             sw = arcSweepDeg(m);
             sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
-            m.valid = d >= TOL && radius_ok && sweepOk;
-            if (!radius_ok)
+
+            m.valid = consistant && sweepOk;
+            if (!consistant)
                 reportCompError(CE_ARC_RADIUS_MISMATCH);
             if (!sweepOk)
                 reportCompError(CE_INVALID_MOVE);
@@ -716,7 +716,7 @@ private:
     Move2D makeRollArc(const Move2D &a, const Move2D &b)
     {
         Move2D roll;
-        // roll.seqNum = (a.seqNum * 10) + 5; // for debugging
+        roll.seqNum = (a.seqNum * 10) + 5; // for debugging
         roll.type = MOT_ARC;
         roll.compMode = CM_STEADY;
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
@@ -926,16 +926,11 @@ private:
         int startCount = insertCount;
 
         // with a very small offset we don't want to roll or bevel,
-        // just connect them directly to avoid creating tiny segments that could cause issues later.
+        // just skip it
         float gap = len(b.p_0 - a.p_1);
         bool nearlyConnected = gap < gapTol;
         if (nearlyConnected)
         {
-            // make a bevel to close the tiny gap
-            Move2D bevel = makeBevel(a, b);
-            if (!validate(bevel))
-                return false;
-            inserts[insertCount++] = bevel;
             return true;
         }
 
@@ -1232,23 +1227,23 @@ private:
 
             // picks the nearest crossing along src from its start.
             Vec2 pick = t1;
-            float d = distFromStart_along(src, t1);
+            float length = distFromStart_along(src, t1);
             if (n == 2)
             {
                 float d2 = distFromStart_along(src, t2);
-                if (d2 < d)
+                if (d2 < length)
                 {
-                    d = d2;
+                    length = d2;
                     pick = t2;
                 }
             }
 
-            if (d <= best.dist)
+            if (length <= best.dist)
             {
                 best.hit = true;
                 best.j = j;
                 best.tip = pick;
-                best.dist = d;
+                best.dist = length;
             }
         }
         return best;

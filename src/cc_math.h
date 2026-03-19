@@ -210,30 +210,50 @@ static float wrap2pi(float a)
   return a;
 }
 
-static float arcSweepDeg(Move2D &m)
+
+static float arcSweepDeg(const Move2D &m)
 {
-  float a0 = wrap2pi(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
-  float a1 = wrap2pi(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
+  Vec2 r0 = (m.arcDir == ARC_CCW) ? rightNormal(m.startDir) : leftNormal(m.startDir);
+  Vec2 r1 = (m.arcDir == ARC_CCW) ? rightNormal(m.endDir)   : leftNormal(m.endDir);
 
-  if (m.arcDir == ARC_CCW)
-  {
-    float sw = a1 - a0;
-    if (sw < 0)
-      sw += TWO_PI;
+  r0 = normalize(r0);
+  r1 = normalize(r1);
 
-    // calculate length from sweep and radius.
-    // m.length = fabsf(m.radius) * sw;
-    return sw * (180.0f / PI); // [0, 360)
+  float sw = 0.0f;
+  if (m.arcDir == ARC_CCW) {
+    sw = atan2f(cross(r0, r1), dot(r0, r1));
+  } else {
+    sw = atan2f(cross(r1, r0), dot(r1, r0));
   }
-  else
-  { // ARC_CW
-    float sw = a0 - a1;
-    if (sw < 0)
-      sw += TWO_PI;
-    // m.length = fabsf(m.radius) * sw;
-    return sw * (180.0f / PI); // [0, 360)
-  }
+
+  if (sw < 0.0f) sw += TWO_PI;
+  return sw * (180.0f / PI);
 }
+
+// static float arcSweepDeg_(Move2D &m)
+// {
+//   float a0 = wrap2pi(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
+//   float a1 = wrap2pi(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
+
+//   if (m.arcDir == ARC_CCW)
+//   {
+//     float sw = a1 - a0;
+//     if (sw < 0)
+//       sw += TWO_PI;
+
+//     // calculate length from sweep and radius.
+//     // m.length = fabsf(m.radius) * sw;
+//     return sw * (180.0f / PI); // [0, 360)
+//   }
+//   else
+//   { // ARC_CW
+//     float sw = a0 - a1;
+//     if (sw < 0)
+//       sw += TWO_PI;
+//     // m.length = fabsf(m.radius) * sw;
+//     return sw * (180.0f / PI); // [0, 360)
+//   }
+// }
 
 static float sweepCCW(float a0, float a1)
 {
