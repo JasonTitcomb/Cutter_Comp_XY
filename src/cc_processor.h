@@ -121,14 +121,13 @@ private:
     // --- Moved from cc_math.h ---
     bool validate(Move2D &m)
     {
-        float length = 0;
         bool consistant = true;
         float sw = 0;
         bool sweepOk = true;
+        float length = len(m.p_1 - m.p_0);
 
         if (m.type == MOT_LINE)
         {
-            length = len(m.p_1 - m.p_0);
             m.valid = length >= TOL;
         }
         if (m.type == MOT_ARC)
@@ -137,7 +136,7 @@ private:
             // if we are not going to do global trim then we should test arc validity here, because we won't have another chance to validate before output.
             // if comp left and arc is CCW, then the arc must be  > tool rad.
              bool innerArc = (side == COMP_LEFT && m.arcDir == ARC_CCW) || (side == COMP_RIGHT && m.arcDir == ARC_CW);
-            if (!options.globalTrimCrossing && innerArc && len(m.p_1 - m.p_0) <= toolR)
+            if (!options.globalTrimCrossing && innerArc && length <= toolR)
             {
                 reportCompError(CE_ARC_LT_TOOL_RAD);
                 return false;
@@ -963,11 +962,10 @@ private:
     {
         insertCount = 0;
 
-        bool comping = (a.compMode == CM_IN || a.compMode == CM_OUT || b.compMode == CM_IN || b.compMode == CM_OUT);
 
         if (a.type == MOT_LINE && b.type == MOT_LINE)
         {
-            handleLineLine(a, b, comping, inserts, insertCount);
+            handleLineLine(a, b, inserts, insertCount);
         }
         else if (a.type == MOT_ARC && b.type == MOT_ARC)
         {
@@ -979,8 +977,9 @@ private:
         }
     }
 
-    void handleLineLine(Move2D &a, Move2D &b, bool comping, Move2D inserts[3], int &insertCount)
+    void handleLineLine(Move2D &a, Move2D &b,  Move2D inserts[3], int &insertCount)
     {
+        bool comping = (a.compMode == CM_IN || a.compMode == CM_OUT || b.compMode == CM_IN || b.compMode == CM_OUT);
         Junction junction;
         float gap = dist(b.p_0, a.p_1);
         bool allowExtend = (gap < gapTol) || comping;

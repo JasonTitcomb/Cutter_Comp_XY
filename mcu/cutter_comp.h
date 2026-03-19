@@ -114,9 +114,9 @@ typedef enum
 
 typedef enum
 {
-    CC_COMP_OFF = 0,
-    CC_COMP_LEFT = 1,
-    CC_COMP_RIGHT = -1
+    CC_COMP_OFF = 0,//G40
+    CC_COMP_LEFT = 1,//G41
+    CC_COMP_RIGHT = -1//G42
 } comp_side;
 
 typedef enum
@@ -128,16 +128,16 @@ typedef enum
 typedef enum
 {
     CC_OK = 0,
-    CC_ERROR,
-    CC_ARC_RADIUS_MISMATCH,
-    CC_INVALID_MOVE,
-    CC_COMP_MOVE_TOO_SHORT,
-    CC_ARC_LT_TOOL_RAD,
-    CC_FLIPPED_ARC,
-    CC_COMP_IN_CROSSING,
-    CC_COMP_OUT_CROSSING,
-    CC_UNRESOLVED_GAP,
-    CC_OUTPUT_BUFFER_OVERFLOW
+    CC_ERROR = 150,
+    CC_ARC_RADIUS_MISMATCH = 151,
+    CC_INVALID_MOVE = 152,
+    CC_COMP_MOVE_TOO_SHORT = 153,
+    CC_ARC_LT_TOOL_RAD = 154,
+    CC_FLIPPED_ARC = 155,
+    CC_COMP_IN_CROSSING = 156,
+    CC_COMP_OUT_CROSSING = 157,
+    CC_UNRESOLVED_GAP = 158,
+    CC_OUTPUT_BUFFER_OVERFLOW = 159
 } cc_comp_status;
 
 
@@ -209,11 +209,19 @@ typedef struct
 #endif
 } cc_context;
 
+// Internal API - not guaranteed to be stable across versions. Only exposed for testing and advanced use cases.
 vec2 cc_v2(float x, float y);
 
 void cc_api_init(float radius,emit_move_cb emitCb, cc_err_cb errCb);
+
+// Process a move. If move is null, flushes any pending moves and reports any pending errors.
+// Returns CC_OK if the move was processed and emitted successfully, or if flushing completed successfully.
+// Returns an appropriate error code otherwise.
 cc_comp_status cc_api_process_move(const move2d *move);
+
+// comp_side is CC_COMP_OFF=0, CC_COMP_LEFT=1, or CC_COMP_RIGHT=-1
 void cc_api_set_comp(comp_side side);
+comp_side cc_api_get_comp(void);
 
 //Requires CC_ENABLE_CORNER_TREATMENT set to 1
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);

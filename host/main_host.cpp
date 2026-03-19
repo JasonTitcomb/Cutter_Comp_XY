@@ -17,7 +17,7 @@
 
 #include "cc_simple_scan.h"
 #include "cc_main.h"
-#include "cc_xy_adapter.h"
+#include "../mcu/cutter_comp_grblhal.h"
 #include "cc_xy_host_bridge.h"
 #include "writer.h"
 /*
@@ -34,7 +34,8 @@
 
 static constexpr float TOOL_RADIUS = 0.0626f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool GLOBAL_TRIM_CROSSING = true;
+static constexpr bool GLOBAL_TRIM_CROSSING = true;  // if true, will trim crossing elements down to the intersection point.
+                                                    // If false, will emit the full compensated move even if it crosses.
 static constexpr bool GLOBAL_MERGE = false;
 static constexpr bool OUTPUT_SVG = true;
 
@@ -191,6 +192,8 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
   g_mc_host_pos[1] = 0.0f;
   g_mc_host_pos[2] = 0.0f;
 
+  // Initialize the cc_xy adapter with the provided tool radius,
+  // and set up callbacks for move emission and error reporting.
   cc_api_init(toolRadius,cc_emit_via_mc, host_xy_error_cb);
 
   g_simpleProfileOut = &profileOut;
@@ -206,7 +209,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
     Move2D mv = interpret_move(s, modal);
 
     if (s.sawG41 || s.sawG42)
-      cc_api_set_comp(cc_from_comp_side(modal.comp));
+      cc_api_set_comp(modal.comp == COMP_LEFT ? CC_COMP_LEFT : CC_COMP_RIGHT);
 
     if (mv.type == MOT_EMPTY)
     {
@@ -222,6 +225,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
       continue;
     }
 
+    // If we get here, we have a valid move to process. Convert to move2d and send to cc_api_process_move.
     move2d xyMove = cc_from_move2d(mv);
     if (cc_api_process_move(&xyMove) != CC_OK)
     {

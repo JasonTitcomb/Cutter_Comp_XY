@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.40809 -0.36659 5.22258 3.14991">
 <rect x="-0.40809" y="-0.36659" width="5.22258" height="3.14991" fill="white" />
-<text x="2.2032" y="-0.319587" fill="#111111" font-size="0.0313355" text-anchor="middle" dominant-baseline="middle">TortureTestG90  |  tool radius=0.0626</text>
+<text x="2.2032" y="-0.249082" fill="#111111" font-size="0.0783387" text-anchor="middle" dominant-baseline="middle">TortureTestG90  |  tool radius=0.0626</text>
 <polyline fill="none" stroke="#888888" stroke-width="0.003" stroke-dasharray="0.01,0.01" points="0,2.41673 -0.1707,2.54593 " />
 <circle cx="0" cy="2.41673" r="0.00522258" fill="#1f77b4" />
 <circle cx="-0.1707" cy="2.54593" r="0.00522258" fill="#1f77b4" />

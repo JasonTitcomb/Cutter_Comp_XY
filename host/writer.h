@@ -187,8 +187,8 @@ static void write_svg(const char *path,
        << minx << " " << miny << " " << w << " " << h << "\">\n";
     ss << "<rect x=\"" << minx << "\" y=\"" << miny << "\" width=\"" << w
        << "\" height=\"" << h << "\" fill=\"white\" />\n";
-    const float textSize = 0.006f * std::max(w, h);
-    const float textNudge = 0.006f * std::max(w, h);
+    const float textSize = 0.015f * std::max(w, h);
+    const float textNudge = 0.015f * std::max(w, h);
      if (input_base_name && input_base_name[0] != '\0')
      {
           const float headerX = minx + 0.5f * w;

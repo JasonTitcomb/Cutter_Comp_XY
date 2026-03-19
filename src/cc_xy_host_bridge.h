@@ -5,7 +5,7 @@
 #endif
 
 #include "cc_math.h"
-#include "cc_xy_adapter.h"
+#include "../mcu/cutter_comp_grblhal.h"
 
 static inline vec2 cc_from_vec2(const Vec2 &v)
 {

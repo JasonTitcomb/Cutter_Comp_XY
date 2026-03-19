@@ -1840,6 +1840,10 @@ void cc_api_set_comp(comp_side side)
 {
     cc_set_comp(&g_core_ctx, side);
 }
+comp_side cc_api_get_comp(void)
+{
+    return (comp_side)g_core_ctx.compState;
+}
 
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode)
 {
