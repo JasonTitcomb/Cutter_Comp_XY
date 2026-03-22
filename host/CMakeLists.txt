@@ -30,3 +30,8 @@ endif()
 if (MSVC)
   target_compile_definitions(cc_runner PRIVATE _USE_MATH_DEFINES)
 endif()
+
+target_compile_definitions(cc_runner PRIVATE
+  _USE_MATH_DEFINES
+  CUTTER_COMP_ENABLE=1
+)

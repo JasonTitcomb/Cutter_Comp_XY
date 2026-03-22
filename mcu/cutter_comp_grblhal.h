@@ -1,29 +1,21 @@
-#pragma once
-
-#include "../mcu/cutter_comp.h"
-#include "../mcu/grbl_data_portable.h"
-
 /*
- * mc_line / mc_arc are the gateway to the motion controller.
- *
- * In grblHAL: these are the real planner entry points (declared in motion_control.h).
- * In the host test harness: implementations in main_host.cpp capture moves for SVG/comparison.
- *
- * cc_emit_via_mc() is registered as the cc_api emit callback; it converts a
- * move2d into grbl-style arguments and dispatches through mc_line / mc_arc so
- * the same code path can be dropped into grblHAL unchanged.
- *
- * Call convention mirrors grblHAL:
- *   mc_arc(..., turns): positive = CCW, negative = CW
- *   ijk[]: offsets from current position to arc center
- *
- *
+ * SHIM BETWEEN GRBLHAL AND THE CUTTER COMPENSATION CORE
+ * Overall, this file serves as a bridge between grblHAL and the cutter compensation core, enabling them to work together seamlessly while keeping their internal implementations decoupled.
+ * MIT License - see LICENSE file in repository root
  */
+#ifndef CUTTER_COMP_GRBLHAL_H
+#define CUTTER_COMP_GRBLHAL_H
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+#if CUTTER_COMP_ENABLE
+
+#include "config.h"
+#include "../mcu/cutter_comp.h"
+#include "../mcu/grbl_data_portable.h"
 
     // forward declarations
     // these are implemented in grblhal's motion_control.c, but declared here so they can be called from the cc_emit_via_mc callback.
@@ -36,12 +28,12 @@ extern "C"
     static inline uint8_t cc_mc_comp_mode_from_input(gc_ccomp_t cc)
     {
         if (cc.side == CComp_Left || cc.side == CComp_Right)
-            return cc.first_move ? CC_CM_IN : CC_CM_STEADY;
+            return (uint8_t)(cc.first_move ? CC_CM_IN : CC_CM_STEADY);
 
         if (cc_api_get_comp() != CC_COMP_OFF)
-            return CC_CM_OUT;
+            return (uint8_t)CC_CM_OUT;
 
-        return CC_CM_NONE;
+        return (uint8_t)CC_CM_NONE;
     }
 
     static inline move2d cc_mc_to_move2d(gc_ccomp_t cc,
@@ -75,11 +67,11 @@ extern "C"
                 mv.center = cc_v2(mv.p_0.x + ijk[0], mv.p_0.y + ijk[1]);
             }
             mv.radius = radius;
-            mv.arcDir = (turns >= 0) ? CC_ARC_CCW : CC_ARC_CW;
+            mv.arcDir = (uint8_t)((turns >= 0) ? CC_ARC_CCW : CC_ARC_CW);
         }
         else
         {
-            mv.type = (pl_data && pl_data->condition.rapid_motion) ? CC_MOT_RAPID : CC_MOT_LINE;
+            mv.type = (uint8_t)((pl_data && pl_data->condition.rapid_motion) ? CC_MOT_RAPID : CC_MOT_LINE);
         }
 
         cc_mc_input_pos[0] = xyz[0];
@@ -99,10 +91,10 @@ extern "C"
             cc_mc_input_pos[1] = xyz[1];
             cc_mc_input_pos[2] = xyz[2];
             mc_line(xyz, pl_data);
-            return CC_OK;
+            return Status_OK;
         }
 
-        if (cc.first_move && (cc.side == CComp_Left || cc.side == CComp_Right))
+        if (cc_api_get_comp() == CC_COMP_OFF && (cc.side == CComp_Left || cc.side == CComp_Right))
         {
             // convert from grbl-style comp mode to cc style and set in API
             comp_side side = CC_COMP_OFF;
@@ -112,23 +104,22 @@ extern "C"
                 side = CC_COMP_RIGHT;
 
             cc_api_set_comp(side);
-            cc.first_move = false;
         }
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, 0, 0, 0.0f, 0, false);
         cc_comp_status st = cc_api_process_move(&mv);
-        if (st != CC_OK)
+        if (st != Status_OK)
             return st;
 
         if (mv.compMode == CC_CM_OUT)
         {
-            st = cc_api_process_move(nullptr);
-            if (st != CC_OK)
+            st = cc_api_process_move(0);
+            if (st != Status_OK)
                 return st;
             cc_api_set_comp(CC_COMP_OFF);
         }
 
-        return CC_OK;
+        return Status_OK;
     }
 
     // replaces mc_arc when cutter compensation is active. If compensation is not active, passes through to mc_arc.
@@ -142,10 +133,10 @@ extern "C"
             cc_mc_input_pos[1] = xyz[1];
             cc_mc_input_pos[2] = xyz[2];
             mc_arc(xyz, pl_data, position, ijk, radius, plane, turns);
-            return CC_OK;
+            return Status_OK;
         }
 
-        if (cc.first_move && (cc.side == CComp_Left || cc.side == CComp_Right))
+        if ((cc.side == CComp_Left || cc.side == CComp_Right))
         {
             comp_side side = CC_COMP_OFF;
             if (cc.side == CComp_Left)
@@ -158,18 +149,18 @@ extern "C"
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, position, ijk, radius, turns, true);
         cc_comp_status st = cc_api_process_move(&mv);
-        if (st != CC_OK)
+        if (st != Status_OK)
             return st;
 
         if (mv.compMode == CC_CM_OUT)
         {
-            st = cc_api_process_move(nullptr);
-            if (st != CC_OK)
+            st = cc_api_process_move(0);
+            if (st != Status_OK)
                 return st;
             cc_api_set_comp(CC_COMP_OFF);
         }
 
-        return CC_OK;
+        return Status_OK;
     }
 
     static void cc_error_cb(const char *message, cc_comp_status err, uint32_t seqNum)
@@ -230,7 +221,8 @@ extern "C"
             mc_arc(xyz, pl_data, position, ijk, mv->radius, plane, turns);
         }
     }
-
+#endif
 #ifdef __cplusplus
 }
+#endif
 #endif

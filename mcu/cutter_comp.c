@@ -8,9 +8,15 @@
  * adjacent moves in millimeters. It does not do any global trim or look-ahead.
  */
 
+
+#ifndef CUTTER_COMP_ENABLE
+#define CUTTER_COMP_ENABLE 0
+#endif
+#if CUTTER_COMP_ENABLE
+
+#include "config.h"
 #include <math.h>
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 #include "cutter_comp.h"
 
@@ -137,10 +143,9 @@ static inline vec2 cc_right_normal(vec2 v)
 
 static inline float cc_angle_norm(float a)
 {
-    while (a < 0.0f)
+    a = fmodf(a, CC_TWO_PI);
+    if (a < 0.0f)
         a += CC_TWO_PI;
-    while (a >= CC_TWO_PI)
-        a -= CC_TWO_PI;
     return a;
 }
 
@@ -253,9 +258,6 @@ static inline float cc_arc_sweep_deg(const move2d *m)
     r0 = (m->arcDir == CC_ARC_CCW) ? cc_right_normal(m->startDir) : cc_left_normal(m->startDir);
     r1 = (m->arcDir == CC_ARC_CCW) ? cc_right_normal(m->endDir) : cc_left_normal(m->endDir);
 
-    r0 = cc_normalize(r0);
-    r1 = cc_normalize(r1);
-
     if (m->arcDir == CC_ARC_CCW)
     {
         sw = atan2f(cc_cross(r0, r1), cc_dot(r0, r1));
@@ -306,17 +308,20 @@ static inline bool cc_point_on_segment(vec2 a, vec2 b, vec2 p)
     vec2 ab = cc_sub(b, a);
     float lab2 = cc_dot(ab, ab);
     float t;
-    float d;
+    float cross;
 
     if (lab2 < CC_TOL)
-        return cc_len(cc_sub(p, a)) < CC_TOL;
+    {
+        vec2 pa = cc_sub(p, a);
+        return cc_dot(pa, pa) < CC_TOL * CC_TOL;
+    }
 
     t = cc_dot(cc_sub(p, a), ab) / lab2;
     if (t < -CC_TOL || t > 1.0f + CC_TOL)
         return false;
 
-    d = fabsf(cc_cross(cc_sub(p, a), ab)) / sqrtf(lab2);
-    return d < CC_TOL;
+    cross = cc_cross(cc_sub(p, a), ab);
+    return cross * cross < CC_TOL * CC_TOL * lab2;
 }
 
 static inline arc_angles cc_precompute_arc_angles(const move2d *m)
@@ -470,47 +475,12 @@ static inline intersect_type cc_intersect_line_circle(vec2 l1, vec2 l2, vec2 ctr
 
 static inline void cc_report_error(cc_context *ctx, cc_comp_status err)
 {
-    const char *message = "Unknown comp error";
     ctx->hasCompError = true;
     ctx->status = err;
 
     if (!g_core_err_cb)
         return;
-
-    switch (err)
-    {
-    case CC_ARC_RADIUS_MISMATCH:
-        message = "Arc radius inconsistency";
-        break;
-    case CC_INVALID_MOVE:
-        message = "Invalid move";
-        break;
-    case CC_COMP_MOVE_TOO_SHORT:
-        message = "Comp move too short";
-        break;
-    case CC_ARC_LT_TOOL_RAD:
-        message = "Arc smaller than tool radius";
-        break;
-    case CC_FLIPPED_ARC:
-        message = "Flipped arc";
-        break;
-    case CC_COMP_IN_CROSSING:
-        message = "Comp-in crossing";
-        break;
-    case CC_COMP_OUT_CROSSING:
-        message = "Comp-out crossing";
-        break;
-    case CC_UNRESOLVED_GAP:
-        message = "Unresolved gap";
-        break;
-    case CC_OUTPUT_BUFFER_OVERFLOW:
-        message = "Output buffer overflow";
-        break;
-    default:
-        break;
-    }
-
-    g_core_err_cb(message, err, ctx->lastSeqNum);
+    g_core_err_cb(err, ctx->lastSeqNum);
 }
 
 static inline bool cc_validate(cc_context *ctx, move2d *m)
@@ -518,50 +488,54 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
     if (m->type == CC_MOT_LINE || m->type == CC_MOT_RAPID)
     {
         float len_mm = cc_len(cc_sub(m->p_1, m->p_0));
-        m->valid = len_mm >= CC_TOL && len_mm >= CC_MIN_OUTPUT_LEN_MM;
-        if (!m->valid)
-            cc_report_error(ctx, CC_INVALID_MOVE);
-        return m->valid;
+        m->valid = len_mm >= CC_TOL;// && len_mm >= CC_MIN_OUTPUT_LEN_MM;
     }
 
     if (m->type == CC_MOT_ARC)
     {
-        float output_len = cc_dist_from_start_along(m, m->p_1);
-        bool radius_ok = cc_is_radius_consistent(m);
-        float sw = cc_arc_sweep_deg(m);
-        bool sweep_ok = !(sw > CC_MAX_SWEEP_DEG || sw < CC_MIN_ARC_LEN);
-
+         // If we are not going to do a global trim we need to stop now if the move is invalid.
+        // because we won't have another chance to trim it later. 
+        // If look-ahead is enabled we can be more lenient here because we will have a chance to trim the move later if we find a crossing.
 #if !CC_ENABLE_LOOKAHEAD
+
+        if (!m->valid)
+            cc_report_error(ctx, Status_InvalidMove);
+
         comp_side side = cc_effective_comp_side(ctx);
         float chordLen = cc_len(cc_sub(m->p_1, m->p_0));
         bool inner_arc = (side == CC_COMP_LEFT && m->arcDir == CC_ARC_CCW) ||
                          (side == CC_COMP_RIGHT && m->arcDir == CC_ARC_CW);
+
         if (inner_arc && chordLen <= ctx->toolR)
         {
-            cc_report_error(ctx, CC_ARC_LT_TOOL_RAD);
+            cc_report_error(ctx, Status_ArcLtToolRad);
             m->valid = false;
             return false;
         }
 
         if ((fabsf(m->radius) <= CC_TOL))
-            cc_report_error(ctx, CC_INVALID_MOVE);
+            cc_report_error(ctx, Status_InvalidMove);
 
-        if(output_len <= CC_MIN_OUTPUT_LEN_MM)    
-            cc_report_error(ctx, CC_INVALID_MOVE);
+       float output_len = cc_dist_from_start_along(m, m->p_1);
+       if(output_len <= CC_MIN_OUTPUT_LEN_MM)    
+            cc_report_error(ctx, Status_InvalidMove);
 
 #endif
  
+        bool radius_ok = cc_is_radius_consistent(m);
+        float sw = cc_arc_sweep_deg(m);
+        bool sweep_ok = !(sw > CC_MAX_SWEEP_DEG || sw < CC_MIN_ARC_LEN);
+
         m->valid = radius_ok && sweep_ok;
+
         if (!radius_ok)
-            cc_report_error(ctx, CC_ARC_RADIUS_MISMATCH);
+            cc_report_error(ctx, Status_ArcRadiusMismatch);
         if (!sweep_ok)
-            cc_report_error(ctx, CC_INVALID_MOVE);
-        
-            return m->valid;
+            cc_report_error(ctx, Status_InvalidMove);
+            
     }
 
-    m->valid = false;
-    return false;
+    return m->valid;
 }
 
 static inline bool cc_motion_valid(const move2d *m)
@@ -663,8 +637,8 @@ static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, con
 {
     vec2 trimPts[2];
     vec2 carrierPts[2];
-    int trimCount = cc_finite_intersection_points(a, b, trimPts);
     int carrierCount = cc_intersect_carrier(a, b, carrierPts);
+    int trimCount = 0;
     float bestTrimScore = 0.0f;
     float bestExtendScore = 0.0f;
     bool foundTrim = false;
@@ -673,6 +647,16 @@ static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, con
 
     outjunc->jtype = CC_JT_NONE;
     outjunc->p = cc_v2(0.0f, 0.0f);
+
+    for (i = 0; i < carrierCount; ++i)
+    {
+        vec2 p = carrierPts[i];
+        if (!cc_point_on_finite_elem(a, p) || !cc_point_on_finite_elem(b, p))
+            continue;
+        if (trimCount > 0 && cc_is_near(trimPts[0], p))
+            continue;
+        trimPts[trimCount++] = p;
+    }
 
     for (i = 0; i < trimCount; ++i)
     {
@@ -721,7 +705,7 @@ static inline bool cc_out_has_space(cc_context *ctx, int n)
 {
     bool ok = (ctx->outCount + n) <= CC_OUT_CAP;
     if (!ok)
-        cc_report_error(ctx, CC_OUTPUT_BUFFER_OVERFLOW);
+        cc_report_error(ctx, Status_OutputBufferOverflow);
     return ok;
 }
 
@@ -816,7 +800,7 @@ static inline bool cc_offset_arc(cc_context *ctx, const move2d *src, move2d *dst
 #if !CC_ENABLE_LOOKAHEAD
     if (r1 <= CC_TOL)
     {
-        cc_report_error(ctx, CC_ARC_LT_TOOL_RAD);
+        cc_report_error(ctx, Status_ArcLtToolRad);
         dst->valid = false;
         return false;
     }
@@ -1105,7 +1089,7 @@ static inline bool cc_trim_crossing_elements(cc_context *ctx, move2d *moves, int
         {
             if (crossing.j < lastCutIdx)
             {
-                cc_report_error(ctx, CC_COMP_IN_CROSSING);
+                cc_report_error(ctx, Status_CompInCrossing);
                 return false;
             }
             srcIdx++;
@@ -1114,7 +1098,7 @@ static inline bool cc_trim_crossing_elements(cc_context *ctx, move2d *moves, int
 
         if (moves[crossing.j].compMode == CC_CM_OUT)
         {
-            cc_report_error(ctx, CC_COMP_OUT_CROSSING);
+            cc_report_error(ctx, Status_CompOutCrossing);
             return false;
         }
 
@@ -1200,7 +1184,7 @@ static inline bool cc_stage_out(cc_context *ctx, const move2d *m)
 
     if (ctx->lookahead_count >= CC_LOOKAHEAD_CAP)
     {
-        cc_report_error(ctx, CC_OUTPUT_BUFFER_OVERFLOW);
+        cc_report_error(ctx, Status_OutputBufferOverflow);
         return false;
     }
 
@@ -1571,7 +1555,7 @@ static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, bo
     if (resolved && junction.jtype == CC_JT_ROLL_AROUND)
     {
         if (!cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
-            cc_report_error(ctx, CC_UNRESOLVED_GAP);
+            cc_report_error(ctx, Status_UnresolvedGap);
         return;
     }
 
@@ -1602,7 +1586,7 @@ static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move
     }
 
 #if !CC_ENABLE_LOOKAHEAD
-    cc_report_error(ctx, CC_INVALID_MOVE);
+    cc_report_error(ctx, Status_InvalidMove);
 #endif
 
     inserts[(*insertCount)++] = cc_make_bevel(a, b);
@@ -1634,12 +1618,12 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
     if (resolved && junction.jtype == CC_JT_ROLL_AROUND)
     {
         if (!cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
-            cc_report_error(ctx, CC_UNRESOLVED_GAP);
+            cc_report_error(ctx, Status_UnresolvedGap);
         return;
     }
 
 #if !CC_ENABLE_LOOKAHEAD
-    cc_report_error(ctx, CC_INVALID_MOVE);
+    cc_report_error(ctx, Status_InvalidMove);
 #endif
 
     inserts[(*insertCount)++] = cc_make_bevel(a, b);
@@ -1681,7 +1665,7 @@ static void cc_init_internal(cc_context *ctx, float toolRadius)
 {
     cc_context zero = {0};
     *ctx = zero;
-    ctx->status = CC_OK;
+    ctx->status = Status_OK;
     ctx->toolSign = 1;
     ctx->compState = CC_COMP_OFF;
     ctx->cornerTreatmentMode = (uint8_t)CC_CORNER_TREATMENT_MODE;
@@ -1709,7 +1693,7 @@ bool cc_process(cc_context *ctx)
     if (ctx->hasCompError)
         return false;
 
-    if (ctx->compState == CC_COMP_OFF || fabs(ctx->toolR) < CC_TOL)
+    if (ctx->compState == CC_COMP_OFF || fabsf(ctx->toolR) < CC_TOL)
     {
         while (ctx->inCount > 0)
         {
@@ -1751,7 +1735,7 @@ bool cc_process(cc_context *ctx)
             float moveLen = cc_len(cc_sub(raw.p_1, raw.p_0));
             if (moveLen <= ctx->toolR)
             {
-                cc_report_error(ctx, CC_COMP_MOVE_TOO_SHORT);
+                cc_report_error(ctx, Status_MoveTooShort);
                 return false;
             }
         }
@@ -1821,14 +1805,6 @@ static inline void cc_core_drain(void)
         g_core_emit_cb(&out);
 }
 
-static inline bool cc_core_report_error(const char *message, cc_comp_status err)
-{
-    g_core_ctx.status = err;
-    if (g_core_err_cb)
-        g_core_err_cb(message, err, g_core_ctx.lastSeqNum);
-    return false;
-}
-
 void cc_api_init(float toolRadius, emit_move_cb emitCb, cc_err_cb errCb)
 {
     cc_init_internal(&g_core_ctx, toolRadius);
@@ -1842,6 +1818,10 @@ void cc_api_set_comp(comp_side side)
 }
 comp_side cc_api_get_comp(void)
 {
+    // if tool rad is zero then comp is effectively off, even if the state is set to in or out
+    if (g_core_ctx.toolR == 0.0f)
+        return CC_COMP_OFF;
+
     return (comp_side)g_core_ctx.compState;
 }
 
@@ -1858,15 +1838,16 @@ cc_comp_status cc_api_process_move(const move2d *move)
         if (g_core_ctx.hasCompError)
             return g_core_ctx.status;
         cc_core_drain();
-        return CC_OK;
+        return Status_OK;
     }
 
     if (!cc_push_in(&g_core_ctx, move))
-        return cc_core_report_error("Input buffer overflow", CC_ERROR);
+        return Status_InputBufferOverflow;
 
     if (!cc_process(&g_core_ctx))
         return g_core_ctx.status;
 
     cc_core_drain();
-    return CC_OK;
+    return Status_OK;
 }
+#endif

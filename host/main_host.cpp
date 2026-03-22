@@ -8,6 +8,7 @@
 #include <iostream>
 #include <iomanip>
 
+
 #define DBG_PRINTLN(x)             \
   do                               \
   {                                \
@@ -32,7 +33,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.0626f;
+static constexpr float TOOL_RADIUS = 0.0625f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;  // if true, will trim crossing elements down to the intersection point.
                                                     // If false, will emit the full compensated move even if it crosses.
@@ -65,11 +66,9 @@ static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
     std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
 }
 
-static void host_xy_error_cb(const char *message, cc_comp_status err, uint32_t seqNum)
+static void host_xy_error_cb( cc_comp_status err, uint32_t seqNum)
 {
-  if (message)
-    std::fprintf(stderr, "[cc_xy] %s\n", message);
-  if (err != CC_ERROR)
+  if (err != Status_OK)
     std::fprintf(stderr, "[cc_xy] CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
 }
 
@@ -215,7 +214,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
     {
       if (s.sawG40)
       {
-        if (cc_api_process_move(nullptr) != CC_OK)
+        if (cc_api_process_move(nullptr) != Status_OK)
         {
           g_simpleProfileOut = nullptr;
           return false;
@@ -227,7 +226,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     // If we get here, we have a valid move to process. Convert to move2d and send to cc_api_process_move.
     move2d xyMove = cc_from_move2d(mv);
-    if (cc_api_process_move(&xyMove) != CC_OK)
+    if (cc_api_process_move(&xyMove) != Status_OK)
     {
       g_simpleProfileOut = nullptr;
       return false;
@@ -235,7 +234,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     if (s.sawG40)
     {
-      if (cc_api_process_move(nullptr) != CC_OK)
+      if (cc_api_process_move(nullptr) != Status_OK)
       {
         g_simpleProfileOut = nullptr;
         return false;
@@ -244,7 +243,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
     }
   }
 
-  if (cc_api_process_move(nullptr) != CC_OK)
+  if (cc_api_process_move(nullptr) != Status_OK)
   {
     g_simpleProfileOut = nullptr;
     return false;

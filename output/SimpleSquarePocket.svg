@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.07944 -0.07944 1.74768 1.60738">
 <rect x="-0.07944" y="-0.07944" width="1.74768" height="1.60738" fill="white" />
-<text x="0.7944" y="-0.0401172" fill="#111111" font-size="0.0262152" text-anchor="middle" dominant-baseline="middle">SimpleSquarePocketOverlap  |  tool radius=0.0626</text>
+<text x="0.7944" y="-0.0401172" fill="#111111" font-size="0.0262152" text-anchor="middle" dominant-baseline="middle">SimpleSquarePocket  |  tool radius=0.0626</text>
 <polyline fill="none" stroke="#888888" stroke-width="0.003" stroke-dasharray="0.01,0.01" points="0,1.4485 1.3888,0.3926 " />
 <circle cx="0" cy="1.4485" r="0.00174768" fill="#1f77b4" />
 <circle cx="1.3888" cy="0.3926" r="0.00174768" fill="#1f77b4" />
@@ -28,15 +28,15 @@
 <polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="0.745,0.7534 1.5888,0.7534 " />
 <circle cx="0.745" cy="0.7534" r="0.00174768" fill="#1f77b4" />
 <circle cx="1.5888" cy="0.7534" r="0.00174768" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.5888,0.7534 1.5888,0.2926 " />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.5888,0.7534 1.5888,0.3926 " />
 <circle cx="1.5888" cy="0.7534" r="0.00174768" fill="#1f77b4" />
-<circle cx="1.5888" cy="0.2926" r="0.00174768" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.5888,0.2926 1.3888,0.2926 " />
-<circle cx="1.5888" cy="0.2926" r="0.00174768" fill="#1f77b4" />
-<circle cx="1.3888" cy="0.2926" r="0.00174768" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.3888,0.2926 1.3888,0.2926 " />
-<circle cx="1.3888" cy="0.2926" r="0.00174768" fill="#1f77b4" />
-<circle cx="1.3888" cy="0.2926" r="0.00174768" fill="#1f77b4" />
+<circle cx="1.5888" cy="0.3926" r="0.00174768" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.5888,0.3926 1.3888,0.3926 " />
+<circle cx="1.5888" cy="0.3926" r="0.00174768" fill="#1f77b4" />
+<circle cx="1.3888" cy="0.3926" r="0.00174768" fill="#1f77b4" />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.3888,0.3926 1.3888,0.3926 " />
+<circle cx="1.3888" cy="0.3926" r="0.00174768" fill="#1f77b4" />
+<circle cx="1.3888" cy="0.3926" r="0.00174768" fill="#1f77b4" />
 <g opacity="0.5">
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.3888,0.3926 1.3888,0.3926 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.3888,0.3926 1.5262,0.3926 " />
@@ -44,9 +44,9 @@
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.5262,0.0625999 0.8076,0.0625999 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="0.8076,0.0625999 0.8076,0.6908 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="0.8076,0.6908 1.5262,0.6908 " />
-<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.5262,0.6908 1.5262,0.2926 " />
-<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.5262,0.2926 1.3888,0.2926 " />
-<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.3888,0.2926 1.3888,0.2926 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.5262,0.6908 1.5262,0.3926 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.5262,0.3926 1.3888,0.3926 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="1.3888,0.3926 1.3888,0.3926 " />
 </g>
 <g opacity="0.35">
 <polyline fill="none" stroke="#999999" stroke-width="0.1252" stroke-linecap="round" stroke-linejoin="round" points="0,1.4485 1.3888,0.3926 " />
@@ -76,13 +76,13 @@
 <polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.8076,0.6908 1.5262,0.6908 " />
 <circle cx="0.8076" cy="0.6908" r="0.00174768" fill="#d62728" />
 <circle cx="1.5262" cy="0.6908" r="0.00174768" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5262,0.6908 1.5262,0.2926 " />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5262,0.6908 1.5262,0.3926 " />
 <circle cx="1.5262" cy="0.6908" r="0.00174768" fill="#d62728" />
-<circle cx="1.5262" cy="0.2926" r="0.00174768" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5262,0.2926 1.3888,0.2926 " />
-<circle cx="1.5262" cy="0.2926" r="0.00174768" fill="#d62728" />
-<circle cx="1.3888" cy="0.2926" r="0.00174768" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.3888,0.2926 1.3888,0.2926 " />
-<circle cx="1.3888" cy="0.2926" r="0.00174768" fill="#d62728" />
-<circle cx="1.3888" cy="0.2926" r="0.00174768" fill="#d62728" />
+<circle cx="1.5262" cy="0.3926" r="0.00174768" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5262,0.3926 1.3888,0.3926 " />
+<circle cx="1.5262" cy="0.3926" r="0.00174768" fill="#d62728" />
+<circle cx="1.3888" cy="0.3926" r="0.00174768" fill="#d62728" />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.3888,0.3926 1.3888,0.3926 " />
+<circle cx="1.3888" cy="0.3926" r="0.00174768" fill="#d62728" />
+<circle cx="1.3888" cy="0.3926" r="0.00174768" fill="#d62728" />
 </svg>

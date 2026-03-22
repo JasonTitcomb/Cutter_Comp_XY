@@ -195,17 +195,8 @@ static int get_winding_dir(Vec2 a, Vec2 b)
 
 static float angleNorm(float a)
 {
-  while (a < 0)
-    a += TWO_PI;
-  while (a >= TWO_PI)
-    a -= TWO_PI;
-  return a;
-}
-
-static float wrap2pi(float a)
-{
   a = fmodf(a, TWO_PI);
-  if (a < 0)
+  if (a < 0.0f)
     a += TWO_PI;
   return a;
 }
@@ -215,9 +206,6 @@ static float arcSweepDeg(const Move2D &m)
 {
   Vec2 r0 = (m.arcDir == ARC_CCW) ? rightNormal(m.startDir) : leftNormal(m.startDir);
   Vec2 r1 = (m.arcDir == ARC_CCW) ? rightNormal(m.endDir)   : leftNormal(m.endDir);
-
-  r0 = normalize(r0);
-  r1 = normalize(r1);
 
   float sw = 0.0f;
   if (m.arcDir == ARC_CCW) {
@@ -383,13 +371,17 @@ static bool pointOnSegment(Vec2 a, Vec2 b, Vec2 p)
   Vec2 ab = b - a;
   float lab2 = dot(ab, ab);
   if (lab2 < TOL)
-    return (len(p - a) < TOL);
+  {
+    Vec2 pa = p - a;
+    return dot(pa, pa) < TOL * TOL;
+  }
 
   float t = dot(p - a, ab) / lab2;
   if (t < -TOL || t > 1.0f + TOL)
     return false;
-  float d = fabsf(cross(p - a, ab)) / sqrtf(lab2);
-  return d < TOL;
+
+  float c = cross(p - a, ab);
+  return (c * c) < (TOL * TOL * lab2);
 }
 
 

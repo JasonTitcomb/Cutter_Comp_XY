@@ -124,33 +124,33 @@ private:
         bool consistant = true;
         float sw = 0;
         bool sweepOk = true;
-        float length = len(m.p_1 - m.p_0);
 
         if (m.type == MOT_LINE)
         {
+            float length = len(m.p_1 - m.p_0);
             m.valid = length >= TOL;
         }
         if (m.type == MOT_ARC)
         {
-            CompSide side = effectiveCompSide();
-            // if we are not going to do global trim then we should test arc validity here, because we won't have another chance to validate before output.
-            // if comp left and arc is CCW, then the arc must be  > tool rad.
-             bool innerArc = (side == COMP_LEFT && m.arcDir == ARC_CCW) || (side == COMP_RIGHT && m.arcDir == ARC_CW);
-            if (!options.globalTrimCrossing && innerArc && length <= toolR)
+           // if we are not going to do global trim then we should test arc validity here, because we won't have another chance to validate before output.
+           // if comp left and arc is CCW, then the arc must be  > tool rad.
+           if (!options.globalTrimCrossing)
             {
-                reportCompError(CE_ARC_LT_TOOL_RAD);
-                return false;
+                 CompSide side = effectiveCompSide();
+                bool innerArc = (side == COMP_LEFT && m.arcDir == ARC_CCW) || (side == COMP_RIGHT && m.arcDir == ARC_CW);
+
+                // it is possible for an arc to have near zero r.
+                // but if we are global trimming later then we need to keep it
+                // to further the profile and find the crossing, so we won't invalidate here for small radius if global trim is on.
+                if (innerArc && fabsf(m.radius) < TOL)
+                {
+                    reportCompError(CE_ARC_LT_TOOL_RAD);
+                    m.valid = false;
+                    return false;
+                }
             }
-            // it is possible for an arc to have near zero r.
-            // but if we are global trimming later then we need to keep it
-            // to further the profile and find the crossing, so we won't invalidate here for small radius if global trim is on.
-            if (!options.globalTrimCrossing && fabsf(m.radius) < TOL)
-            {
-                reportCompError(CE_ARC_LT_TOOL_RAD);
-                return false;
-            }
-            
-            length = distFromStart_along(m, m.p_1);
+
+            // These are hard fails that we won't be able to recover from with trimming.
             consistant = is_radius_consistent(m);
             sw = arcSweepDeg(m);
             sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
@@ -482,15 +482,27 @@ private:
 
     bool solveJunction(const Move2D &a, const Move2D &b, bool allowExtend, Junction &outjunc)
     {
-        Vec2 trimPts[2]{};
-        int trimCount = finiteIntersectionPoints(a, b, trimPts);
         Vec2 carrierPts[2]{};
         int carrierCount = intersectCarrier(a, b, carrierPts);
+        Vec2 trimPts[2]{};
+        int trimCount = 0;
 
         float bestTrimScore = 0.0f;
         float bestExtendScore = 0.0f;
         bool foundTrim = false;
         bool foundExtend = false;
+
+        for (int i = 0; i < carrierCount; ++i)
+        {
+            Vec2 p = carrierPts[i];
+            if (!pointOnFiniteElem(a, p) || !pointOnFiniteElem(b, p))
+                continue;
+
+            if (trimCount > 0 && is_near(trimPts[0], p))
+                continue;
+
+            trimPts[trimCount++] = p;
+        }
 
         for (int i = 0; i < trimCount; ++i)
         {
@@ -650,7 +662,6 @@ private:
 
         // complete copy.
         dst = src;
-        validate(dst); // validate before offsetting
 
         float dr = toolR;
         bool ccw = (src.arcDir == ARC_CCW);
@@ -962,7 +973,6 @@ private:
     {
         insertCount = 0;
 
-
         if (a.type == MOT_LINE && b.type == MOT_LINE)
         {
             handleLineLine(a, b, inserts, insertCount);
@@ -977,7 +987,7 @@ private:
         }
     }
 
-    void handleLineLine(Move2D &a, Move2D &b,  Move2D inserts[3], int &insertCount)
+    void handleLineLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
         bool comping = (a.compMode == CM_IN || a.compMode == CM_OUT || b.compMode == CM_IN || b.compMode == CM_OUT);
         Junction junction;
@@ -1043,7 +1053,7 @@ private:
 
         Junction junction;
         float gap = len(b.p_0 - a.p_1);
-        bool resolved = solveJunction(a, b, gap < gapTol, junction);
+        solveJunction(a, b, gap < gapTol, junction);
 
         if (junction.type == JT_TRIM_TO_INTERSECTION)
         {

@@ -1,0 +1,1 @@
+#define CUTTER_COMP_ENABLE 1

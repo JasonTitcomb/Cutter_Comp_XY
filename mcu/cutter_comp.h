@@ -8,9 +8,9 @@
 #ifndef CUTTER_COMP_H
 #define CUTTER_COMP_H
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#if CUTTER_COMP_ENABLE
+
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -127,17 +127,17 @@ typedef enum
 
 typedef enum
 {
-    CC_OK = 0,
-    CC_ERROR = 150,
-    CC_ARC_RADIUS_MISMATCH = 151,
-    CC_INVALID_MOVE = 152,
-    CC_COMP_MOVE_TOO_SHORT = 153,
-    CC_ARC_LT_TOOL_RAD = 154,
-    CC_FLIPPED_ARC = 155,
-    CC_COMP_IN_CROSSING = 156,
-    CC_COMP_OUT_CROSSING = 157,
-    CC_UNRESOLVED_GAP = 158,
-    CC_OUTPUT_BUFFER_OVERFLOW = 159
+    Status_OK = 0,
+    Status_ArcRadiusMismatch = 101,
+    Status_InvalidMove = 102,
+    Status_MoveTooShort = 103,
+    Status_ArcLtToolRad = 104,
+    Status_FlippedArc = 105,
+    Status_CompInCrossing = 106,
+    Status_CompOutCrossing = 107,
+    Status_UnresolvedGap = 108,
+    Status_InputBufferOverflow = 109,
+    Status_OutputBufferOverflow = 110
 } cc_comp_status;
 
 
@@ -159,7 +159,7 @@ typedef struct
     bool valid;
 } move2d;
 
-typedef void (*cc_err_cb)(const char *message, cc_comp_status err, uint32_t seqNum);
+typedef void (*cc_err_cb)( cc_comp_status err, uint32_t seqNum);
 typedef void (*emit_move_cb)(const move2d *move);
 
 typedef enum
@@ -231,3 +231,4 @@ void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);
 #endif
 
 #endif // CUTTER_COMP_H
+#endif // CUTTER_COMP_ENABLE

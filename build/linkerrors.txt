@@ -1,11 +1,23 @@
 ================================================================================
 Linker Errors
-Generated: 2026-03-18T12:48:39.220Z
-Total Errors: 2
+Generated: 2026-03-21T18:44:19.027Z
+Total Errors: 6
 ================================================================================
 
 [LNK2019] (MSVC)
-unresolved external symbol _cc_set_error_callback referenced in function _cc_api_init [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+unresolved external symbol _cc_v2 referenced in function _cc_mc_to_move2d [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_api_init referenced in function "bool __cdecl run_profile_simple_xy(class std::vector<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> >,class std::allocator<class std::basic_string<char,struct std::char_traits<char>,class std::allocator<char> > > > const &,float,class std::vector<struct Move2D,class std::allocator<struct Move2D> > &)" (?run_profile_simple_xy@@YA_NABV?$vector@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@V?$allocator@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@2@@std@@MAAV?$vector@UMove2D@@V?$allocator@UMove2D@@@std@@@2@@Z) [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_api_process_move referenced in function _cc_mc_line_in [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_api_set_comp referenced in function _cc_mc_line_in [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+
+[LNK2019] (MSVC)
+unresolved external symbol _cc_api_get_comp referenced in function _cc_mc_comp_mode_from_input [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
 
 [LNK1120] (MSVC)
-1 unresolved externals [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
+5 unresolved externals [D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj]
