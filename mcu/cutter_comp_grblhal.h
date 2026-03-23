@@ -5,6 +5,7 @@
  */
 #ifndef CUTTER_COMP_GRBLHAL_H
 #define CUTTER_COMP_GRBLHAL_H
+#include "config.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -13,7 +14,6 @@ extern "C"
 
 #if CUTTER_COMP_ENABLE
 
-#include "config.h"
 #include "../mcu/cutter_comp.h"
 #include "../mcu/grbl_data_portable.h"
 
@@ -21,9 +21,23 @@ extern "C"
     // these are implemented in grblhal's motion_control.c, but declared here so they can be called from the cc_emit_via_mc callback.
     bool mc_line(float *xyz, plan_line_data_t *pl_data);
     void mc_arc(float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns);
-
+    void report_message(const char *msg, message_type_t type);
     static plan_line_data_t *cc_mc_active_plan_data = 0;
     static float cc_mc_input_pos[N_AXIS] = {0};
+
+    static void cc_report_error(status_code_t err, uint32_t seqNum)
+    {
+        if (err != Status_OK)
+        {
+            char msg[40];
+
+            strcpy(msg, "CC_ERROR:");
+            strcat(msg, uitoa(err));
+            strcat(msg, ", N");
+            strcat(msg, uitoa(seqNum));
+            report_message(msg, Message_Error);
+        }
+    }
 
     static inline uint8_t cc_mc_comp_mode_from_input(gc_ccomp_t cc)
     {
@@ -81,7 +95,7 @@ extern "C"
     }
 
     // replaces mc_line when cutter compensation is active. If compensation is not active, passes through to mc_line.
-    cc_comp_status cc_mc_line_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data)
+    status_code_t cc_mc_line_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data)
     {
         cc_mc_active_plan_data = pl_data;
 
@@ -107,23 +121,24 @@ extern "C"
         }
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, 0, 0, 0.0f, 0, false);
-        cc_comp_status st = cc_api_process_move(&mv);
+        status_code_t st = cc_api_process_move(&mv);
         if (st != Status_OK)
             return st;
 
-        if (mv.compMode == CC_CM_OUT)
+        if (cc.side == CComp_Off)
         {
             st = cc_api_process_move(0);
             if (st != Status_OK)
                 return st;
             cc_api_set_comp(CC_COMP_OFF);
+            report_message("CC_Off", Message_Info);
         }
 
         return Status_OK;
     }
 
     // replaces mc_arc when cutter compensation is active. If compensation is not active, passes through to mc_arc.
-    cc_comp_status cc_mc_arc_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns)
+    status_code_t cc_mc_arc_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns)
     {
         cc_mc_active_plan_data = pl_data;
 
@@ -148,11 +163,11 @@ extern "C"
         }
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, position, ijk, radius, turns, true);
-        cc_comp_status st = cc_api_process_move(&mv);
+        status_code_t st = cc_api_process_move(&mv);
         if (st != Status_OK)
             return st;
 
-        if (mv.compMode == CC_CM_OUT)
+        if (cc.side == CComp_Off) // this should never happen for arcs, but just in case
         {
             st = cc_api_process_move(0);
             if (st != Status_OK)
@@ -163,7 +178,7 @@ extern "C"
         return Status_OK;
     }
 
-    static void cc_error_cb(const char *message, cc_comp_status err, uint32_t seqNum)
+    static void cc_error_cb(const char *message, status_code_t err, uint32_t seqNum)
     {
         // what should i do here?
         // I don't have a real "host" to report errors to, and the API requires me to provide an error callback.

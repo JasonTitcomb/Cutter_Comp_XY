@@ -29,13 +29,13 @@
 		{
 			"label": "Copy cutter_comp to GRBLHAL Due",
 			"type": "shell",
-			"command": "Copy-Item -Path 'mcu/cutter_comp*' -Destination 'D:\\Repos\\SAM3X8E\\grblHAL_Due\\src\\grbl' -Force; $header='D:\\Repos\\SAM3X8E\\grblHAL_Due\\src\\grbl\\cutter_comp_grblhal.h'; (Get-Content -Raw $header) -replace '#include \"../mcu/cutter_comp.h\"', '#include \"cutter_comp.h\"' -replace '(?m)^#include \"../mcu/grbl_data_portable\\.h\"\\r?\\n?', '' | Set-Content $header",
+			"command": "Copy-Item -Path 'mcu/cutter_comp*' -Destination 'D:\\Repos\\SAM3X8E\\grblHAL_Due\\src\\grbl' -Force;",
 			"problemMatcher": []
 		},
 		{
 			"label": "Copy cutter_comp to GRBLHAL Teensy",
 			"type": "shell",
-			"command": "Copy-Item -Path 'mcu/cutter_comp*' -Destination 'D:\\Repos\\iMXRT1062\\grblHAL_Teensy4\\src\\grbl' -Force; $header='D:\\Repos\\iMXRT1062\\grblHAL_Teensy4\\src\\grbl\\cutter_comp_grblhal.h'; (Get-Content -Raw $header) -replace '#include \"../mcu/cutter_comp.h\"', '#include \"cutter_comp.h\"' -replace '(?m)^#include \"../mcu/grbl_data_portable\\.h\"\\r?\\n?', '' | Set-Content $header",
+			"command": "Copy-Item -Path 'mcu/cutter_comp*' -Destination 'D:\\Repos\\iMXRT1062\\grblHAL_Teensy4\\src\\grbl' -Force;",
 			"problemMatcher": []
 		},
 		{

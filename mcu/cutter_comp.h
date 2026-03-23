@@ -7,10 +7,10 @@
 
 #ifndef CUTTER_COMP_H
 #define CUTTER_COMP_H
+#include "config.h"
 
 #if CUTTER_COMP_ENABLE
-
-#include "config.h"
+#include "errors.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -125,20 +125,20 @@ typedef enum
     CC_CTM_CHAMFER = 1
 } cc_corner_treatment_mode;
 
-typedef enum
-{
-    Status_OK = 0,
-    Status_ArcRadiusMismatch = 101,
-    Status_InvalidMove = 102,
-    Status_MoveTooShort = 103,
-    Status_ArcLtToolRad = 104,
-    Status_FlippedArc = 105,
-    Status_CompInCrossing = 106,
-    Status_CompOutCrossing = 107,
-    Status_UnresolvedGap = 108,
-    Status_InputBufferOverflow = 109,
-    Status_OutputBufferOverflow = 110
-} cc_comp_status;
+// typedef enum
+// {
+//     Status_OK = 0,
+//     Status_ArcRadiusMismatch = 101,
+//     Status_InvalidMove = 102,
+//     Status_MoveTooShort = 103,
+//     Status_ArcLtToolRad = 104,
+//     Status_FlippedArc = 105,
+//     Status_CompInCrossing = 106,
+//     Status_CompOutCrossing = 107,
+//     Status_UnresolvedGap = 108,
+//     Status_InputBufferOverflow = 109,
+//     Status_OutputBufferOverflow = 110
+// } status_code_t;
 
 
 typedef struct
@@ -159,7 +159,7 @@ typedef struct
     bool valid;
 } move2d;
 
-typedef void (*cc_err_cb)( cc_comp_status err, uint32_t seqNum);
+typedef void (*cc_err_cb)( status_code_t err, uint32_t seqNum);
 typedef void (*emit_move_cb)(const move2d *move);
 
 typedef enum
@@ -185,7 +185,7 @@ typedef struct
 
 typedef struct
 {
-    cc_comp_status status;
+    status_code_t status;
 
     float toolR;
     int8_t toolSign;
@@ -217,7 +217,7 @@ void cc_api_init(float radius,emit_move_cb emitCb, cc_err_cb errCb);
 // Process a move. If move is null, flushes any pending moves and reports any pending errors.
 // Returns CC_OK if the move was processed and emitted successfully, or if flushing completed successfully.
 // Returns an appropriate error code otherwise.
-cc_comp_status cc_api_process_move(const move2d *move);
+status_code_t cc_api_process_move(const move2d *move);
 
 // comp_side is CC_COMP_OFF=0, CC_COMP_LEFT=1, or CC_COMP_RIGHT=-1
 void cc_api_set_comp(comp_side side);

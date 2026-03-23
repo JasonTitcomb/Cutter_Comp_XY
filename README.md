@@ -24,20 +24,26 @@ incorrectly. Review the code and test carefully before using it on real hardware
 - Global self intersections are ignored when Z does not match between pairwise comparisons to allow for thread milling.
 
 ## Project Layout
-- `src/` - Core parser + compensation engine (`cc_simple_scan.h`, `cc_processor.h`, `cc_main.h`, `cc_main.cpp`).
-- `host/` - Desktop harness (`main_host.cpp`) and output writers (`writer.h`).
+- `src/` - C++ parser/runtime headers and embedded entry (`cc_simple_scan.h`, `cc_processor.h`, `cc_main.h`, `main.cpp`).
+- `mcu/` - C99 core engine and grblHAL adapter (`cutter_comp.c`, `cutter_comp.h`, `cutter_comp_grblhal.h`).
+- `host/` - Desktop harness (`main_host.cpp`) and visualization/report writers (`writer.h`).
+- `csharp/CutterCompXY.Port/` - .NET 8 C# parity/port executable.
 - `data/` - Sample NC programs used by the host harness.
-- `output/` - Generated host outputs (`.ngc`, `.svg`).
+- `output/` - Generated host outputs (`.nc/.ngc`, `.svg`, `.xy.svg`, `.xy.compare.txt`).
 - `build/` - CMake/Visual Studio build output (generated).
-- `platformio.ini` - Arduino board environments.
+- `platformio.ini` - PlatformIO embedded environments.
 
 ## Host Workflow (Recommended for development)
-1. Build `cc_runner` (CMake/VS task).
-2. Run the executable.
-3. The program loads one NC file (configured in `host/main_host.cpp`) and runs compensation.
-4. Generated outputs:
-	 - `output/<input>.ngc` - compensated toolpath G-code
-	 - `output/<input>.svg` - visual overlay (original vs compensated)
+1. Build `cc_runner` with the VS Code CMake task (`CMake: build`).
+2. Run the executable from the CMake build output (or launch via your IDE profile).
+3. Input/output behavior:
+	 - If no CLI args are provided, the host uses the default file configured in `host/main_host.cpp`.
+	 - You can pass args: `cc_runner [inputfile] [outputfolder] [toolradius] [roll|chamfer] [svg|nosvg]`.
+4. Generated outputs in `output/`:
+	 - `<input>.<ext>` - compensated toolpath G-code (keeps input extension when present)
+	 - `<input>.svg` - compensated vs original overlay
+	 - `<input>.xy.svg` - standalone `cc_xy` profile visualization
+	 - `<input>.xy.compare.txt` - comparison report between full runner and standalone `cc_xy`
 
 Input examples are provided under `data/` (`G41_1.nc`, `G42_1.nc`, `TortureTestG90.nc`, `TortureTestG91.nc`, etc.).
 
@@ -47,12 +53,23 @@ Input examples are provided under `data/` (`G41_1.nc`, `G42_1.nc`, `TortureTestG
 	- `adafruit_grandcentral_m4`
 - Embedded entry point is `src/main.cpp`.
 
+## C# Port
+- Project: `csharp/CutterCompXY.Port/CutterCompXY.Port.csproj`.
+- Build from VS Code task: `dotnet: build`.
+- Target framework: .NET 8 (`net8.0`).
+
 ## Integration API
 - High-level runtime wrapper: `CcMainRunner` in `src/cc_main.h`.
+- Runtime options are provided through `CcMainOptions` in `src/cc_processor.h`:
+	- `toolRadius`
+	- `cornerTreatment`
+	- `globalTrimCrossing`
+	- `globalMerge`
+	- `emitStatusComments`
 - Callback signatures:
 	- `CcOutputCB(const char *text, size_t len)`
 	- `CcErrorCB(const char *message, CompError err, uint32_t seqNum)`
-- `CcMainCallbacks` contains `output` and `error` callbacks only (no `userData`).
+- `CcMainOptions::CcMainCallbacks` currently contains `output` and `error` callbacks only (no `userData`).
 
 ## Notes and Scope
 - This project focuses on 2D XY compensation behavior and geometry handling.

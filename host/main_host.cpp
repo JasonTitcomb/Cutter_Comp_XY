@@ -8,7 +8,6 @@
 #include <iostream>
 #include <iomanip>
 
-
 #define DBG_PRINTLN(x)             \
   do                               \
   {                                \
@@ -33,10 +32,10 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.0625f;
+static constexpr float TOOL_RADIUS = 0.06f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool GLOBAL_TRIM_CROSSING = true;  // if true, will trim crossing elements down to the intersection point.
-                                                    // If false, will emit the full compensated move even if it crosses.
+static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
+                                                            // If false, will emit the full compensated move even if it crosses.
 static constexpr bool GLOBAL_MERGE = false;
 static constexpr bool OUTPUT_SVG = true;
 
@@ -57,7 +56,6 @@ static void host_output_cb(const char *text, size_t len)
   fwrite(text, 1, len, g_hostRunnerContext->out);
 }
 
-
 static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
 {
   if (message)
@@ -66,7 +64,7 @@ static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
     std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
 }
 
-static void host_xy_error_cb( cc_comp_status err, uint32_t seqNum)
+static void host_xy_error_cb(status_code_t err, uint32_t seqNum)
 {
   if (err != Status_OK)
     std::fprintf(stderr, "[cc_xy] CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
@@ -75,51 +73,58 @@ static void host_xy_error_cb( cc_comp_status err, uint32_t seqNum)
 static std::vector<Move2D> *g_simpleProfileOut = nullptr;
 static float g_mc_host_pos[N_AXIS] = {};
 
-extern "C" {
-
-bool mc_line(float *xyz, plan_line_data_t *pl_data)
+extern "C"
 {
-  if (g_simpleProfileOut)
-  {
-    Move2D mv{};
-    mv.p_0 = v2(g_mc_host_pos[0], g_mc_host_pos[1]);
-    mv.p_1 = v2(xyz[0], xyz[1]);
-    mv.z_0 = g_mc_host_pos[2];
-    mv.z_1 = xyz[2];
-    mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
-    mv.type = (pl_data && pl_data->condition.rapid_motion) ? MOT_RAPID : MOT_LINE;
-    mv.valid = true;
-    g_simpleProfileOut->push_back(mv);
-  }
-  g_mc_host_pos[0] = xyz[0];
-  g_mc_host_pos[1] = xyz[1];
-  g_mc_host_pos[2] = xyz[2];
-  return true;
-}
 
-void mc_arc(float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns)
-{
-  (void)plane;
-  if (g_simpleProfileOut)
+  bool mc_line(float *xyz, plan_line_data_t *pl_data)
   {
-    Move2D mv{};
-    mv.p_0 = v2(position[0], position[1]);
-    mv.p_1 = v2(xyz[0], xyz[1]);
-    mv.z_0 = position[2];
-    mv.z_1 = xyz[2];
-    mv.center = v2(position[0] + ijk[0], position[1] + ijk[1]);
-    mv.radius = radius;
-    mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
-    mv.type = MOT_ARC;
-    mv.arcDir = (turns >= 0) ? ARC_CCW : ARC_CW;
-    mv.valid = true;
-    g_simpleProfileOut->push_back(mv);
+    if (g_simpleProfileOut)
+    {
+      Move2D mv{};
+      mv.p_0 = v2(g_mc_host_pos[0], g_mc_host_pos[1]);
+      mv.p_1 = v2(xyz[0], xyz[1]);
+      mv.z_0 = g_mc_host_pos[2];
+      mv.z_1 = xyz[2];
+      mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
+      mv.type = (pl_data && pl_data->condition.rapid_motion) ? MOT_RAPID : MOT_LINE;
+      mv.valid = true;
+      g_simpleProfileOut->push_back(mv);
+    }
+    g_mc_host_pos[0] = xyz[0];
+    g_mc_host_pos[1] = xyz[1];
+    g_mc_host_pos[2] = xyz[2];
+    return true;
   }
-  g_mc_host_pos[0] = xyz[0];
-  g_mc_host_pos[1] = xyz[1];
-  g_mc_host_pos[2] = xyz[2];
-}
 
+  void report_message(const char *msg, message_type_t type)
+  {
+    (void)type;
+    if (msg)
+      std::fprintf(stderr, "(%s)\n", msg);
+  }
+
+  void mc_arc(float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns)
+  {
+    (void)plane;
+    if (g_simpleProfileOut)
+    {
+      Move2D mv{};
+      mv.p_0 = v2(position[0], position[1]);
+      mv.p_1 = v2(xyz[0], xyz[1]);
+      mv.z_0 = position[2];
+      mv.z_1 = xyz[2];
+      mv.center = v2(position[0] + ijk[0], position[1] + ijk[1]);
+      mv.radius = radius;
+      mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
+      mv.type = MOT_ARC;
+      mv.arcDir = (turns >= 0) ? ARC_CCW : ARC_CW;
+      mv.valid = true;
+      g_simpleProfileOut->push_back(mv);
+    }
+    g_mc_host_pos[0] = xyz[0];
+    g_mc_host_pos[1] = xyz[1];
+    g_mc_host_pos[2] = xyz[2];
+  }
 }
 
 // -------------------- Profile buffer --------------------
@@ -193,7 +198,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
   // Initialize the cc_xy adapter with the provided tool radius,
   // and set up callbacks for move emission and error reporting.
-  cc_api_init(toolRadius,cc_emit_via_mc, host_xy_error_cb);
+  cc_api_init(toolRadius, cc_emit_via_mc, host_xy_error_cb);
 
   g_simpleProfileOut = &profileOut;
 
@@ -212,7 +217,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     if (mv.type == MOT_EMPTY)
     {
-      if (s.sawG40)
+      if (s.sawG40) // G40 no movement but cancels comp, so flush with null move
       {
         if (cc_api_process_move(nullptr) != Status_OK)
         {
@@ -458,13 +463,13 @@ int main(int argc, char *argv[])
   //  const char *default_file = "../../data/RapidComp.nc";
   //  const char *default_file = "../../data/G41_1.nc";
   // const char *default_file = "../../data/ThreadMill.nc";
-  //const char *default_file = "../../data/G41_2.nc";
+  // const char *default_file = "../../data/G41_2.nc";
   //  const char *default_file = "../../data/TortureTestG91.nc";
   //  const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc";//test with 0.0609 Rad
+  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   // const char *default_file = "../../data/TortureTestLinux.nc";
   // const char *default_file = "../../data/ArcTooSmall.nc";
   // const char *default_file = "../../data/TortureTestLines.nc";

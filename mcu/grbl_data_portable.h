@@ -6,13 +6,15 @@
 
 /*
  * Minimal, self-contained copy of grblHAL planner line data dependencies.
- *
+ * FOR DEVELOPMENT ONLY. This is not intended to be a complete or long-term solution for hosting the cutter compensation engine.
+ * 
  * Source of truth in grblHAL_Due:
  * - src/grbl/planner.h
  * - src/grbl/gcode.h
  * - src/grbl/coolant_control.h
  * - src/grbl/spindle_control.h
  */
+
 
 #ifndef ENABLE_JERK_ACCELERATION
 #define ENABLE_JERK_ACCELERATION 0
@@ -52,7 +54,6 @@ typedef int32_t tool_id_t;
 typedef int16_t pocket_id_t;
 
 typedef uint8_t override_t;
-typedef int16_t status_code_t;
 
 typedef float coord_data_t[N_AXIS];
 typedef float coord_system_data_t[N_AXIS];
@@ -364,6 +365,30 @@ typedef union {
     };
 } plane_t;
 
+typedef enum {
+    Message_Plain = 0,
+    Message_Info,
+    Message_Warning,
+    Message_Error,
+    Message_Debug
+} message_type_t;
 
+// Converts an uint32 variable to string.
+char buf[40];
+char *uitoa (uint32_t n)
+{   
 
+    char *bptr = buf + sizeof(buf);
+
+    *--bptr = '\0';
+
+    if (n == 0)
+        *--bptr = '0';
+    else while (n) {
+        *--bptr = '0' + (n % 10);
+        n /= 10;
+    }
+
+    return bptr;
+}
 #endif /* PLAN_LINE_DATA_PORTABLE_H */

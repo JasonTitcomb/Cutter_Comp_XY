@@ -23,6 +23,20 @@ public struct CcMainOptions
 }
 public sealed class CutterComp2D
 {
+    private enum JunctionType : byte
+    {
+        JT_NONE = 0,
+        JT_TRIM_TO_INTERSECTION,
+        JT_EXTEND_TO_INTERSECTION,
+        JT_ROLL_AROUND,
+    }
+
+    private struct Junction
+    {
+        public JunctionType type;
+        public Vec2 p;
+    }
+
     public CornerType cornerTreatment = CornerType.CORNER_ROLL;
     public bool performTrim = true;
     public const int IN_CAP = 2;
@@ -123,7 +137,7 @@ public sealed class CutterComp2D
             CcMath.UpdateVectors(ref raw);
 
             Move2D curOff;
-            OffsetMove(ref raw, out curOff);
+            OffsetMove(raw, out curOff);
             CcMath.Validate(ref curOff);
 
             if (!raw.hasXY && raw.hasZ)
@@ -255,6 +269,128 @@ public sealed class CutterComp2D
     {
         int cw = CcMath.GetWindingDir(a.endDir, b.startDir);
         return ConvexFromWinding(cw);
+    }
+
+    private static bool PointOnFiniteElem(in Move2D m, in Vec2 p)
+    {
+        if (m.type == MotionType.MOT_LINE)
+            return CcMath.PointOnSegment(m.p_0, m.p_1, p);
+
+        if (m.type == MotionType.MOT_ARC)
+        {
+            ArcAngles aa = CcMath.PrecomputeArcAngles(m);
+            return CcMath.PointOnArcCached(m, p, aa);
+        }
+
+        return false;
+    }
+
+    private static int IntersectCarrier(in Move2D a, in Move2D b, out Vec2 p1, out Vec2 p2)
+    {
+        p1 = new Vec2(0, 0);
+        p2 = new Vec2(0, 0);
+
+        if (a.type == MotionType.MOT_LINE && b.type == MotionType.MOT_LINE)
+        {
+            IntersectType it = CcMath.IntersectLineLine(a, b, out p1, out _);
+            return (it == IntersectType.IT_NONE) ? 0 : 1;
+        }
+
+        if (a.type == MotionType.MOT_ARC && b.type == MotionType.MOT_ARC)
+        {
+            if (CcMath.IsNear(a.center, b.center))
+                return 0;
+
+            IntersectType it = CcMath.IntersectCircleCircle(a, b, out p1, out p2, out int count);
+            if (it == IntersectType.IT_NONE)
+                return 0;
+            return count;
+        }
+
+        Move2D line = (a.type == MotionType.MOT_LINE) ? a : b;
+        Move2D arc = (a.type == MotionType.MOT_ARC) ? a : b;
+        IntersectType it2 = CcMath.IntersectLineCircle(line.p_0, line.p_1, arc.center, arc.radius, out p1, out p2, out int count2);
+        if (it2 == IntersectType.IT_NONE)
+            return 0;
+        return count2;
+    }
+
+    private bool IsForwardExtensionPoint(in Move2D a, in Move2D b, in Vec2 p)
+    {
+        float fipDir1 = CcMath.Dot(p - a.p_1, a.endDir);
+        float fipDir2 = CcMath.Dot(p - b.p_0, b.startDir);
+        return fipDir1 > 0 && fipDir2 < 0;
+    }
+
+    private bool SolveJunction(in Move2D a, in Move2D b, bool allowExtend, out Junction outJunction)
+    {
+        outJunction = new Junction { type = JunctionType.JT_NONE, p = new Vec2(0, 0) };
+        int carrierCount = IntersectCarrier(a, b, out Vec2 c0, out Vec2 c1);
+        Vec2[] carrierPts = { c0, c1 };
+
+        Vec2[] trimPts = new Vec2[2];
+        int trimCount = 0;
+
+        float bestTrimScore = 0.0f;
+        float bestExtendScore = 0.0f;
+        bool foundTrim = false;
+        bool foundExtend = false;
+
+        for (int i = 0; i < carrierCount; i++)
+        {
+            Vec2 p = carrierPts[i];
+            if (!PointOnFiniteElem(a, p) || !PointOnFiniteElem(b, p))
+                continue;
+
+            if (trimCount > 0 && CcMath.IsNear(trimPts[0], p))
+                continue;
+
+            trimPts[trimCount++] = p;
+        }
+
+        for (int i = 0; i < trimCount; i++)
+        {
+            Vec2 p = trimPts[i];
+            float score = CcMath.DistFromStartAlong(a, p) + CcMath.DistFromStartAlong(b, p);
+            if (!foundTrim || score < bestTrimScore)
+            {
+                outJunction.type = JunctionType.JT_TRIM_TO_INTERSECTION;
+                outJunction.p = p;
+                bestTrimScore = score;
+                foundTrim = true;
+            }
+        }
+
+        for (int i = 0; i < carrierCount; i++)
+        {
+            Vec2 p = carrierPts[i];
+            if (allowExtend && IsForwardExtensionPoint(a, b, p))
+            {
+                float score = CcMath.Len(a.p_1 - p) + CcMath.Len(b.p_0 - p);
+                if (!foundExtend || score < bestExtendScore)
+                {
+                    outJunction.type = JunctionType.JT_EXTEND_TO_INTERSECTION;
+                    outJunction.p = p;
+                    bestExtendScore = score;
+                    foundExtend = true;
+                }
+            }
+        }
+
+        if (foundTrim)
+            return true;
+
+        if (foundExtend)
+            return true;
+
+        if (IsConvex(a, b))
+        {
+            outJunction.type = JunctionType.JT_ROLL_AROUND;
+            return true;
+        }
+
+        outJunction.type = JunctionType.JT_NONE;
+        return false;
     }
 
     private bool OffsetMove(in Move2D src, out Move2D dst)
@@ -613,40 +749,42 @@ public sealed class CutterComp2D
     {
         insertCount = 0;
 
-        bool comping =
-            a.compMode == CompMode.CM_IN || a.compMode == CompMode.CM_OUT ||
-            b.compMode == CompMode.CM_IN || b.compMode == CompMode.CM_OUT;
-
         if (a.type == MotionType.MOT_LINE && b.type == MotionType.MOT_LINE)
-            HandleLineLine(ref a, ref b, comping, inserts, ref insertCount);
+            HandleLineLine(ref a, ref b, inserts, ref insertCount);
         else if (a.type == MotionType.MOT_ARC && b.type == MotionType.MOT_ARC)
             HandleArcArc(ref a, ref b, inserts, ref insertCount);
         else if ((a.type == MotionType.MOT_ARC && b.type == MotionType.MOT_LINE) || (a.type == MotionType.MOT_LINE && b.type == MotionType.MOT_ARC))
             HandleArcLine(ref a, ref b, inserts, ref insertCount);
     }
 
-    private void HandleLineLine(ref Move2D a, ref Move2D b, bool comping, Move2D[] inserts, ref int insertCount)
+    private void HandleLineLine(ref Move2D a, ref Move2D b, Move2D[] inserts, ref int insertCount)
     {
-        IntersectType it = CcMath.IntersectLineLine(a, b, out Vec2 ip, out bool tip);
-        if (it == IntersectType.IT_NONE)
-            return;
+        bool comping =
+            a.compMode == CompMode.CM_IN || a.compMode == CompMode.CM_OUT ||
+            b.compMode == CompMode.CM_IN || b.compMode == CompMode.CM_OUT;
+        float gap = CcMath.Len(b.p_0 - a.p_1);
+        bool allowExtend = (gap < gapTol) || comping;
+        bool resolved = SolveJunction(a, b, allowExtend, out Junction junction);
 
-        if (tip)
+        if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
         {
-            TrimToTIP(ref a, ref b, ip);
+            TrimToTIP(ref a, ref b, junction.p);
             if (!a.valid)
+            {
                 b.p_0 = a.p_1;
+                return;
+            }
             if (!b.valid)
+            {
                 a.p_1 = b.p_0;
+                return;
+            }
             return;
         }
 
-        float gap = CcMath.Len(b.p_0 - a.p_1);
-        bool nearlyConnected = gap < gapTol;
-
-        if (nearlyConnected || comping)
+        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
         {
-            if (ExtendToFIP(ref a, ref b, ip))
+            if (ExtendToFIP(ref a, ref b, junction.p))
                 return;
         }
 
@@ -662,7 +800,7 @@ public sealed class CutterComp2D
             return;
         }
 
-        if (IsConvex(a, b))
+        if (resolved && junction.type == JunctionType.JT_ROLL_AROUND)
         {
             if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
                 CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
@@ -677,93 +815,66 @@ public sealed class CutterComp2D
         if (CcMath.IsNear(a.p_1, b.p_0) || CcMath.IsNear(a.center, b.center))
             return;
 
-        IntersectType it = CcMath.IntersectCircleCircle(a, b, out Vec2 p1, out Vec2 p2, out int tipCt);
-        if (it == IntersectType.IT_NONE || it == IntersectType.IT_TANGENT)
+        float gap = CcMath.Len(b.p_0 - a.p_1);
+        SolveJunction(a, b, gap < gapTol, out Junction junction);
+
+        if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
         {
-            if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
-                CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
+            if (TrimToTIP(ref a, ref b, junction.p))
+                return;
+        }
+
+        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+        {
+            if (ExtendToFIP(ref a, ref b, junction.p))
+                return;
+        }
+
+        if (InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
+        {
             return;
         }
-
-        ArcAngles aa = CcMath.PrecomputeArcAngles(a);
-        ArcAngles ba = CcMath.PrecomputeArcAngles(b);
-
-        bool tip1 = (tipCt >= 1) && CcMath.PointOnArcCached(a, p1, aa) && CcMath.PointOnArcCached(b, p1, ba);
-        bool tip2 = (tipCt == 2) && CcMath.PointOnArcCached(a, p2, aa) && CcMath.PointOnArcCached(b, p2, ba);
-
-        if (tip1 || tip2)
+        else
         {
-            Vec2 tip = tip1 ? p1 : p2;
-            if (tip1 && tip2)
-                tip = CcMath.PickClosest(a.p_1, p1, p2);
-            if (TrimToTIP(ref a, ref b, tip))
-                return;
+            if (!performTrim)
+                CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
         }
-
-       // no tip but small gap: try extending to FIP (false intersection point)
-        float gap = CcMath.Len(b.p_0 - a.p_1);
-        bool nearlyConnected = gap < gapTol;
-        if (nearlyConnected)
-        {
-            Vec2 tip = CcMath.PickClosest(a.p_1, ip1, ip2);
-            if (CcMath.ExtendToFIP(ref a, ref b, tip))
-            {
-                return;
-            }
-        }
-
-        if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
-            CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
     }
 
     private void HandleArcLine(ref Move2D a, ref Move2D b, Move2D[] inserts, ref int insertCount)
     {
-        bool arcFirst = a.type == MotionType.MOT_ARC;
-
-        Move2D arc = arcFirst ? a : b;
-        Move2D lin = arcFirst ? b : a;
-
         if (CcMath.IsNear(a.p_1, b.p_0))
         {
             b.p_0 = a.p_1;
             return;
         }
 
-        IntersectType it = CcMath.IntersectLineCircle(lin.p_0, lin.p_1, arc.center, arc.radius, out Vec2 p1, out Vec2 p2, out int count);
-        if (it == IntersectType.IT_NONE)
+        float gap = CcMath.Len(b.p_0 - a.p_1);
+        bool resolved = SolveJunction(a, b, gap < gapTol, out Junction junction);
+
+        if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
+        {
+            if (TrimToTIP(ref a, ref b, junction.p))
+                return;
+        }
+
+        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+        {
+            if (ExtendToFIP(ref a, ref b, junction.p))
+                return;
+        }
+
+        if (resolved && junction.type == JunctionType.JT_ROLL_AROUND)
         {
             if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
                 CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
             return;
         }
 
-        ArcAngles arca = CcMath.PrecomputeArcAngles(arc);
-        bool tip1 = count >= 1 && CcMath.PointOnSegment(lin.p_0, lin.p_1, p1) && CcMath.PointOnArcCached(arc, p1, arca);
-        bool tip2 = count == 2 && CcMath.PointOnSegment(lin.p_0, lin.p_1, p2) && CcMath.PointOnArcCached(arc, p2, arca);
-
-        if (tip1 || tip2)
-        {
-            Vec2 tip = tip1 ? p1 : p2;
-            if (tip1 && tip2)
-                tip = CcMath.PickClosest(a.p_1, p1, p2);
-            if (TrimToTIP(ref a, ref b, tip))
-                return;
-        }
-
-        // no tip but small gap: try extending to FIP (false intersection point)
-        float gap = len(b.p_0 - a.p_1);
-        bool nearlyConnected = gap < gapTol;
-        if (nearlyConnected)
-        {
-            Vec2 tip = CcMath.PickClosest(a.p_1, ip1, ip2);
-            if (CcMath.ExtendToFIP(ref a, ref b, tip))
-            {
-                return;
-            }
-        }
-
-        if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
+        if (!performTrim)
             CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
+
+        inserts[insertCount++] = MakeBevel(a, b);
     }
 
     private static int CommonTIPAny(in Move2D A, in Move2D B, out Vec2 tip1, out Vec2 tip2)

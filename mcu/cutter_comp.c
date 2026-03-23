@@ -8,13 +8,14 @@
  * adjacent moves in millimeters. It does not do any global trim or look-ahead.
  */
 
+#include "config.h"
 
 #ifndef CUTTER_COMP_ENABLE
 #define CUTTER_COMP_ENABLE 0
 #endif
 #if CUTTER_COMP_ENABLE
 
-#include "config.h"
+#include "errors.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -473,7 +474,7 @@ static inline intersect_type cc_intersect_line_circle(vec2 l1, vec2 l2, vec2 ctr
     return CC_IT_INTERSECT;
 }
 
-static inline void cc_report_error(cc_context *ctx, cc_comp_status err)
+static inline void cc_report_error(cc_context *ctx, status_code_t err)
 {
     ctx->hasCompError = true;
     ctx->status = err;
@@ -1830,7 +1831,7 @@ void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode)
     g_core_ctx.cornerTreatmentMode = (uint8_t)mode;
 }
 
-cc_comp_status cc_api_process_move(const move2d *move)
+status_code_t cc_api_process_move(const move2d *move)
 {
     if (!move)
     {
