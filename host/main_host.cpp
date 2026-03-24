@@ -18,7 +18,6 @@
 #include "cc_simple_scan.h"
 #include "cc_main.h"
 #include "../mcu/cutter_comp_grblhal.h"
-#include "cc_xy_host_bridge.h"
 #include "writer.h"
 /*
   This is a desktop test harness for the CutterComp2D class, which performs 2D cutter compensation on linear and arc moves.
@@ -72,6 +71,52 @@ static void host_xy_error_cb(status_code_t err, uint32_t seqNum)
 
 static std::vector<Move2D> *g_simpleProfileOut = nullptr;
 static float g_mc_host_pos[N_AXIS] = {};
+
+static gc_ccomp_t host_make_cc_state(const ScanLine &scan, const ModalState &modal, bool enteringComp)
+{
+  gc_ccomp_t ccState = {};
+
+  if (scan.sawG41)
+    ccState.side = CComp_Left;
+  else if (scan.sawG42)
+    ccState.side = CComp_Right;
+  else if (scan.sawG40)
+    ccState.side = CComp_Off;
+  else if (modal.comp == COMP_LEFT)
+    ccState.side = CComp_Left;
+  else if (modal.comp == COMP_RIGHT)
+    ccState.side = CComp_Right;
+  else
+    ccState.side = CComp_Off;
+
+  ccState.first_move = enteringComp;
+  ccState.radius = 0.0f;
+  return ccState;
+}
+
+static status_code_t cc_mc_line_arc_in_via_grblhal(const Move2D &mv, const gc_ccomp_t &ccState)
+{
+  plan_line_data_t pl_data = {};
+  pl_data.feed_rate = mv.feed;
+  pl_data.condition.rapid_motion = (mv.type == MOT_RAPID) ? 1 : 0;
+  pl_data.line_number = mv.lnNum;
+
+  float xyz[N_AXIS] = {mv.p_1.x, mv.p_1.y, mv.z_1};
+
+  if (mv.type == MOT_ARC)
+  {
+    float position[N_AXIS] = {mv.p_0.x, mv.p_0.y, mv.z_0};
+    float ijk[3] = {mv.center.x - mv.p_0.x, mv.center.y - mv.p_0.y, 0.0f};
+    plane_t plane = {};
+    plane.axis_0 = 0;
+    plane.axis_1 = 1;
+    plane.axis_linear = 2;
+    int32_t turns = (mv.arcDir == ARC_CCW) ? 1 : -1;
+    return cc_mc_arc_in(ccState, xyz, &pl_data, position, ijk, mv.radius, plane, turns);
+  }
+
+  return cc_mc_line_in(ccState, xyz, &pl_data);
+}
 
 extern "C"
 {
@@ -162,19 +207,23 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
   m.feed = 0;
   m.pos = v2(0, 0);
   m.z = 0.0f;
+  m.lineNumber = 0;
 
+  uint32_t input_line_number = 1;
   for (const auto &line : program)
   {
     char clean[160];
     strip_comments(line.c_str(), clean, sizeof(clean));
     ScanLine s;
     scan_line(clean, s);
+    m.lineNumber = input_line_number;
     Move2D mv = interpret_move(s, m);
     if (mv.type != MOT_EMPTY)
     {
       mv.valid = true;
       orig.push_back(mv);
     }
+    ++input_line_number;
   }
   return orig;
 }
@@ -191,6 +240,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
   modal.feed = 0;
   modal.pos = v2(0, 0);
   modal.z = 0.0f;
+  modal.lineNumber = 0;
 
   g_mc_host_pos[0] = 0.0f;
   g_mc_host_pos[1] = 0.0f;
@@ -202,6 +252,8 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
   g_simpleProfileOut = &profileOut;
 
+  // Start reading the program line by line.
+  size_t input_line_number = 1;
   for (const auto &line : program)
   {
     char clean[160];
@@ -210,44 +262,47 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
     ScanLine s;
     scan_line(clean, s);
 
+    modal.lineNumber = input_line_number;
+    const CompSide prevComp = modal.comp;
     Move2D mv = interpret_move(s, modal);
+    const bool enteringComp = (prevComp == COMP_OFF && modal.comp != COMP_OFF);
+    const bool exitingComp = (prevComp != COMP_OFF && modal.comp == COMP_OFF);
 
-    if (s.sawG41 || s.sawG42)
-      cc_api_set_comp(modal.comp == COMP_LEFT ? CC_COMP_LEFT : CC_COMP_RIGHT);
+    if (enteringComp){
+      cc_api_init(toolRadius, cc_emit_via_mc, host_xy_error_cb);
+      report_message("CC_On", Message_Plain);
+    }
+
+    gc_ccomp_t ccState = host_make_cc_state(s, modal, enteringComp);
+
+    // seqNum is now set in interpret_move
 
     if (mv.type == MOT_EMPTY)
     {
-      if (s.sawG40) // G40 no movement but cancels comp, so flush with null move
+      if (exitingComp)
       {
+        cc_api_set_comp(CC_COMP_OFF);
         if (cc_api_process_move(nullptr) != Status_OK)
         {
           g_simpleProfileOut = nullptr;
           return false;
         }
-        cc_api_set_comp(CC_COMP_OFF);
+        report_message("CC_Off", Message_Plain);
       }
+      ++input_line_number;
       continue;
     }
 
-    // If we get here, we have a valid move to process. Convert to move2d and send to cc_api_process_move.
-    move2d xyMove = cc_from_move2d(mv);
-    if (cc_api_process_move(&xyMove) != Status_OK)
+    if (cc_mc_line_arc_in_via_grblhal(mv, ccState) != Status_OK)
     {
       g_simpleProfileOut = nullptr;
       return false;
     }
 
-    if (s.sawG40)
-    {
-      if (cc_api_process_move(nullptr) != Status_OK)
-      {
-        g_simpleProfileOut = nullptr;
-        return false;
-      }
-      cc_api_set_comp(CC_COMP_OFF);
-    }
+    ++input_line_number;
   }
 
+  // final move to flush any pending compensation moves through the system.
   if (cc_api_process_move(nullptr) != Status_OK)
   {
     g_simpleProfileOut = nullptr;
@@ -350,12 +405,12 @@ static void write_xy_compare_report(const char *path,
     {
       out << "\nindex " << i << " mismatch\n";
       out << "  full   : type=" << motion_type_name(full.type)
-          << " seq=" << full.seqNum
+          << " seq=" << full.lnNum
           << " p0=(" << full.p_0.x << ", " << full.p_0.y << ")"
           << " p1=(" << full.p_1.x << ", " << full.p_1.y << ")"
           << " r=" << full.radius << " valid=" << full.valid << "\n";
       out << "  simple : type=" << motion_type_name(simple.type)
-          << " seq=" << simple.seqNum
+          << " seq=" << simple.lnNum
           << " p0=(" << simple.p_0.x << ", " << simple.p_0.y << ")"
           << " p1=(" << simple.p_1.x << ", " << simple.p_1.y << ")"
           << " r=" << simple.radius << " valid=" << simple.valid << "\n";

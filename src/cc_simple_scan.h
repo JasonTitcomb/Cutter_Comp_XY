@@ -6,15 +6,12 @@
  */
 
 #pragma once
-//#include <stddef.h> // size_t
+// #include <stddef.h> // size_t
 #include "cc_math.h"
 
 // Token scan result for one line
 struct ScanLine
 {
-    bool hasN = false;
-    int32_t N = 0;
-
     bool hasG = false;
     int32_t G = 0;
     bool hasX = false;
@@ -58,20 +55,21 @@ struct ScanLine
 // Minimal modal state
 struct ModalState
 {
-    bool planeXY = true; // G17
-    bool absoluteMode = true;  // G90/G91
-    int motionG = 0;     // 0/1/2/3 modal
+    bool planeXY = true;      // G17
+    bool absoluteMode = true; // G90/G91
+    int motionG = 0;          // 0/1/2/3 modal
     CompSide comp = COMP_OFF;
     CompMode compMode = CM_NONE;
     float feed = 0.0f;
     int32_t D_Register = 0;
     int32_t T_Register = 0;
-    int32_t N_number = 0;
+    int32_t ln_number = 0;
     float speed = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
     float z = 0.0f;
     // Units: true = inch, false = mm (default)
     bool inchMode = true;
+    uint32_t lineNumber = 0; // input file line number
 };
 
 // -------------------------
@@ -219,12 +217,7 @@ static void scan_line(const char *line, ScanLine &s)
         if ((c >= 'A' && c <= 'Z'))
         {
             ++p;
-            if (c == 'N')
-            {
-                s.hasN = true;
-                p = parse_int(p, s.N);
-            }
-            else if (c == 'G')
+            if (c == 'G')
             {
                 s.hasG = true;
                 p = parse_int(p, s.G);
@@ -385,8 +378,6 @@ static Move2D interpret_move(const ScanLine &s, ModalState &modeState)
         modeState.speed = s.S;
     if (s.hasT)
         modeState.T_Register = s.T;
-    if (s.hasN)
-        modeState.N_number = s.N;
 
     // Update motion mode if explicitly provided
     if (s.sawG0)
@@ -443,10 +434,7 @@ static Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     }
 
     Move2D out;
-
-    if (s.hasN)
-        out.seqNum = s.N;
-
+    out.lnNum = modeState.lineNumber;
     out.p_0 = p0;
     out.p_1 = p1;
     out.z_0 = z0;
@@ -495,13 +483,13 @@ static Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     {
         out.type = MOT_ARC;
         out.arcDir = (modeState.motionG == 2) ? ARC_CW : ARC_CCW;
-        //out.hasXY = true; // arcs must have XY for center calculations;
+        // out.hasXY = true; // arcs must have XY for center calculations;
 
         // Resolve center either from I/J or from R
         if (s.hasI || s.hasJ)
         {
             Vec2 ij = v2(s.hasI ? s.I : 0.0f, s.hasJ ? s.J : 0.0f); // I/J are already in internal XY space
-            out.center = p0 + ij;                                         // I/J incremental
+            out.center = p0 + ij;                                   // I/J incremental
             out.radius = len(p0 - out.center);
         }
         else if (s.hasR)

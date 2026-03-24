@@ -67,10 +67,11 @@ public:
         modalState_.feed = 0;
         modalState_.speed = 0;
         modalState_.pos = v2(0, 0);
-        modalState_.N_number = 0;
+        modalState_.ln_number = 0;
         modalState_.T_Register = 0;
         modalState_.D_Register = 0;
         modalState_.inchMode = true;
+        modalState_.lineNumber = 0;
         inchMode_ = true;
 
         cc_.setOptions(options_);
@@ -251,7 +252,7 @@ private:
     void onCompError(CompError err)
     {
         char msg[64];
-        snprintf(msg, sizeof(msg), "CompError %u N%u", (unsigned)err, (unsigned)modalState_.N_number);
+        snprintf(msg, sizeof(msg), "CompError %u N%u", (unsigned)err, (unsigned)modalState_.ln_number);
         report_error(msg, err);
     }
 
@@ -276,7 +277,7 @@ private:
     void report_error(const char *message, CompError err)
     {
         if (errorCB_)
-            errorCB_(message, err, modalState_.N_number);
+            errorCB_(message, err, modalState_.ln_number);
     }
 
     void profile_reset()
@@ -363,9 +364,9 @@ private:
         static float lastFeed = 0.0f;
 
         // Emit sequence number if present
-        if (m.seqNum != 0)
+        if (m.lnNum != 0)
         {
-            n = snprintf(line, sizeof(line), "N%u ", (unsigned)m.seqNum);
+            n = snprintf(line, sizeof(line), "N%u ", (unsigned)m.lnNum);
         }
 
         if (m.type == MOT_LINE || m.type == MOT_RAPID)
@@ -465,6 +466,8 @@ private:
 
     bool process_one_gcode_line(ScanLine s)
     {
+        // Set modalState_.lineNumber to ln_number before calling interpret_move
+        modalState_.lineNumber = modalState_.ln_number;
         Move2D mv = interpret_move(s, modalState_);
         sync_units_from_modal();
 

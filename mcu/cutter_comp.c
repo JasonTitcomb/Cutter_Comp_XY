@@ -15,7 +15,6 @@
 #endif
 #if CUTTER_COMP_ENABLE
 
-#include "errors.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>

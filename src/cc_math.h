@@ -127,7 +127,7 @@ struct Move2D
   float feed = 0.0f;
   float z_0 = 0.0f;
   float z_1 = 0.0f;
-  uint32_t seqNum = 0; // for debugging
+  uint32_t lnNum = 0; // for debugging
 
   MotionType type = MOT_EMPTY;
   ArcDir arcDir = ARC_CW;

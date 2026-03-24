@@ -27,16 +27,49 @@ extern "C"
 
     static void cc_report_error(status_code_t err, uint32_t seqNum)
     {
-        if (err != Status_OK)
+        char msg[64];
+        const char *base_msg = "CC_Unknown error";
+        switch (err)
         {
-            char msg[40];
-
-            strcpy(msg, "CC_ERROR:");
-            strcat(msg, uitoa(err));
-            strcat(msg, ", N");
-            strcat(msg, uitoa(seqNum));
-            report_message(msg, Message_Error);
+        case Status_InvalidMove:
+            base_msg = "CC_Invalid move";
+            break;
+        case Status_ArcRadiusMismatch:
+            base_msg = "CC_Arc radius mismatch";
+            break;
+        case Status_MoveTooShort:
+            base_msg = "CC_Move too short";
+            break;
+        case Status_ArcLtToolRad:
+            base_msg = "CC_Arc radius less than tool radius";
+            break;
+        case Status_FlippedArc:
+            base_msg = "CC_Flipped arc";
+            break;
+        case Status_CompInCrossing:
+            base_msg = "CC_Comp in crossing";
+            break;
+        case Status_CompOutCrossing:
+            base_msg = "CC_Comp out crossing";
+            break;
+        case Status_UnresolvedGap:
+            base_msg = "CC_Unresolved gap";
+            break;
+        case Status_InputBufferOverflow:
+            base_msg = "CC_Input buffer overflow";
+            break;
+        case Status_OutputBufferOverflow:
+            base_msg = "CC_Output buffer overflow";
+            break;
+        default:
+            base_msg = "CC_Unknown error";
+            break;
         }
+
+        // Compose message with sequence number
+        snprintf(msg, sizeof(msg), "%s (Line:%lu)", base_msg, (unsigned long)seqNum);
+        report_message(msg, Message_Error);
+
     }
 
     static inline uint8_t cc_mc_comp_mode_from_input(gc_ccomp_t cc)
@@ -176,16 +209,6 @@ extern "C"
         }
 
         return Status_OK;
-    }
-
-    static void cc_error_cb(const char *message, status_code_t err, uint32_t seqNum)
-    {
-        // what should i do here?
-        // I don't have a real "host" to report errors to, and the API requires me to provide an error callback.
-        // For now, I'll just ignore it, but in a real grblHAL environment, this could be hooked up to grbl's error reporting system.
-        (void)(message);
-        (void)(err);
-        (void)(seqNum);
     }
 
     static inline void cc_emit_via_mc(const move2d *mv)

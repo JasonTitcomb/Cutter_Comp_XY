@@ -237,7 +237,7 @@ static void write_svg(const char *path,
                 ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
                    << "\" fill=\"#1fb482\" font-size=\"" << textSize
                    << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
-                   << m.seqNum << "</text>\n";
+                   << m.lnNum << "</text>\n";
             }
         }
     }
@@ -358,7 +358,7 @@ static void write_svg(const char *path,
                 ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
                     << "\" fill=\"" << moveColor << "\" font-size=\"" << textSize
                << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
-               << m.seqNum << "</text>\n";
+               << m.lnNum << "</text>\n";
         }
     }
     ss << "</svg>\n";

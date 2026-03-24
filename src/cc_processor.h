@@ -136,7 +136,7 @@ private:
            // if comp left and arc is CCW, then the arc must be  > tool rad.
            if (!options.globalTrimCrossing)
             {
-                 CompSide side = effectiveCompSide();
+                CompSide side = effectiveCompSide();
                 bool innerArc = (side == COMP_LEFT && m.arcDir == ARC_CCW) || (side == COMP_RIGHT && m.arcDir == ARC_CW);
 
                 // it is possible for an arc to have near zero r.
@@ -251,8 +251,7 @@ public:
                 return false;
 
             Move2D raw = popIn();
-            if (raw.seqNum != 0)
-                lastSeqNum = raw.seqNum;
+            lastSeqNum = raw.lnNum;
 
             if (raw.type == MOT_EMPTY)
                 continue;
@@ -726,7 +725,6 @@ private:
     Move2D makeRollArc(const Move2D &a, const Move2D &b)
     {
         Move2D roll;
-        roll.seqNum = (a.seqNum * 10) + 5; // for debugging
         roll.type = MOT_ARC;
         roll.compMode = CM_STEADY;
         roll.feed = (a.feed > 0) ? a.feed : b.feed;

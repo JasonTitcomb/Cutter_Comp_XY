@@ -29,7 +29,7 @@ static inline move2d cc_from_move2d(const Move2D &src)
     dst.feed = src.feed;
     dst.z_0 = src.z_0;
     dst.z_1 = src.z_1;
-    dst.seqNum = src.seqNum;
+    dst.seqNum = src.lnNum;
     dst.type = (uint8_t)src.type;
     dst.arcDir = (uint8_t)src.arcDir;
     dst.compMode = (uint8_t)src.compMode;
@@ -49,7 +49,7 @@ static inline Move2D cc_to_move2d(const move2d &src)
     dst.feed = src.feed;
     dst.z_0 = src.z_0;
     dst.z_1 = src.z_1;
-    dst.seqNum = src.seqNum;
+    dst.lnNum = src.seqNum;
     dst.type = (MotionType)src.type;
     dst.arcDir = (ArcDir)src.arcDir;
     dst.compMode = (CompMode)src.compMode;
