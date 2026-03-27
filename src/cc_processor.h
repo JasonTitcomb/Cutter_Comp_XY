@@ -7,8 +7,7 @@
 #pragma once
 #include "cc_math.h"
 typedef void (*CcOutputCB)(const char *text, size_t len);
-typedef void (*CcErrorCB)(const char *message, CompError err, uint32_t seqNum);
-typedef void (*CcStartCompCB)(int toolRegister, int diaRegister);
+typedef void (*CcErrorCB)(const char *message, CompError err, uint32_t lineNum);
 
 struct CrossingHit
 {
@@ -60,7 +59,7 @@ private:
     Units units = UNITS_MM;
     CcMainOptions options;
     bool hasCompError = false;
-    uint32_t lastSeqNum = 0;
+    uint32_t lastLineNum = 0;
 
     void reportCompError(CompError err)
     {
@@ -70,31 +69,31 @@ private:
             switch (err)
             {
             case CE_ARC_RADIUS_MISMATCH:
-                errorCB_("Arc radius inconsistency", err, lastSeqNum);
+                errorCB_("Arc radius inconsistency", err, lastLineNum);
                 break;
             case CE_INVALID_MOVE:
-                errorCB_("Invalid move", err, lastSeqNum);
+                errorCB_("Invalid move", err, lastLineNum);
                 break;
             case CE_COMP_MOVE_TOO_SHORT:
-                errorCB_("Comp move too short", err, lastSeqNum);
+                errorCB_("Comp move too short", err, lastLineNum);
                 break;
             case CE_ARC_LT_TOOL_RAD:
-                errorCB_("Arc smaller than tool radius", err, lastSeqNum);
+                errorCB_("Arc smaller than tool radius", err, lastLineNum);
                 break;
             case CE_FLIPPED_ARC:
-                errorCB_("Flipped arc", err, lastSeqNum);
+                errorCB_("Flipped arc", err, lastLineNum);
                 break;
             case CE_COMP_IN_CROSSING:
-                errorCB_("Comp-in crossing", err, lastSeqNum);
+                errorCB_("Comp-in crossing", err, lastLineNum);
                 break;
             case CE_COMP_OUT_CROSSING:
-                errorCB_("Comp-out crossing", err, lastSeqNum);
+                errorCB_("Comp-out crossing", err, lastLineNum);
                 break;
             case CE_UNRESOLVED_GAP:
-                errorCB_("Unresolved gap", err, lastSeqNum);
+                errorCB_("Unresolved gap", err, lastLineNum);
                 break;
             default:
-                errorCB_("Unknown comp error", err, lastSeqNum);
+                errorCB_("Unknown comp error", err, lastLineNum);
             }
         }
     }
@@ -102,15 +101,15 @@ private:
     CompSide effectiveCompSide() const
     {
         if (toolSign >= 0)
-            return comp_state;
+            return compSide;
 
-        if (comp_state == COMP_LEFT)
+        if (compSide == COMP_LEFT)
             return COMP_RIGHT;
 
-        if (comp_state == COMP_RIGHT)
+        if (compSide == COMP_RIGHT)
             return COMP_LEFT;
 
-        return comp_state;
+        return compSide;
     }
 
     bool compUsesLeft() const
@@ -118,49 +117,66 @@ private:
         return effectiveCompSide() == COMP_LEFT;
     }
 
-    // --- Moved from cc_math.h ---
     bool validate(Move2D &m)
     {
-        bool consistant = true;
-        float sw = 0;
-        bool sweepOk = true;
+        m.suppressOutput = false;
 
         if (m.type == MOT_LINE)
         {
-            float length = len(m.p_1 - m.p_0);
-            m.valid = length >= TOL;
-        }
-        if (m.type == MOT_ARC)
-        {
-           // if we are not going to do global trim then we should test arc validity here, because we won't have another chance to validate before output.
-           // if comp left and arc is CCW, then the arc must be  > tool rad.
-           if (!options.globalTrimCrossing)
+            const float lineLen = len(m.p_1 - m.p_0);
+            if (lineLen < TOL)
             {
-                CompSide side = effectiveCompSide();
-                bool innerArc = (side == COMP_LEFT && m.arcDir == ARC_CCW) || (side == COMP_RIGHT && m.arcDir == ARC_CW);
-
-                // it is possible for an arc to have near zero r.
-                // but if we are global trimming later then we need to keep it
-                // to further the profile and find the crossing, so we won't invalidate here for small radius if global trim is on.
-                if (innerArc && fabsf(m.radius) < TOL)
-                {
-                    reportCompError(CE_ARC_LT_TOOL_RAD);
-                    m.valid = false;
-                    return false;
-                }
+                // Keep the element available for downstream logic, but never emit as motion.
+                m.hasXY = false;
+                m.valid = true;
+                m.suppressOutput = true;
+                return true;
             }
 
-            // These are hard fails that we won't be able to recover from with trimming.
-            consistant = is_radius_consistent(m);
-            sw = arcSweepDeg(m);
-            sweepOk = (sw > MAX_SWEEP_DEG || sw < MIN_ARC_LEN) ? false : true;
-
-            m.valid = consistant && sweepOk;
-            if (!consistant)
-                reportCompError(CE_ARC_RADIUS_MISMATCH);
-            if (!sweepOk)
-                reportCompError(CE_INVALID_MOVE);
+            m.valid = true;
+            return true;
         }
+
+        if (m.type != MOT_ARC)
+            return m.valid;
+
+        bool degenerate = fabsf(m.radius) < TOL;
+
+        if (degenerate)
+        {
+            // Keep degenerate arcs trackable in profile/calculation flows, but suppress output.
+            m.suppressOutput = true;
+            if (options.globalTrimCrossing)
+                return m.valid;
+
+            m.valid = false;
+            reportCompError(CE_ARC_LT_TOOL_RAD);
+            return false;
+        }
+
+        if (!options.globalTrimCrossing)
+        {
+            CompSide side = effectiveCompSide();
+            bool innerArc = (side == COMP_LEFT && m.arcDir == ARC_CCW) || (side == COMP_RIGHT && m.arcDir == ARC_CW);
+            if (innerArc && fabsf(m.radius) < toolR)
+            {
+                m.valid = false;
+                reportCompError(CE_ARC_LT_TOOL_RAD);
+                return false;
+            }
+        }
+
+        bool consistent = is_radius_consistent(m);
+        float sw = arcSweepDeg(m);
+        bool sweepOk = sw <= MAX_SWEEP_DEG && sw >= MIN_ARC_LEN;
+
+        m.valid = consistent && sweepOk;
+
+        if (!consistent)
+            reportCompError(CE_ARC_RADIUS_MISMATCH);
+        if (!sweepOk)
+            reportCompError(CE_INVALID_MOVE);
+
         return m.valid;
     }
 
@@ -192,11 +208,13 @@ private:
     Move2D prevOff;
 
 public:
-    CompSide comp_state = COMP_OFF;
+    CompSide compSide = COMP_OFF;
+    CompMode compMode = CM_NONE;
     void setOptions(const CcMainOptions &opts)
     {
         options = opts;
         setToolRadius(opts.toolRadius);
+        resetState();
         cornerTreatment = opts.cornerTreatment;
         outputCB_ = opts.callbacks.output;
         errorCB_ = opts.callbacks.error;
@@ -225,8 +243,7 @@ public:
 
     void setComp(CompSide s)
     {
-        comp_state = s;
-        resetState();
+        compSide = s;
     }
 
     bool pushIn(const Move2D &m)
@@ -250,23 +267,21 @@ public:
             if (!outHasSpace(4))
                 return false;
 
-            Move2D raw = popIn();
-            lastSeqNum = raw.lnNum;
+            Move2D curOff = popIn();
+            lastLineNum = curOff.lnNum;
 
-            if (raw.type == MOT_EMPTY)
+            if (curOff.type == MOT_EMPTY)
                 continue;
 
-            update_vectors(raw); // before offsetting.
+            update_vectors(curOff);
 
-            Move2D curOff;
-            offsetMove(raw, curOff);
-            validate(curOff);
-
+            curOff.hasZ = !is_equal(curOff.z_1, curOff.z_0);
+            curOff.hasXY = !is_equal(curOff.p_1, curOff.p_0);
             // Z-only move: no XY displacement, nothing to offset
-            if (!raw.hasXY && raw.hasZ)
+            if (curOff.hasZ && !curOff.hasXY)
             {
                 if (havePrevMove2D)
-                {
+                { // copy the XY from the previous move.
                     curOff.p_0 = prevOff.p_0;
                     curOff.p_1 = prevOff.p_0;
                 }
@@ -276,15 +291,23 @@ public:
                 continue;
             }
 
-            // ── check comp-in / comp-out move length vs toolR ──
-            if (raw.compMode == CM_IN || raw.compMode == CM_OUT)
+            if (!validate(curOff))
+                return false;
+            if (!offsetMove(curOff))
+                return false;
+
+            // if comp is set and this is the first XY move then comping in
+            if (compSide != COMP_OFF)
             {
-                float moveLen = len(raw.p_1 - raw.p_0);
-                if (moveLen <= toolR)
-                {
-                    reportCompError(CE_COMP_MOVE_TOO_SHORT);
-                    return false;
-                }
+                if (compMode == CM_NONE)
+                    compMode = CM_IN;
+            }
+            else
+            {
+                if (compMode != CM_NONE)
+                    compMode = CM_OUT;
+                else
+                    compMode = CM_NONE;
             }
 
             if (!havePrevMove2D)
@@ -297,20 +320,38 @@ public:
             Move2D inserts[3]; // allow up to 3 inserts for corner treatment.
             int insertCount = 0;
 
-            if (prevOff.compMode == CM_IN)
+            if (compMode == CM_IN)
             {
                 // modify the previous move so that the end is the start of the current move,
                 prevOff.p_1 = curOff.p_0;
+                compMode = CM_STEADY; // now that comp-in is done we are steady.
             }
 
-            if (curOff.compMode == CM_OUT)
+            if (compMode == CM_OUT)
             {
                 // modify the G40 start is the end of the previous move,
                 curOff.p_0 = prevOff.p_1;
             }
 
+            // set the comp mode on the move for use in logic decisions and potential error reporting.
+            curOff.compMode = compMode;
+
+            // ── check comp-in / comp-out move length vs toolR ──
+            if (compMode == CM_IN || compMode == CM_OUT)
+            {
+                float moveLen = len(curOff.p_1 - curOff.p_0);
+                if (moveLen <= toolR)
+                {
+                    reportCompError(CE_COMP_MOVE_TOO_SHORT);
+                    return false;
+                }
+            }
+
             // Apply decision tree between prevOff and curOff
-            applyLogic(prevOff, curOff, inserts, insertCount);
+            if (compMode == CM_STEADY)
+                applyLogic(prevOff, curOff, inserts, insertCount);
+
+            validate(curOff); // Invalidate the final move after logic in case the logic produced something invalid.
 
             // Emit previous + inserts; hold curOff as new prev
             if (prevOff.valid)
@@ -330,7 +371,8 @@ public:
         process();
         if (havePrevMove2D && outHasSpace(1))
         {
-            pushOut(prevOff);
+            if (prevOff.valid && prevOff.type != MOT_EMPTY)
+                pushOut(prevOff);
             havePrevMove2D = false;
         }
     }
@@ -380,6 +422,7 @@ private:
     Move2D makeBevel(const Move2D &a, const Move2D &b)
     {
         Move2D m;
+        m.lnNum = a.lnNum;
         m.hasXY = true;
         m.type = MOT_LINE;
         m.feed = (a.feed > 0) ? a.feed : b.feed;
@@ -607,26 +650,23 @@ private:
     }
 
     // ---------- offset primitives ----------
-    bool offsetMove(const Move2D &src, Move2D &dst)
+    bool offsetMove(Move2D &m)
     {
-        if (src.type == MOT_LINE || src.type == MOT_RAPID)
-            return offsetLine(src, dst);
-        if (src.type == MOT_ARC)
-            return offsetArc(src, dst);
+        if (m.type == MOT_LINE || m.type == MOT_RAPID)
+            return offsetLine(m);
+        if (m.type == MOT_ARC)
+            return offsetArc(m);
 
         return false;
     }
 
-    bool offsetLine(const Move2D &src, Move2D &dst)
+    bool offsetLine(Move2D &m)
     {
-        // complete copy for non-comp moves or if tool radius is zero (also captures original vectors)
-        dst = src;
-
-        Vec2 v = src.p_1 - src.p_0;
+        Vec2 v = m.p_1 - m.p_0;
         float l = len(v);
         if (l < TOL)
         {
-            dst.valid = false;
+            m.valid = false;
             return false;
         }
         Vec2 u = v * (1.0f / l);
@@ -638,32 +678,28 @@ private:
         Vec2 off = n * toolR;
 
         // if comping in or out then offset should be zero.
-        if (src.compMode == CM_IN || src.compMode == CM_OUT)
+        if (m.compMode == CM_IN || m.compMode == CM_OUT)
         {
             off.x = 0.0f;
             off.y = 0.0f;
         }
 
-        dst.type = src.type; // keep rapid vs feed
-        dst.p_0 = src.p_0 + off;
-        dst.p_1 = src.p_1 + off;
+        m.p_0 = m.p_0 + off;
+        m.p_1 = m.p_1 + off;
         return true;
     }
 
     // Concentric arc offset like before (good enough for your VB logic)
-    bool offsetArc(const Move2D &src, Move2D &dst)
+    bool offsetArc(Move2D &m)
     {
-        float r0 = src.radius;
-        if (r0 < TOL)
-            r0 = len(src.p_0 - src.center);
-        if (r0 < TOL)
+        float r0 = m.radius;
+        if (fabsf(r0) < TOL)
+            r0 = len(m.p_0 - m.center);
+        if (fabsf(r0) < TOL)
             return false;
 
-        // complete copy.
-        dst = src;
-
         float dr = toolR;
-        bool ccw = (src.arcDir == ARC_CCW);
+        bool ccw = (m.arcDir == ARC_CCW);
         bool left = compUsesLeft();
 
         float r1;
@@ -676,15 +712,19 @@ private:
         // which is a valid geometry (though maybe not what you want for a real cutter comp).
         // The logic later should be able to handle it as long as we keep the direction semantics consistent.
 
-        Vec2 v0 = src.p_0 - src.center;
-        Vec2 v1 = src.p_1 - src.center;
+        Vec2 v0 = m.p_0 - m.center;
+        Vec2 v1 = m.p_1 - m.center;
         float lv0 = len(v0), lv1 = len(v1);
 
-        dst.type = MOT_ARC;
-        dst.center = src.center;
-        dst.radius = r1;
-        dst.p_0 = src.center + v0 * (r1 / lv0);
-        dst.p_1 = src.center + v1 * (r1 / lv1);
+        if (lv0 < TOL || lv1 < TOL)
+        {
+            m.valid = false;
+            return false;
+        }
+
+        m.radius = r1;
+        m.p_0 = m.center + v0 * (r1 / lv0);
+        m.p_1 = m.center + v1 * (r1 / lv1);
         return true;
     }
 
@@ -725,6 +765,7 @@ private:
     Move2D makeRollArc(const Move2D &a, const Move2D &b)
     {
         Move2D roll;
+        roll.lnNum = a.lnNum;
         roll.type = MOT_ARC;
         roll.compMode = CM_STEADY;
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
@@ -739,16 +780,15 @@ private:
         float r0 = len(v0);
         float r1 = len(v1);
 
-        float r = 0.0f;
-        if (r0 >= TOL && r1 >= TOL)
+       float r = toolR;
+       if (r0 >= TOL && r1 >= TOL)
             r = 0.5f * (r0 + r1);
         else if (r0 >= TOL)
             r = r0;
         else if (r1 >= TOL)
             r = r1;
         else
-            r = toolR;
-
+ 
         if (r0 >= TOL)
             roll.p_0 = roll.center + v0 * (r / r0);
         if (r1 >= TOL)
@@ -830,6 +870,7 @@ private:
 
         Vec2 offsetCap = partCorner + bisector * (-toolR);
         Move2D cap;
+        cap.lnNum = a.lnNum;
         cap.type = MOT_LINE;
         cap.compMode = CM_STEADY;
         cap.feed = (a.feed > 0) ? a.feed : b.feed;
@@ -917,6 +958,7 @@ private:
         // dir = normalize(dir);
 
         extLnOut.type = MOT_LINE;
+        extLnOut.lnNum = arc.lnNum;
         extLnOut.compMode = arc.compMode;
         extLnOut.feed = arc.feed;
         extLnOut.p_0 = anchor;
@@ -987,10 +1029,9 @@ private:
 
     void handleLineLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
-        bool comping = (a.compMode == CM_IN || a.compMode == CM_OUT || b.compMode == CM_IN || b.compMode == CM_OUT);
         Junction junction;
         float gap = dist(b.p_0, a.p_1);
-        bool allowExtend = (gap < gapTol) || comping;
+        bool allowExtend = (gap < gapTol); // allow extend for very small gaps since it can be hard to trim down to a tiny gap, and extending won't cause major issues.
         bool resolved = solveJunction(a, b, allowExtend, junction);
 
         if (junction.type == JT_TRIM_TO_INTERSECTION)
@@ -1021,12 +1062,16 @@ private:
         if (a.compMode == CM_IN)
         {
             a.p_1 = b.p_0;
+            update_vectors(a);
+            validate(a);
             return;
         }
 
         if (b.compMode == CM_OUT)
         {
             b.p_0 = a.p_1;
+            update_vectors(b);
+            validate(b);
             return;
         }
 

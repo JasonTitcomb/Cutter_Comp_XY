@@ -42,6 +42,9 @@ static float dot(const Vec2 &a, const Vec2 &b) { return a.x * b.x + a.y * b.y; }
 static float cross(const Vec2 &a, const Vec2 &b) { return a.x * b.y - a.y * b.x; }
 static float len(const Vec2 &v) { return sqrtf(dot(v, v)); }
 static float dist(const Vec2 &a, const Vec2 &b) { return len(a - b); }
+static bool is_near(const Vec2 &a, const Vec2 &b){ Vec2 d = a - b;  return dot(d, d) <= TOL * TOL;}
+static bool is_equal(const Vec2 &a, const Vec2 &b){ return dist(a, b) <= EPS; }
+static bool is_equal(const float a, const float b){ return fabsf(a - b) <= EPS; }
 
 static Vec2 normalize(const Vec2 &v)
 {
@@ -135,6 +138,7 @@ struct Move2D
   bool hasXY = false;
   bool hasZ = false;
   bool valid = true;
+  bool suppressOutput = false;
 };
 
 static void update_vectors(Move2D &m)
@@ -301,11 +305,6 @@ static float distFromStart_along(const Move2D &m, Vec2 p)
   return 0.0f;
 }
 
-static bool is_near(const Vec2 &a, const Vec2 &b)
-{
-  Vec2 d = a - b;
-  return dot(d, d) <= TOL * TOL;
-}
 
 static bool isMotionValid(const Move2D &m)
 {

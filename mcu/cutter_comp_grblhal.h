@@ -25,53 +25,6 @@ extern "C"
     static plan_line_data_t *cc_mc_active_plan_data = 0;
     static float cc_mc_input_pos[N_AXIS] = {0};
 
-    static void cc_report_error(status_code_t err, uint32_t seqNum)
-    {
-        char msg[64];
-        const char *base_msg = "CC_Unknown error";
-        switch (err)
-        {
-        case Status_InvalidMove:
-            base_msg = "CC_Invalid move";
-            break;
-        case Status_ArcRadiusMismatch:
-            base_msg = "CC_Arc radius mismatch";
-            break;
-        case Status_MoveTooShort:
-            base_msg = "CC_Move too short";
-            break;
-        case Status_ArcLtToolRad:
-            base_msg = "CC_Arc radius less than tool radius";
-            break;
-        case Status_FlippedArc:
-            base_msg = "CC_Flipped arc";
-            break;
-        case Status_CompInCrossing:
-            base_msg = "CC_Comp in crossing";
-            break;
-        case Status_CompOutCrossing:
-            base_msg = "CC_Comp out crossing";
-            break;
-        case Status_UnresolvedGap:
-            base_msg = "CC_Unresolved gap";
-            break;
-        case Status_InputBufferOverflow:
-            base_msg = "CC_Input buffer overflow";
-            break;
-        case Status_OutputBufferOverflow:
-            base_msg = "CC_Output buffer overflow";
-            break;
-        default:
-            base_msg = "CC_Unknown error";
-            break;
-        }
-
-        // Compose message with sequence number
-        snprintf(msg, sizeof(msg), "%s (Line:%lu)", base_msg, (unsigned long)seqNum);
-        report_message(msg, Message_Error);
-
-    }
-
     static inline uint8_t cc_mc_comp_mode_from_input(gc_ccomp_t cc)
     {
         if (cc.side == CComp_Left || cc.side == CComp_Right)
@@ -98,6 +51,7 @@ extern "C"
         mv.z_0 = cc_mc_input_pos[2];
         mv.z_1 = xyz[2];
         mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
+        mv.lineNum = pl_data ? pl_data->line_number : 0;
         mv.compMode = cc_mc_comp_mode_from_input(cc);
         mv.valid = true;
 
@@ -141,19 +95,24 @@ extern "C"
             return Status_OK;
         }
 
-        if (cc_api_get_comp() == CC_COMP_OFF && (cc.side == CComp_Left || cc.side == CComp_Right))
-        {
-            // convert from grbl-style comp mode to cc style and set in API
-            comp_side side = CC_COMP_OFF;
-            if (cc.side == CComp_Left)
-                side = CC_COMP_LEFT;
-            else if (cc.side == CComp_Right)
-                side = CC_COMP_RIGHT;
+        comp_side side = CC_COMP_OFF;
+        bool turning_off = false;
+        // convert from grbl-style comp mode to cc style.
+        if (cc.side == CComp_Left)
+            side = CC_COMP_LEFT;
+        else if (cc.side == CComp_Right)
+            side = CC_COMP_RIGHT;
+        else if (cc_api_get_comp() != CC_COMP_OFF)
+            turning_off = true;
 
-            cc_api_set_comp(side);
-        }
+        if (side != CC_COMP_OFF)
+            cc_api_set_comp(side);// i should only do this if not already in comp, but just in case.
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, 0, 0, 0.0f, 0, false);
+
+        if (turning_off)
+            cc_api_set_comp(CC_COMP_OFF);
+
         status_code_t st = cc_api_process_move(&mv);
         if (st != Status_OK)
             return st;
@@ -163,6 +122,7 @@ extern "C"
             st = cc_api_process_move(0);
             if (st != Status_OK)
                 return st;
+
             cc_api_set_comp(CC_COMP_OFF);
             report_message("CC_Off", Message_Info);
         }
@@ -184,18 +144,22 @@ extern "C"
             return Status_OK;
         }
 
-        if ((cc.side == CComp_Left || cc.side == CComp_Right))
-        {
-            comp_side side = CC_COMP_OFF;
-            if (cc.side == CComp_Left)
-                side = CC_COMP_LEFT;
-            else if (cc.side == CComp_Right)
-                side = CC_COMP_RIGHT;
+        comp_side side = CC_COMP_OFF;
+        bool turning_off = false;
+        if (cc.side == CComp_Left)
+            side = CC_COMP_LEFT;
+        else if (cc.side == CComp_Right)
+            side = CC_COMP_RIGHT;
+        else if (cc_api_get_comp() != CC_COMP_OFF)
+            turning_off = true;
+        if (side != CC_COMP_OFF)
             cc_api_set_comp(side);
-            cc.first_move = false;
-        }
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, position, ijk, radius, turns, true);
+
+        if (turning_off)
+            cc_api_set_comp(CC_COMP_OFF);
+
         status_code_t st = cc_api_process_move(&mv);
         if (st != Status_OK)
             return st;
@@ -216,7 +180,7 @@ extern "C"
         plan_line_data_t local_pl_data = {0};
         plan_line_data_t *pl_data = &local_pl_data;
 
-        if (!mv)
+        if (!mv || !mv->valid || mv->suppressOutput)
             return;
 
         if (cc_mc_active_plan_data)

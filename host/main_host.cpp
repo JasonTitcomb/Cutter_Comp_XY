@@ -31,7 +31,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.06f;
+static constexpr float TOOL_RADIUS = 0.0609f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
@@ -55,36 +55,30 @@ static void host_output_cb(const char *text, size_t len)
   fwrite(text, 1, len, g_hostRunnerContext->out);
 }
 
-static void host_error_cb(const char *message, CompError err, uint32_t seqNum)
+static void host_error_cb(const char *message, CompError err, uint32_t lineNum)
 {
   if (message)
     std::fprintf(stderr, "%s\n", message);
   if (err != CE_ERROR)
-    std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
+    std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)lineNum);
 }
 
-static void host_xy_error_cb(status_code_t err, uint32_t seqNum)
+static void host_xy_error_cb(status_code_t err, uint32_t lineNum)
 {
   if (err != Status_OK)
-    std::fprintf(stderr, "[cc_xy] CompError code=%u N%u\n", (unsigned)err, (unsigned)seqNum);
+    std::fprintf(stderr, "[cc_xy] CompError code=%u N%u\n", (unsigned)err, (unsigned)lineNum);
 }
 
 static std::vector<Move2D> *g_simpleProfileOut = nullptr;
 static float g_mc_host_pos[N_AXIS] = {};
 
-static gc_ccomp_t host_make_cc_state(const ScanLine &scan, const ModalState &modal, bool enteringComp)
+static gc_ccomp_t host_make_cc_state_for_side(CompSide side, bool enteringComp)
 {
   gc_ccomp_t ccState = {};
 
-  if (scan.sawG41)
+  if (side == COMP_LEFT)
     ccState.side = CComp_Left;
-  else if (scan.sawG42)
-    ccState.side = CComp_Right;
-  else if (scan.sawG40)
-    ccState.side = CComp_Off;
-  else if (modal.comp == COMP_LEFT)
-    ccState.side = CComp_Left;
-  else if (modal.comp == COMP_RIGHT)
+  else if (side == COMP_RIGHT)
     ccState.side = CComp_Right;
   else
     ccState.side = CComp_Off;
@@ -131,8 +125,11 @@ extern "C"
       mv.z_0 = g_mc_host_pos[2];
       mv.z_1 = xyz[2];
       mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
+      mv.lnNum = pl_data ? pl_data->line_number : 0;
       mv.type = (pl_data && pl_data->condition.rapid_motion) ? MOT_RAPID : MOT_LINE;
       mv.valid = true;
+      if (len(mv.p_1 - mv.p_0) < TOL && fabsf(mv.z_1 - mv.z_0) < TOL)
+        mv.suppressOutput = true;
       g_simpleProfileOut->push_back(mv);
     }
     g_mc_host_pos[0] = xyz[0];
@@ -161,6 +158,7 @@ extern "C"
       mv.center = v2(position[0] + ijk[0], position[1] + ijk[1]);
       mv.radius = radius;
       mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
+      mv.lnNum = pl_data ? pl_data->line_number : 0;
       mv.type = MOT_ARC;
       mv.arcDir = (turns >= 0) ? ARC_CCW : ARC_CW;
       mv.valid = true;
@@ -253,9 +251,10 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
   g_simpleProfileOut = &profileOut;
 
   // Start reading the program line by line.
-  size_t input_line_number = 1;
+  size_t input_line_number = 0;
   for (const auto &line : program)
   {
+    input_line_number++;
     char clean[160];
     strip_comments(line.c_str(), clean, sizeof(clean));
 
@@ -273,25 +272,22 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
       report_message("CC_On", Message_Plain);
     }
 
-    gc_ccomp_t ccState = host_make_cc_state(s, modal, enteringComp);
-
-    // seqNum is now set in interpret_move
-
     if (mv.type == MOT_EMPTY)
     {
       if (exitingComp)
       {
-        cc_api_set_comp(CC_COMP_OFF);
         if (cc_api_process_move(nullptr) != Status_OK)
         {
           g_simpleProfileOut = nullptr;
           return false;
         }
+        cc_api_set_comp(CC_COMP_OFF);
         report_message("CC_Off", Message_Plain);
       }
-      ++input_line_number;
       continue;
     }
+
+    gc_ccomp_t ccState = host_make_cc_state_for_side(modal.comp, enteringComp);
 
     if (cc_mc_line_arc_in_via_grblhal(mv, ccState) != Status_OK)
     {
@@ -299,7 +295,6 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
       return false;
     }
 
-    ++input_line_number;
   }
 
   // final move to flush any pending compensation moves through the system.
@@ -333,9 +328,142 @@ static float compare_vec_delta(const Vec2 &a, const Vec2 &b)
   return len(a - b);
 }
 
+static std::string lookup_gcode_line(const std::vector<std::string> &program, uint32_t lineNumber)
+{
+  if (lineNumber == 0)
+    return "<line 0>";
+
+  const size_t index = static_cast<size_t>(lineNumber - 1);
+  if (index >= program.size())
+    return "<line out of range>";
+
+  return program[index];
+}
+
+static std::vector<Move2D> filter_suppressed_moves(const std::vector<Move2D> &moves)
+{
+  std::vector<Move2D> filtered;
+  filtered.reserve(moves.size());
+  for (const Move2D &m : moves)
+  {
+    if (m.suppressOutput)
+      continue;
+    filtered.push_back(m);
+  }
+  return filtered;
+}
+
+static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves,
+                                                const std::vector<std::string> &program)
+{
+  std::vector<Move2D> filtered;
+  filtered.reserve(moves.size());
+
+  for (const Move2D &m : moves)
+  {
+    if (m.suppressOutput)
+      continue;
+
+    const std::string gcodeLine = lookup_gcode_line(program, m.lnNum);
+    if (gcodeLine.find("G53") != std::string::npos || gcodeLine.find("M30") != std::string::npos)
+      continue;
+
+    if (fabsf(m.z_1 - m.z_0) >= TOL)
+      continue;
+
+    filtered.push_back(m);
+  }
+
+  return filtered;
+}
+
+static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves)
+{
+  std::vector<Move2D> filtered;
+  filtered.reserve(moves.size());
+
+  for (const Move2D &m : moves)
+  {
+    if (m.suppressOutput)
+      continue;
+
+    const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL;
+    if (fabsf(m.z_1 - m.z_0) >= TOL)
+      continue;
+
+    if (!hasXYMotion && m.type == MOT_RAPID)
+      continue;
+
+    filtered.push_back(m);
+  }
+
+  while (!filtered.empty() && filtered.back().type == MOT_RAPID)
+    filtered.pop_back();
+
+  return filtered;
+}
+
+static std::vector<Move2D> order_moves_by_connectivity(const std::vector<Move2D> &moves)
+{
+  std::vector<Move2D> visible = filter_suppressed_moves(moves);
+  if (visible.size() < 2)
+    return visible;
+
+  std::vector<Move2D> ordered;
+  ordered.reserve(visible.size());
+  std::vector<bool> used(visible.size(), false);
+
+  size_t currentIndex = 0;
+  ordered.push_back(visible[currentIndex]);
+  used[currentIndex] = true;
+
+  while (ordered.size() < visible.size())
+  {
+    const Vec2 currentEnd = ordered.back().p_1;
+    size_t bestIndex = visible.size();
+    float bestDist = 0.0f;
+
+    for (size_t i = 0; i < visible.size(); ++i)
+    {
+      if (used[i])
+        continue;
+
+      const float distance = len(visible[i].p_0 - currentEnd);
+      if (bestIndex == visible.size() || distance < bestDist)
+      {
+        bestIndex = i;
+        bestDist = distance;
+      }
+    }
+
+    if (bestIndex == visible.size())
+      break;
+
+    ordered.push_back(visible[bestIndex]);
+    used[bestIndex] = true;
+  }
+
+  return ordered;
+}
+
+static size_t count_suppressed_moves(const std::vector<Move2D> &moves)
+{
+  size_t count = 0;
+  for (const Move2D &m : moves)
+  {
+    if (m.suppressOutput)
+      ++count;
+  }
+  return count;
+}
+
 static void write_xy_compare_report(const char *path,
                                     const std::vector<Move2D> &fullProfile,
-                                    const std::vector<Move2D> &simpleProfile)
+                                    const std::vector<Move2D> &simpleProfile,
+                                    const std::vector<std::string> &fullProgram,
+                                    const std::vector<std::string> &simpleProgram,
+                                    size_t suppressedFullCount,
+                                    size_t suppressedSimpleCount)
 {
   std::ofstream out(path);
   const float compareTol = 0.001f;
@@ -354,6 +482,8 @@ static void write_xy_compare_report(const char *path,
   out << "cc_xy comparison report\n";
   out << "full profile count: " << fullProfile.size() << "\n";
   out << "simple profile count: " << simpleProfile.size() << "\n";
+  out << "suppressed full count: " << suppressedFullCount << "\n";
+  out << "suppressed simple count: " << suppressedSimpleCount << "\n";
   out << "shared count: " << sharedCount << "\n";
 
   for (size_t i = 0; i < sharedCount; ++i)
@@ -414,6 +544,8 @@ static void write_xy_compare_report(const char *path,
           << " p0=(" << simple.p_0.x << ", " << simple.p_0.y << ")"
           << " p1=(" << simple.p_1.x << ", " << simple.p_1.y << ")"
           << " r=" << simple.radius << " valid=" << simple.valid << "\n";
+        out << "  full gcode  : " << lookup_gcode_line(fullProgram, full.lnNum) << "\n";
+        out << "  simple gcode: " << lookup_gcode_line(simpleProgram, simple.lnNum) << "\n";
       out << std::fixed << std::setprecision(6)
           << "  delta  : p0=" << p0Delta
           << " p1=" << p1Delta
@@ -490,6 +622,7 @@ static bool run_profile_streaming(const char *inputPath,
   std::string line;
   while (ok && std::getline(in, line))
   {
+    runner.incrementLineNumber();
     if (!line.empty() && line.back() == '\r')
       line.pop_back();
 
@@ -612,26 +745,37 @@ int main(int argc, char *argv[])
   if (!simpleValid)
     std::puts("(warning: standalone cc_xy validation failed)");
 
+  std::vector<Move2D> simpleCompensatedOrdered = order_moves_by_connectivity(simpleCompensated);
+  std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
+  auto compensated = build_original_moves(compProgram);
+  std::vector<Move2D> compensatedVisible = filter_suppressed_moves(compensated);
+
   if (outputSVG)
   {
     auto orig = build_original_moves(program);
-    std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
-    auto compensated = build_original_moves(compProgram);
-    write_xy_compare_report(comparePath.c_str(), compensated, simpleCompensated);
+    const size_t suppressedFullCount = count_suppressed_moves(compensated);
+    const size_t suppressedSimpleCount = count_suppressed_moves(simpleCompensated);
+    std::vector<Move2D> simpleVisible = filter_compare_moves(simpleCompensatedOrdered);
+    std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
+    write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleVisible, compProgram, program,
+                            suppressedFullCount, suppressedSimpleCount);
 
-    write_svg(svgPath.c_str(), compensated, &orig, false, true, fabs(toolRadius * 2.0f),
+    write_svg(svgPath.c_str(), compensatedVisible, &orig, false, true, fabs(toolRadius * 2.0f),
               false, true, false, inputBaseName.c_str(), toolRadius); // mirror for better visualization
-    write_svg(simpleSvgPath.c_str(), simpleCompensated, &orig, false, true, fabs(toolRadius * 2.0f),
+    write_svg(simpleSvgPath.c_str(), simpleVisible, &orig, false, true, fabs(toolRadius * 2.0f),
               false, true, false, inputBaseName.c_str(), toolRadius);
-    std::printf("Wrote: %s, %s, %s, %s\n", svgPath.c_str(), simpleSvgPath.c_str(), comparePath.c_str(), ngcPath.c_str());
+    std::printf("Wrote: %s, %s, %s, %s (full)\n", svgPath.c_str(), simpleSvgPath.c_str(), comparePath.c_str(), ngcPath.c_str());
   }
   else
   {
-    std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
-    auto compensated = build_original_moves(compProgram);
-    write_xy_compare_report(comparePath.c_str(), compensated, simpleCompensated);
-    std::printf("Wrote: %s\n", ngcPath.c_str());
-    std::printf("Standalone cc_xy moves: %zu\n", simpleCompensated.size());
+    const size_t suppressedFullCount = count_suppressed_moves(compensated);
+    const size_t suppressedSimpleCount = count_suppressed_moves(simpleCompensated);
+    std::vector<Move2D> simpleVisible = filter_compare_moves(simpleCompensatedOrdered);
+    std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
+    write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleVisible, compProgram, program,
+                            suppressedFullCount, suppressedSimpleCount);
+    std::printf("Wrote: %s (full)\n", ngcPath.c_str());
+    std::printf("Standalone cc_xy moves: %zu\n", simpleVisible.size());
     std::printf("Compare report: %s\n", comparePath.c_str());
   }
   return 0;

@@ -12,6 +12,7 @@
 // Token scan result for one line
 struct ScanLine
 {
+    bool isMove = false;
     bool hasG = false;
     int32_t G = 0;
     bool hasX = false;
@@ -63,7 +64,6 @@ struct ModalState
     float feed = 0.0f;
     int32_t D_Register = 0;
     int32_t T_Register = 0;
-    int32_t ln_number = 0;
     float speed = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
     float z = 0.0f;
@@ -250,11 +250,13 @@ static void scan_line(const char *line, ScanLine &s)
             {
                 s.hasX = true;
                 p = parse_float(p, s.X);
+                    
             }
             else if (c == 'Y')
             {
                 s.hasY = true;
                 p = parse_float(p, s.Y);
+                s.isMove = true;
             }
             else if (c == 'Z')
             {

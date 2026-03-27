@@ -88,7 +88,7 @@ typedef enum
     CC_CM_IN = 1,
     CC_CM_STEADY = 2,
     CC_CM_OUT = 3
-} comp_state;
+} comp_mode;
 
 typedef enum
 {
@@ -151,14 +151,15 @@ typedef struct
     float feed;
     float z_0;
     float z_1;
-    uint32_t seqNum;
+    uint32_t lineNum;
     uint8_t type;
     uint8_t arcDir;
     uint8_t compMode;
     bool valid;
+    bool suppressOutput;
 } move2d;
 
-typedef void (*cc_err_cb)( status_code_t err, uint32_t seqNum);
+typedef void (*cc_err_cb)( status_code_t err, uint32_t lineNum);
 typedef void (*emit_move_cb)(const move2d *move);
 
 typedef enum
@@ -188,9 +189,10 @@ typedef struct
 
     float toolR;
     int8_t toolSign;
-    comp_side compState;
+    comp_side compSide;
+    comp_mode compMode;
     uint8_t cornerTreatmentMode;
-    uint32_t lastSeqNum;
+    uint32_t lastLineNum;
     
     int inHead;
     int inCount;

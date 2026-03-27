@@ -17,10 +17,10 @@ static void serial_output_cb(const char *text, size_t len)
 
 }
 
-static void serial_error_cb(const char *message, CompError err, uint32_t seqNum)
+static void serial_error_cb(const char *message, CompError err, uint32_t lineNum)
 {
   (void)err;
-  (void)seqNum;
+  (void)lineNum;
 
   Serial.println(message);
 
