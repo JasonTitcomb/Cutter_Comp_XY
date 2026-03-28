@@ -250,7 +250,7 @@ static void scan_line(const char *line, ScanLine &s)
             {
                 s.hasX = true;
                 p = parse_float(p, s.X);
-                    
+                s.isMove = true;    
             }
             else if (c == 'Y')
             {
@@ -262,6 +262,7 @@ static void scan_line(const char *line, ScanLine &s)
             {
                 s.hasZ = true;
                 p = parse_float(p, s.Z);
+                
             }
             else if (c == 'I')
             {

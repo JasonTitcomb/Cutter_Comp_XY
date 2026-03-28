@@ -243,7 +243,43 @@ public:
 
     void setComp(CompSide s)
     {
+        CompSide prevSide = compSide;
         compSide = s;
+
+        if (prevSide == COMP_OFF && s != COMP_OFF)
+        {
+            compMode = CM_IN;
+            return;
+        }
+
+        if (prevSide != COMP_OFF && s == COMP_OFF)
+        {
+            compMode = CM_OUT;
+            return;
+        }
+
+        if (s == COMP_OFF)
+        {
+            compMode = CM_NONE;
+            return;
+        }
+
+        if (prevSide != s)
+        {
+            compMode = CM_IN;
+            return;
+        }
+
+        // Same side and still in comp: keep CM_IN until the entry pair is consumed,
+        // then remain in CM_STEADY for subsequent moves.
+        if (compMode == CM_NONE || compMode == CM_OUT)
+        {
+            compMode = CM_IN;
+            return;
+        }
+
+        if (compMode != CM_IN)
+            compMode = CM_STEADY;
     }
 
     bool pushIn(const Move2D &m)
@@ -268,6 +304,9 @@ public:
                 return false;
 
             Move2D curOff = popIn();
+            // Capture mode per move before offsetting so CM_IN/CM_OUT only affect
+            // the intended entry/exit element.
+            curOff.compMode = compMode;
             lastLineNum = curOff.lnNum;
 
             if (curOff.type == MOT_EMPTY)
@@ -295,49 +334,35 @@ public:
                 return false;
             if (!offsetMove(curOff))
                 return false;
-
-            // if comp is set and this is the first XY move then comping in
-            if (compSide != COMP_OFF)
-            {
-                if (compMode == CM_NONE)
-                    compMode = CM_IN;
-            }
-            else
-            {
-                if (compMode != CM_NONE)
-                    compMode = CM_OUT;
-                else
-                    compMode = CM_NONE;
-            }
-
+                
             if (!havePrevMove2D)
             {
                 prevOff = curOff;
                 havePrevMove2D = true;
+                if (curOff.compMode == CM_IN)
+                    compMode = CM_STEADY;
+                else if (curOff.compMode == CM_OUT)
+                    compMode = CM_NONE;
                 continue;
             }
 
             Move2D inserts[3]; // allow up to 3 inserts for corner treatment.
             int insertCount = 0;
 
-            if (compMode == CM_IN)
+            if (prevOff.compMode == CM_IN)
             {
                 // modify the previous move so that the end is the start of the current move,
                 prevOff.p_1 = curOff.p_0;
-                compMode = CM_STEADY; // now that comp-in is done we are steady.
             }
 
-            if (compMode == CM_OUT)
+            if (curOff.compMode == CM_OUT)
             {
                 // modify the G40 start is the end of the previous move,
                 curOff.p_0 = prevOff.p_1;
             }
 
-            // set the comp mode on the move for use in logic decisions and potential error reporting.
-            curOff.compMode = compMode;
-
             // ── check comp-in / comp-out move length vs toolR ──
-            if (compMode == CM_IN || compMode == CM_OUT)
+            if (curOff.compMode == CM_IN || curOff.compMode == CM_OUT)
             {
                 float moveLen = len(curOff.p_1 - curOff.p_0);
                 if (moveLen <= toolR)
@@ -348,7 +373,7 @@ public:
             }
 
             // Apply decision tree between prevOff and curOff
-            if (compMode == CM_STEADY)
+            if (curOff.compMode == CM_STEADY)
                 applyLogic(prevOff, curOff, inserts, insertCount);
 
             validate(curOff); // Invalidate the final move after logic in case the logic produced something invalid.
@@ -360,6 +385,12 @@ public:
                 for (int i = 0; i < insertCount; ++i)
                     pushOut(inserts[i]);
             }
+
+            if (curOff.compMode == CM_IN)
+                compMode = CM_STEADY;
+            else if (curOff.compMode == CM_OUT)
+                compMode = CM_NONE;
+
             prevOff = curOff;
         }
         return true;

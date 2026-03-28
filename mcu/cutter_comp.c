@@ -495,7 +495,7 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
 {
     m->suppressOutput = false;
 
-    if (m->type == CC_MOT_LINE || m->type == CC_MOT_RAPID)
+    if (m->type == CC_MOT_LINE)
     {
         if (cc_len(cc_sub(m->p_1, m->p_0)) < CC_TOL)
         {
@@ -565,7 +565,7 @@ static inline bool cc_motion_valid(const move2d *m)
 
 static inline bool cc_point_on_finite_elem(const move2d *m, vec2 p)
 {
-    if (m->type == CC_MOT_LINE || m->type == CC_MOT_RAPID)
+    if (m->type == CC_MOT_LINE)
         return cc_point_on_segment(m->p_0, m->p_1, p);
 
     if (m->type == CC_MOT_ARC)
@@ -579,7 +579,7 @@ static inline bool cc_point_on_finite_elem(const move2d *m, vec2 p)
 
 static inline int cc_intersect_carrier(const move2d *a, const move2d *b, vec2 pts[2])
 {
-    if ((a->type == CC_MOT_LINE || a->type == CC_MOT_RAPID) && (b->type == CC_MOT_LINE || b->type == CC_MOT_RAPID))
+    if (a->type == CC_MOT_LINE && b->type == CC_MOT_LINE)
     {
         bool tip = false;
         intersect_type it = cc_intersect_line_line(a, b, &pts[0], &tip);
@@ -599,7 +599,7 @@ static inline int cc_intersect_carrier(const move2d *a, const move2d *b, vec2 pt
     }
 
     {
-        const move2d *line = ((a->type == CC_MOT_LINE || a->type == CC_MOT_RAPID) ? a : b);
+        const move2d *line = ((a->type == CC_MOT_LINE) ? a : b);
         const move2d *arc = (a->type == CC_MOT_ARC ? a : b);
         int count = 0;
         intersect_type it = cc_intersect_line_circle(line->p_0, line->p_1, arc->center, fabsf(arc->radius), &pts[0], &pts[1], &count);
@@ -1185,7 +1185,18 @@ static inline bool cc_la_emit_batch(cc_context *ctx, int holdback, int target)
 
 static inline bool cc_stage_out(cc_context *ctx, const move2d *m)
 {
-    if (ctx->compSide == CC_COMP_OFF || ctx->toolR < CC_TOL)
+    if (ctx->toolR < CC_TOL)
+    {
+        if (!cc_out_has_space(ctx, 1))
+            return false;
+        cc_push_out(ctx, m);
+        return true;
+    }
+
+    /* Keep using lookahead while compensation is active or draining.
+       During comp-out, compSide is already OFF but compMode/lookahead still
+       carry pending compensated elements that must preserve order. */
+    if (ctx->compSide == CC_COMP_OFF && ctx->compMode == CC_CM_NONE && ctx->lookahead_count == 0)
     {
         if (!cc_out_has_space(ctx, 1))
             return false;
@@ -1695,7 +1706,41 @@ static void cc_init_internal(cc_context *ctx, float toolRadius)
 
 void cc_set_comp(cc_context *ctx, comp_side side)
 {
+    comp_side prevSide = ctx->compSide;
     ctx->compSide = side;
+
+    if (prevSide == CC_COMP_OFF && side != CC_COMP_OFF)
+    {
+        ctx->compMode = CC_CM_IN;
+        return;
+    }
+
+    if (prevSide != CC_COMP_OFF && side == CC_COMP_OFF)
+    {
+        ctx->compMode = CC_CM_OUT;
+        return;
+    }
+
+    if (side == CC_COMP_OFF)
+    {
+        ctx->compMode = CC_CM_NONE;
+        return;
+    }
+
+    if (prevSide != side)
+    {
+        ctx->compMode = CC_CM_IN;
+        return;
+    }
+
+    if (ctx->compMode == CC_CM_NONE || ctx->compMode == CC_CM_OUT)
+    {
+        ctx->compMode = CC_CM_IN;
+        return;
+    }
+
+    if (ctx->compMode != CC_CM_IN)
+        ctx->compMode = CC_CM_STEADY;
 }
 
 bool cc_push_in(cc_context *ctx, const move2d *m)
@@ -1712,19 +1757,7 @@ bool cc_process(cc_context *ctx)
     if (ctx->hasCompError)
         return false;
 
-    // if (ctx->compSide == CC_COMP_OFF || fabsf(ctx->toolR) < CC_TOL)
-    // {
-    //     while (ctx->inCount > 0)
-    //     {
-    //         move2d m;
-    //         m = cc_pop_in(ctx);
-    //         if (!cc_stage_out(ctx, &m))
-    //             return false;
-    //     }
-    //     return true;
-    // }
-
-    while (ctx->inCount > 0)
+     while (ctx->inCount > 0)
     {
         move2d curOff;
         move2d inserts[CC_INSERT_CAP];
@@ -1754,45 +1787,34 @@ bool cc_process(cc_context *ctx)
             continue;
         }
 
+        curOff.compMode = ctx->compMode;
+
         if (!cc_validate(ctx, &curOff))
             return false;
         if (!cc_offset_move(ctx, &curOff))
             return false;
-
-        // if comp is set and this is the first XY move then comping in
-        if (ctx->compSide != CC_COMP_OFF)
-        {
-            if (ctx->compMode == CC_CM_NONE)
-                ctx->compMode = CC_CM_IN;
-        }
-        else
-        {
-            if (ctx->compMode != CC_CM_NONE)
-                ctx->compMode = CC_CM_OUT;
-            else
-                ctx->compMode = CC_CM_NONE;
-        }
 
 
         if (!ctx->havePrevMove)
         {
             ctx->prevOff = curOff;
             ctx->havePrevMove = true;
+            if (curOff.compMode == CC_CM_IN)
+                ctx->compMode = CC_CM_STEADY;
+            else if (curOff.compMode == CC_CM_OUT)
+                ctx->compMode = CC_CM_NONE;
             continue;
         }
 
-        if (ctx->compMode == CC_CM_IN)
+        if (ctx->prevOff.compMode == CC_CM_IN)
         {
             ctx->prevOff.p_1 = curOff.p_0;
-            ctx->compMode = CC_CM_STEADY;
         }
 
-        if (ctx->compMode == CC_CM_OUT)
+        if (curOff.compMode == CC_CM_OUT)
             curOff.p_0 = ctx->prevOff.p_1;
 
-        curOff.compMode = ctx->compMode;
-
-        if (ctx->compMode == CC_CM_IN || ctx->compMode == CC_CM_OUT)
+        if (curOff.compMode == CC_CM_IN || curOff.compMode == CC_CM_OUT)
         {
             float moveLen = cc_len(cc_sub(curOff.p_1, curOff.p_0));
             if (moveLen <= ctx->toolR)
@@ -1802,7 +1824,7 @@ bool cc_process(cc_context *ctx)
             }
         }
 
-        if (ctx->compMode == CC_CM_STEADY)
+        if (curOff.compMode == CC_CM_STEADY)
             cc_apply_logic(ctx, &ctx->prevOff, &curOff, inserts, &insertCount);
 
         cc_validate(ctx, &curOff);    
@@ -1818,6 +1840,11 @@ bool cc_process(cc_context *ctx)
                     return false;
             }
         }
+
+        if (curOff.compMode == CC_CM_IN)
+            ctx->compMode = CC_CM_STEADY;
+        else if (curOff.compMode == CC_CM_OUT)
+            ctx->compMode = CC_CM_NONE;
 
         ctx->prevOff = curOff;
     }

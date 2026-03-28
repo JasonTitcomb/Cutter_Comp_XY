@@ -31,11 +31,10 @@ private:
     static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be positive");
     static_assert(EMIT_HOLDBACK >= TRIM_OVERLAP_MOVES, "EMIT_HOLDBACK must preserve trim overlap across batches");
     static_assert(MAX_PROFILE_MOVES > MIN_PENDING_BEFORE_BATCH, "MAX_PROFILE_MOVES must exceed batch threshold");
-  
+
     CcMainOptions options_{};
     CcOutputCB outputCB_ = nullptr;
     CcErrorCB errorCB_ = nullptr;
-
 
     ModalState modalState_{};
     CutterComp2D cc_{};
@@ -121,18 +120,16 @@ public:
         const bool compIsOff = (cc_.compSide == COMP_OFF);
         const bool emitNonComp = compIsOff && !scanLn.sawG41 && !scanLn.sawG42 && (!sawCompStart_ || compClosed_);
         const bool entersComp = compIsOff && (scanLn.sawG41 || scanLn.sawG42) && !compClosed_;
-
         if (entersComp)
         {
-            if(!scanLn.isMove)
+            if (!scanLn.isMove)
             {
                 report_error("(move expected on G41/G42 line)", CE_ERROR);
                 return false;
             }
             sawCompStart_ = true;
             emit_status("(COMP ON)\n");
-            cc_.setComp(scanLn.sawG41 ? COMP_LEFT : COMP_RIGHT);
-           }
+        }
 
         if (emitNonComp)
         {
@@ -178,7 +175,6 @@ public:
         {
             sawG40_ = true;
             compClosed_ = true;
-
             if (!trim_and_merge_pending_profile())
             {
                 report_error("(trim failed)", CE_ERROR);
@@ -523,7 +519,6 @@ private:
         if (s.sawG40)
         {
             cc_.flush();
-            //cc_.setComp(COMP_OFF);
 
             while (cc_.popOut(out))
             {
@@ -580,19 +575,17 @@ private:
             int retTargetIdx = -1;
             if (!cc_.trimCrossingElements(profile_, aabbs, srcIdx, currentProfileCount, MAX_LOOKAHEAD, retTargetIdx))
                 return false;
-
         }
 
         if (options_.globalMerge)
         {
-           int mergeStart = trimStart;
+            int mergeStart = trimStart;
             if (mergeStart > emittedProfileCount_)
                 mergeStart -= 1;
 
             cc_.merge_all_colinear(profile_ + mergeStart, currentProfileCount - mergeStart);
-         }
- 
- 
+        }
+
         int nextTrimStart = currentProfileCount - TRIM_OVERLAP_MOVES;
         if (nextTrimStart < emittedProfileCount_)
             nextTrimStart = emittedProfileCount_;

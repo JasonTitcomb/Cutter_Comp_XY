@@ -97,11 +97,20 @@ extern "C"
 
         comp_side side = CC_COMP_OFF;
         bool turning_off = false;
+        bool turningOn = false;
         // convert from grbl-style comp mode to cc style.
         if (cc.side == CComp_Left)
+        {
             side = CC_COMP_LEFT;
+            if (cc_api_get_comp() == CC_COMP_OFF)
+                turningOn = true;
+        }
         else if (cc.side == CComp_Right)
+        {
             side = CC_COMP_RIGHT;
+            if (cc_api_get_comp() == CC_COMP_OFF)
+                turningOn = true;
+        }
         else if (cc_api_get_comp() != CC_COMP_OFF)
             turning_off = true;
 
@@ -109,6 +118,9 @@ extern "C"
             cc_api_set_comp(side);// i should only do this if not already in comp, but just in case.
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, 0, 0, 0.0f, 0, false);
+
+        if (turningOn)
+            report_message("CC_On", Message_Info);
 
         if (turning_off)
             cc_api_set_comp(CC_COMP_OFF);

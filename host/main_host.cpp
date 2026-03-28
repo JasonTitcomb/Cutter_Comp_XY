@@ -142,7 +142,7 @@ extern "C"
   {
     (void)type;
     if (msg)
-      std::fprintf(stderr, "(%s)\n", msg);
+      std::printf("(%s)\n", msg);
   }
 
   void mc_arc(float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns)
@@ -269,7 +269,6 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     if (enteringComp){
       cc_api_init(toolRadius, cc_emit_via_mc, host_xy_error_cb);
-      report_message("CC_On", Message_Plain);
     }
 
     if (mv.type == MOT_EMPTY)
@@ -282,7 +281,6 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
           return false;
         }
         cc_api_set_comp(CC_COMP_OFF);
-        report_message("CC_Off", Message_Plain);
       }
       continue;
     }
@@ -649,15 +647,15 @@ static bool run_profile_streaming(const char *inputPath,
 int main(int argc, char *argv[])
 {
   //  const char *default_file = "../../data/RapidComp.nc";
-  //  const char *default_file = "../../data/G41_1.nc";
+  // const char *default_file = "../../data/G41_1.nc";
   // const char *default_file = "../../data/ThreadMill.nc";
   // const char *default_file = "../../data/G41_2.nc";
-  //  const char *default_file = "../../data/TortureTestG91.nc";
-  //  const char *default_file = "../../data/Sample2.nc";
+  const char *default_file = "../../data/TortureTestG91.nc";
+  // const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
-  //  const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  //const char *default_file = "../../data/simple1.nc";
+  // const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   // const char *default_file = "../../data/TortureTestLinux.nc";
   // const char *default_file = "../../data/ArcTooSmall.nc";
   // const char *default_file = "../../data/TortureTestLines.nc";
@@ -755,9 +753,10 @@ int main(int argc, char *argv[])
     auto orig = build_original_moves(program);
     const size_t suppressedFullCount = count_suppressed_moves(compensated);
     const size_t suppressedSimpleCount = count_suppressed_moves(simpleCompensated);
-    std::vector<Move2D> simpleVisible = filter_compare_moves(simpleCompensatedOrdered);
+    std::vector<Move2D> simpleVisible = filter_suppressed_moves(simpleCompensatedOrdered);
+    std::vector<Move2D> simpleCompareVisible = filter_compare_moves(simpleCompensatedOrdered);
     std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
-    write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleVisible, compProgram, program,
+    write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleCompareVisible, compProgram, program,
                             suppressedFullCount, suppressedSimpleCount);
 
     write_svg(svgPath.c_str(), compensatedVisible, &orig, false, true, fabs(toolRadius * 2.0f),

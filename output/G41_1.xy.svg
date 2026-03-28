@@ -1,26 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2.2759 -0.205 3.9809 4.51">
 <rect x="-2.2759" y="-0.205" width="3.9809" height="4.51" fill="white" />
-<text x="-0.285449" y="-0.103525" fill="#111111" font-size="0.06765" text-anchor="middle" dominant-baseline="middle">G41_2  |  tool radius=0.0609</text>
+<text x="-0.285449" y="-0.103525" fill="#111111" font-size="0.06765" text-anchor="middle" dominant-baseline="middle">G41_1  |  tool radius=0.0609</text>
 <polyline fill="none" stroke="#888888" stroke-width="0.003" stroke-dasharray="0.01,0.01" points="0,4.1 1.5,3.6 " />
 <circle cx="0" cy="4.1" r="0.00451" fill="#1f77b4" />
 <circle cx="1.5" cy="3.6" r="0.00451" fill="#1f77b4" />
 <polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.5,3.6 1.4,4 " />
 <circle cx="1.5" cy="3.6" r="0.00451" fill="#1f77b4" />
 <circle cx="1.4" cy="4" r="0.00451" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.4,4 1,4 " />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1.4,4 0.75,4 " />
 <circle cx="1.4" cy="4" r="0.00451" fill="#1f77b4" />
-<circle cx="1" cy="4" r="0.00451" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="1,4 0.99,3.6 " />
-<circle cx="1" cy="4" r="0.00451" fill="#1f77b4" />
-<circle cx="0.99" cy="3.6" r="0.00451" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="0.99,3.6 0.9,3.6 " />
-<circle cx="0.99" cy="3.6" r="0.00451" fill="#1f77b4" />
-<circle cx="0.9" cy="3.6" r="0.00451" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="0.9,3.6 0.89,4 " />
-<circle cx="0.9" cy="3.6" r="0.00451" fill="#1f77b4" />
-<circle cx="0.89" cy="4" r="0.00451" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="0.89,4 0.75,4 " />
-<circle cx="0.89" cy="4" r="0.00451" fill="#1f77b4" />
 <circle cx="0.75" cy="4" r="0.00451" fill="#1f77b4" />
 <polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="0.75,4 0.1,4 " />
 <circle cx="0.75" cy="4" r="0.00451" fill="#1f77b4" />
@@ -112,21 +100,18 @@
 <polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="-2,0.5 -2,0.0999999 " />
 <circle cx="-2" cy="0.5" r="0.00451" fill="#1f77b4" />
 <circle cx="-2" cy="0.0999999" r="0.00451" fill="#1f77b4" />
-<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="-2,0.0999999 -1.5,0 " />
+<polyline fill="none" stroke="#1f77b4" stroke-width="0.005" points="-2,0.0999999 -1.75,0 " />
 <circle cx="-2" cy="0.0999999" r="0.00451" fill="#1f77b4" />
-<circle cx="-1.5" cy="0" r="0.00451" fill="#1f77b4" />
-<polyline fill="none" stroke="#888888" stroke-width="0.003" stroke-dasharray="0.01,0.01" points="-1.5,0 1.5,0 " />
-<circle cx="-1.5" cy="0" r="0.00451" fill="#1f77b4" />
+<circle cx="-1.75" cy="0" r="0.00451" fill="#1f77b4" />
+<polyline fill="none" stroke="#888888" stroke-width="0.003" stroke-dasharray="0.01,0.01" points="-1.75,0 1.5,0 " />
+<circle cx="-1.75" cy="0" r="0.00451" fill="#1f77b4" />
 <circle cx="1.5" cy="0" r="0.00451" fill="#1f77b4" />
 <polyline fill="none" stroke="#888888" stroke-width="0.003" stroke-dasharray="0.01,0.01" points="1.5,0 1.5,3.6 " />
 <circle cx="1.5" cy="0" r="0.00451" fill="#1f77b4" />
 <circle cx="1.5" cy="3.6" r="0.00451" fill="#1f77b4" />
 <g opacity="0.5">
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="1.5,3.6 1.4,4.0609 " />
-<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="1.4,4.0609 1,4.0609 " />
-<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="1,4.0609 0.997141,4.06083 0.994289,4.06063 0.991449,4.0603 0.988628,4.05983 0.985832,4.05923 0.983068,4.0585 0.980341,4.05764 0.977657,4.05665 0.975022,4.05554 0.972442,4.05431 0.969923,4.05295 0.967471,4.05148 0.96509,4.0499 0.962786,4.04821 0.960564,4.04641 0.958429,4.04451 0.956386,4.0425 0.954439,4.04041 0.952592,4.03823 0.95085,4.03596 0.949216,4.03361 0.947695,4.03119 0.946288,4.0287 0.945,4.02615 " />
-<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="0.945,4.02615 0.943712,4.0287 0.942305,4.03119 0.940784,4.03361 0.93915,4.03596 0.937408,4.03823 0.935561,4.04041 0.933614,4.0425 0.931571,4.0445 0.929436,4.04641 0.927214,4.04821 0.92491,4.0499 0.922529,4.05148 0.920077,4.05295 0.917558,4.05431 0.914978,4.05554 0.912343,4.05665 0.909659,4.05764 0.906932,4.0585 0.904168,4.05923 0.901372,4.05983 0.898551,4.0603 0.895711,4.06063 0.892859,4.06083 0.89,4.0609 " />
-<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="0.89,4.0609 0.75,4.0609 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="1.4,4.0609 0.75,4.0609 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="0.75,4.0609 0.1,4.0609 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="0.1,4.0609 0.096017,4.06077 0.0920509,4.06038 0.088119,4.05973 0.0842379,4.05883 0.0804244,4.05767 0.0766946,4.05626 0.0730646,4.05462 0.06955,4.05274 0.0661658,4.05064 0.0629264,4.04832 0.0598458,4.04579 0.0569372,4.04306 0.054213,4.04015 0.0516848,4.03707 0.0493635,4.03383 0.0472591,4.03045 0.0453805,4.02694 0.0437357,4.02331 0.042332,4.01958 0.0411751,4.01576 0.0402702,4.01188 0.039621,4.00795 0.0392304,4.00398 0.0391,4 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="0.0391,4 0.0391,3.9 " />
@@ -161,7 +146,7 @@
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="-2.07085,0.602434 -2.0709,0.599618 -2.07082,0.596802 -2.0706,0.593994 -2.07026,0.591198 -2.06979,0.588422 -2.06919,0.58567 -2.06846,0.582948 -2.06761,0.580264 -2.06664,0.577621 -2.06554,0.575026 -2.06433,0.572485 -2.063,0.570002 -2.06156,0.567584 -2.06,0.565235 -2.05834,0.56296 -2.05658,0.560765 -2.05471,0.558653 -2.05275,0.55663 -2.0507,0.5547 -2.04856,0.552866 -2.04634,0.551133 -2.04405,0.549505 -2.04167,0.547985 -2.03924,0.546576 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="-2.03924,0.546576 -2.0409,0.545123 -2.04251,0.543609 -2.04406,0.542039 -2.04556,0.540413 -2.04699,0.538734 -2.04837,0.537004 -2.04968,0.535225 -2.05092,0.5334 -2.0521,0.53153 -2.05321,0.52962 -2.05425,0.52767 -2.05522,0.525684 -2.05611,0.523664 -2.05694,0.521613 -2.05768,0.519534 -2.05835,0.517429 -2.05895,0.515301 -2.05946,0.513152 -2.0599,0.510987 -2.06026,0.508807 -2.06054,0.506615 -2.06074,0.504415 -2.06086,0.502209 -2.0609,0.5 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="-2.0609,0.5 -2.0609,0.0999999 " />
-<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="-2.0609,0.0999999 -1.5,0 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="-2.0609,0.0999999 -1.75,0 " />
 </g>
 <g opacity="0.35">
 <polyline fill="none" stroke="#999999" stroke-width="0.1218" stroke-linecap="round" stroke-linejoin="round" points="0,4.1 1.5,3.6 " />
@@ -172,17 +157,8 @@
 <polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.5,3.6 1.4,4.0609 " />
 <circle cx="1.5" cy="3.6" r="0.00451" fill="#d62728" />
 <circle cx="1.4" cy="4.0609" r="0.00451" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.4,4.0609 1,4.0609 " />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1.4,4.0609 0.75,4.0609 " />
 <circle cx="1.4" cy="4.0609" r="0.00451" fill="#d62728" />
-<circle cx="1" cy="4.0609" r="0.00451" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="1,4.0609 0.997141,4.06083 0.994289,4.06063 0.991449,4.0603 0.988628,4.05983 0.985832,4.05923 0.983068,4.0585 0.980341,4.05764 0.977657,4.05665 0.975022,4.05554 0.972442,4.05431 0.969923,4.05295 0.967471,4.05148 0.96509,4.0499 0.962786,4.04821 0.960564,4.04641 0.958429,4.04451 0.956386,4.0425 0.954439,4.04041 0.952592,4.03823 0.95085,4.03596 0.949216,4.03361 0.947695,4.03119 0.946288,4.0287 0.945,4.02615 " />
-<circle cx="1" cy="4.0609" r="0.00451" fill="#d62728" />
-<circle cx="0.945" cy="4.02615" r="0.00451" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.945,4.02615 0.943712,4.0287 0.942305,4.03119 0.940784,4.03361 0.93915,4.03596 0.937408,4.03823 0.935561,4.04041 0.933614,4.0425 0.931571,4.0445 0.929436,4.04641 0.927214,4.04821 0.92491,4.0499 0.922529,4.05148 0.920077,4.05295 0.917558,4.05431 0.914978,4.05554 0.912343,4.05665 0.909659,4.05764 0.906932,4.0585 0.904168,4.05923 0.901372,4.05983 0.898551,4.0603 0.895711,4.06063 0.892859,4.06083 0.89,4.0609 " />
-<circle cx="0.945" cy="4.02615" r="0.00451" fill="#d62728" />
-<circle cx="0.89" cy="4.0609" r="0.00451" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.89,4.0609 0.75,4.0609 " />
-<circle cx="0.89" cy="4.0609" r="0.00451" fill="#d62728" />
 <circle cx="0.75" cy="4.0609" r="0.00451" fill="#d62728" />
 <polyline fill="none" stroke="#d62728" stroke-width="0.002" points="0.75,4.0609 0.1,4.0609 " />
 <circle cx="0.75" cy="4.0609" r="0.00451" fill="#d62728" />
@@ -286,7 +262,7 @@
 <polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-2.0609,0.5 -2.0609,0.0999999 " />
 <circle cx="-2.0609" cy="0.5" r="0.00451" fill="#d62728" />
 <circle cx="-2.0609" cy="0.0999999" r="0.00451" fill="#d62728" />
-<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-2.0609,0.0999999 -1.5,0 " />
+<polyline fill="none" stroke="#d62728" stroke-width="0.002" points="-2.0609,0.0999999 -1.75,0 " />
 <circle cx="-2.0609" cy="0.0999999" r="0.00451" fill="#d62728" />
-<circle cx="-1.5" cy="0" r="0.00451" fill="#d62728" />
+<circle cx="-1.75" cy="0" r="0.00451" fill="#d62728" />
 </svg>
