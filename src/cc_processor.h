@@ -294,8 +294,8 @@ public:
     // Main pump
     bool process(void)
     {
-        if (hasCompError)
-            return false;
+        //if (hasCompError)
+        //    return false;
 
         while (inCount > 0)
         {
