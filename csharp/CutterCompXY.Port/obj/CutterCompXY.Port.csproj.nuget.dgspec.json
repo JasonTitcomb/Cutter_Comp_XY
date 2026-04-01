@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\CutterCompXY.Port.csproj": {}
+    "d:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\CutterCompXY.Port.csproj": {}
   },
   "projects": {
-    "D:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\CutterCompXY.Port.csproj": {
+    "d:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\CutterCompXY.Port.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\CutterCompXY.Port.csproj",
+        "projectUniqueName": "d:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\CutterCompXY.Port.csproj",
         "projectName": "CutterCompXY.Port",
-        "projectPath": "D:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\CutterCompXY.Port.csproj",
+        "projectPath": "d:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\CutterCompXY.Port.csproj",
         "packagesPath": "C:\\Users\\Jason\\.nuget\\packages\\",
-        "outputPath": "D:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\obj\\",
+        "outputPath": "d:\\Repos\\Cutter_Comp_XY\\csharp\\CutterCompXY.Port\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

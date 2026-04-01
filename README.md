@@ -20,7 +20,7 @@ incorrectly. Review the code and test carefully before using it on real hardware
 - Configurable look ahead for gouge detection and buffer sizing.
 - +- offset values supported for wear compensation.
 - Incremental/Absolute support.
-- Z allowed but not used for calculations.
+- Z allowed but is simply passed through.
 - Global self intersections are ignored when Z does not match between pairwise comparisons to allow for thread milling.
 
 ## Project Layout

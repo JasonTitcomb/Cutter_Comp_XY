@@ -353,17 +353,18 @@ public:
             {
                 // modify the previous move so that the end is the start of the current move,
                 prevOff.p_1 = curOff.p_0;
+                float moveLen = len(prevOff.p_1 - prevOff.p_0);
+                if (moveLen <= toolR)
+                {
+                    reportCompError(CE_COMP_MOVE_TOO_SHORT);
+                    return false;
+                }
             }
 
             if (curOff.compMode == CM_OUT)
             {
                 // modify the G40 start is the end of the previous move,
                 curOff.p_0 = prevOff.p_1;
-            }
-
-            // ── check comp-in / comp-out move length vs toolR ──
-            if (curOff.compMode == CM_IN || curOff.compMode == CM_OUT)
-            {
                 float moveLen = len(curOff.p_1 - curOff.p_0);
                 if (moveLen <= toolR)
                 {
@@ -372,7 +373,7 @@ public:
                 }
             }
 
-            // Apply decision tree between prevOff and curOff
+             // Apply decision tree between prevOff and curOff
             if (curOff.compMode == CM_STEADY)
                 applyLogic(prevOff, curOff, inserts, insertCount);
 
@@ -459,6 +460,8 @@ private:
         m.feed = (a.feed > 0) ? a.feed : b.feed;
         m.p_0 = a.p_1;
         m.p_1 = b.p_0;
+        m.z_0 = a.z_1;
+        m.z_1 = b.z_0;
         update_vectors(m);
         return m;
     }
@@ -802,6 +805,8 @@ private:
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
         roll.p_0 = a.p_1;
         roll.p_1 = b.p_0;
+        roll.z_0 = a.z_1;
+        roll.z_1 = b.z_0;
 
         // Calculate the roll arc center using the angle bisector method
         roll.center = roll_center(a.p_1, a.endDir, compUsesLeft(), toolR);
@@ -905,6 +910,8 @@ private:
         cap.type = MOT_LINE;
         cap.compMode = CM_STEADY;
         cap.feed = (a.feed > 0) ? a.feed : b.feed;
+        cap.z_0 = a.z_1;
+        cap.z_1 = b.z_0;
         const float halfLen = 0.5f * (toolR + 2.0f);
         cap.p_0 = offsetCap - chamferDir * halfLen;
         cap.p_1 = offsetCap + chamferDir * halfLen;
@@ -992,6 +999,8 @@ private:
         extLnOut.lnNum = arc.lnNum;
         extLnOut.compMode = arc.compMode;
         extLnOut.feed = arc.feed;
+        extLnOut.z_0 = fromEnd ? arc.z_1 : arc.z_0;
+        extLnOut.z_1 = extLnOut.z_0;
         extLnOut.p_0 = anchor;
         extLnOut.p_1 = anchor + dir * extent;
         extLnOut.startDir = dir;
@@ -1365,8 +1374,8 @@ public:
             {
                 if (moves[firstCutIdx].type == MOT_ARC && moves[firstCutIdx].radius <= 0)
                 {
-                    reportCompError(CE_FLIPPED_ARC);
-                    return true;
+                    reportCompError(CE_ARC_LT_TOOL_RAD);
+                    return false;
                 }
             }
         }
@@ -1378,8 +1387,8 @@ public:
             {
                 if (moves[lastCutIdx].type == MOT_ARC && moves[lastCutIdx].radius <= 0)
                 {
-                    reportCompError(CE_FLIPPED_ARC);
-                    return true;
+                    reportCompError(CE_ARC_LT_TOOL_RAD);
+                    return false;
                 }
             }
         }

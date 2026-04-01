@@ -1,9 +1,9 @@
 cc_xy comparison report
-full profile count: 83
-simple profile count: 80
+full profile count: 94
+simple profile count: 91
 suppressed full count: 0
 suppressed simple count: 3
-shared count: 80
+shared count: 91
 
 index 0 mismatch
   full   : type=rapid seq=5 p0=(0, 0) p1=(0, 0) r=0 valid=1
@@ -14,145 +14,145 @@ index 0 mismatch
 
 index 1 mismatch
   full   : type=rapid seq=11 p0=(0, 0) p1=(-0.225, 0) r=0 valid=1
-  simple : type=line seq=28 p0=(-0.225, 0) p1=(-0.0609, 0) r=0 valid=1
+  simple : type=line seq=28 p0=(-0.225, 0) p1=(-0.0312, 0) r=0 valid=1
   full gcode  : N9 G00 X-0.225 Y0.
   simple gcode: N19 G01 Y0.0337
-  delta  : p0=0.225000 p1=0.164100 center=0.000000 radius=0.000000
+  delta  : p0=0.225000 p1=0.193800 center=0.000000 radius=0.000000
 
 index 2 mismatch
-  full   : type=line seq=16 p0=(-0.225, 0) p1=(-0.0609, 0) r=0 valid=1
-  simple : type=line seq=28 p0=(-0.0609, 0) p1=(-0.0609, 0.1607) r=0 valid=1
-  full gcode  : N22 G1 X0.1641 Y0 F40
+  full   : type=line seq=16 p0=(-0.225, 0) p1=(-0.0312, 0) r=0 valid=1
+  simple : type=line seq=28 p0=(-0.0312, 0) p1=(-0.0312, 0.1607) r=0 valid=1
+  full gcode  : N22 G1 X0.1938 Y0 F40
   simple gcode: N19 G01 Y0.0337
-  delta  : p0=0.164100 p1=0.160700 center=0.000000 radius=0.000000
+  delta  : p0=0.193800 p1=0.160700 center=0.000000 radius=0.000000
 
 index 3 mismatch
-  full   : type=line seq=17 p0=(-0.0609, 0) p1=(-0.0609, 0.1607) r=0 valid=1
-  simple : type=arc seq=29 p0=(-0.0609, 0.1607) p1=(0, 0.2216) r=0.0609 valid=1
-  full gcode  : N23 G1 X0 Y0.1607
+  full   : type=line seq=17 p0=(-0.0312, 0) p1=(-0.0312, 0.1607) r=0 valid=1
+  simple : type=arc seq=29 p0=(-0.0312, 0.1607) p1=(0, 0.1919) r=0.0312 valid=1
+  full gcode  : N23 G1 X-0 Y0.1607
   simple gcode: N20 G03 Y0.1218 J0.0609
-  delta  : p0=0.160700 p1=0.086126 center=0.160700 radius=0.060900
+  delta  : p0=0.160700 p1=0.044123 center=0.160700 radius=0.031200
 
 index 4 mismatch
-  full   : type=arc seq=18 p0=(-0.0609, 0.1607) p1=(0, 0.2216) r=0.0609 valid=1
-  simple : type=arc seq=29 p0=(0, 0.2216) p1=(0.0088, 0.2304) r=0.0088 valid=1
-  full gcode  : N23 G2 X0.0609 Y0.0609 I0.0609 J0
+  full   : type=arc seq=18 p0=(-0.0312, 0.1607) p1=(9.31323e-09, 0.1919) r=0.0312 valid=1
+  simple : type=arc seq=29 p0=(0, 0.1919) p1=(0.0385, 0.2304) r=0.0385 valid=1
+  full gcode  : N23 G2 X0.0312 Y0.0312 I0.0312 J0
   simple gcode: N20 G03 Y0.1218 J0.0609
-  delta  : p0=0.086126 p1=0.012445 center=0.069700 radius=0.052100
+  delta  : p0=0.044123 p1=0.054447 center=0.069700 radius=0.007300
 
 index 5 mismatch
-  full   : type=arc seq=19 p0=(0, 0.2216) p1=(0.0088, 0.2304) r=0.0088 valid=1
-  simple : type=arc seq=30 p0=(0.0088, 0.2304) p1=(0, 0.2392) r=0.0088 valid=1
-  full gcode  : N24 G3 X0.0088 Y0.0088 I0 J0.0088
+  full   : type=arc seq=19 p0=(9.31323e-09, 0.1919) p1=(0.0385, 0.2304) r=0.0385 valid=1
+  simple : type=arc seq=30 p0=(0.0385, 0.2304) p1=(0, 0.2689) r=0.0385 valid=1
+  full gcode  : N24 G3 X0.0385 Y0.0385 I0 J0.0385
   simple gcode: N21 G01 Y0.026
-  delta  : p0=0.012445 p1=0.012445 center=0.000000 radius=0.000000
+  delta  : p0=0.054447 p1=0.054447 center=0.000000 radius=0.000000
 
 index 6 mismatch
-  full   : type=arc seq=20 p0=(0.0088, 0.2304) p1=(0, 0.2392) r=0.0088 valid=1
-  simple : type=arc seq=30 p0=(0, 0.2392) p1=(-0.0609, 0.3001) r=0.0609 valid=1
-  full gcode  : N25 G3 X-0.0088 Y0.0088 I-0.0088 J0
+  full   : type=arc seq=20 p0=(0.0385, 0.2304) p1=(7.45058e-09, 0.2689) r=0.0385 valid=1
+  simple : type=arc seq=30 p0=(0, 0.2689) p1=(-0.0312, 0.3001) r=0.0312 valid=1
+  full gcode  : N25 G3 X-0.0385 Y0.0385 I-0.0385 J0
   simple gcode: N21 G01 Y0.026
-  delta  : p0=0.012445 p1=0.086126 center=0.069700 radius=0.052100
+  delta  : p0=0.054447 p1=0.044123 center=0.069700 radius=0.007300
 
 index 7 mismatch
-  full   : type=arc seq=21 p0=(0, 0.2392) p1=(-0.0609, 0.3001) r=0.0609 valid=1
-  simple : type=line seq=31 p0=(-0.0609, 0.3001) p1=(-0.0609, 0.3431) r=0 valid=1
-  full gcode  : N25 G2 X-0.0609 Y0.0609 I0 J0.0609
+  full   : type=arc seq=21 p0=(7.45058e-09, 0.2689) p1=(-0.0312, 0.3001) r=0.0312 valid=1
+  simple : type=line seq=31 p0=(-0.0312, 0.3001) p1=(-0.0312, 0.3431) r=0 valid=1
+  full gcode  : N25 G2 X-0.0312 Y0.0312 I0 J0.0312
   simple gcode: N22 G03 Y0.1219 J0.0609
-  delta  : p0=0.086126 p1=0.043000 center=0.300100 radius=0.060900
+  delta  : p0=0.044123 p1=0.043000 center=0.300100 radius=0.031200
 
 index 8 mismatch
-  full   : type=line seq=22 p0=(-0.0609, 0.3001) p1=(-0.0609, 0.3431) r=0 valid=1
-  simple : type=arc seq=31 p0=(-0.0609, 0.3431) p1=(0, 0.404) r=0.0609 valid=1
+  full   : type=line seq=22 p0=(-0.0312, 0.3001) p1=(-0.0312, 0.3431) r=0 valid=1
+  simple : type=arc seq=31 p0=(-0.0312, 0.3431) p1=(0, 0.3743) r=0.0312 valid=1
   full gcode  : N26 G1 X0 Y0.043
   simple gcode: N22 G03 Y0.1219 J0.0609
-  delta  : p0=0.043000 p1=0.086126 center=0.343100 radius=0.060900
+  delta  : p0=0.043000 p1=0.044123 center=0.343100 radius=0.031200
 
 index 9 mismatch
-  full   : type=arc seq=23 p0=(-0.0609, 0.3431) p1=(0, 0.404) r=0.0609 valid=1
-  simple : type=arc seq=32 p0=(0, 0.404) p1=(0, 0.4188) r=0.00740001 valid=1
-  full gcode  : N26 G2 X0.0609 Y0.0609 I0.0609 J0
+  full   : type=arc seq=23 p0=(-0.0312, 0.3431) p1=(7.45058e-09, 0.3743) r=0.0312 valid=1
+  simple : type=arc seq=32 p0=(0, 0.3743) p1=(0, 0.4485) r=0.0371 valid=1
+  full gcode  : N26 G2 X0.0312 Y0.0312 I0.0312 J0
   simple gcode: N23 G01 Y0.2407
-  delta  : p0=0.086126 p1=0.014800 center=0.068300 radius=0.053500
+  delta  : p0=0.044123 p1=0.074200 center=0.068300 radius=0.005900
 
 index 10 mismatch
-  full   : type=arc seq=24 p0=(0, 0.404) p1=(0, 0.4188) r=0.00740001 valid=1
-  simple : type=arc seq=32 p0=(0, 0.4188) p1=(-0.0609, 0.4797) r=0.0609 valid=1
-  full gcode  : N27 G3 X0 Y0.0148 I0 J0.0074
+  full   : type=arc seq=24 p0=(7.45058e-09, 0.3743) p1=(7.45058e-09, 0.4485) r=0.0371 valid=1
+  simple : type=arc seq=32 p0=(0, 0.4485) p1=(-0.0312, 0.4797) r=0.0312 valid=1
+  full gcode  : N27 G3 X0 Y0.0742 I0 J0.0371
   simple gcode: N23 G01 Y0.2407
-  delta  : p0=0.014800 p1=0.086126 center=0.068300 radius=0.053500
+  delta  : p0=0.074200 p1=0.044123 center=0.068300 radius=0.005900
 
 index 11 mismatch
-  full   : type=arc seq=25 p0=(0, 0.4188) p1=(-0.0609, 0.4797) r=0.0609 valid=1
-  simple : type=line seq=33 p0=(-0.0609, 0.4797) p1=(-0.0609, 0.5134) r=0 valid=1
-  full gcode  : N27 G2 X-0.0609 Y0.0609 I0 J0.0609
+  full   : type=arc seq=25 p0=(7.45058e-09, 0.4485) p1=(-0.0312, 0.4797) r=0.0312 valid=1
+  simple : type=line seq=33 p0=(-0.0312, 0.4797) p1=(-0.0312, 0.5134) r=0 valid=1
+  full gcode  : N27 G2 X-0.0312 Y0.0312 I0 J0.0312
   simple gcode: N24 X0.0658
-  delta  : p0=0.086126 p1=0.033700 center=0.479700 radius=0.060900
+  delta  : p0=0.044123 p1=0.033700 center=0.479700 radius=0.031200
 
 index 12 mismatch
-  full   : type=line seq=26 p0=(-0.0609, 0.4797) p1=(-0.0609, 0.5134) r=0 valid=1
-  simple : type=arc seq=33 p0=(-0.0609, 0.5134) p1=(0, 0.5743) r=0.0609 valid=1
+  full   : type=line seq=26 p0=(-0.0312, 0.4797) p1=(-0.0312, 0.5134) r=0 valid=1
+  simple : type=arc seq=33 p0=(-0.0312, 0.5134) p1=(0, 0.5446) r=0.0312 valid=1
   full gcode  : N28 G1 X0 Y0.0337
   simple gcode: N24 X0.0658
-  delta  : p0=0.033700 p1=0.086126 center=0.513400 radius=0.060900
+  delta  : p0=0.033700 p1=0.044123 center=0.513400 radius=0.031200
 
 index 13 mismatch
-  full   : type=arc seq=27 p0=(-0.0609, 0.5134) p1=(0, 0.5743) r=0.0609 valid=1
-  simple : type=arc seq=34 p0=(0, 0.5743) p1=(-0.0609, 0.6352) r=0.0609 valid=1
-  full gcode  : N28 G2 X0.0609 Y0.0609 I0.0609 J0
+  full   : type=arc seq=27 p0=(-0.0312, 0.5134) p1=(7.45058e-09, 0.5446) r=0.0312 valid=1
+  simple : type=arc seq=34 p0=(0, 0.5446) p1=(0, 0.604) r=0.0297 valid=1
+  full gcode  : N28 G2 X0.0312 Y0.0312 I0.0312 J0
   simple gcode: N25 G03 X0.025 Y0.025 J0.025
-  delta  : p0=0.086126 p1=0.086126 center=0.121800 radius=0.000000
+  delta  : p0=0.044123 p1=0.059400 center=0.060900 radius=0.001500
 
 index 14 mismatch
-  full   : type=arc seq=28 p0=(0, 0.5743) p1=(-0.0609, 0.6352) r=0.0609 valid=1
-  simple : type=line seq=36 p0=(-0.0609, 0.6352) p1=(-0.0609, 0.6612) r=0 valid=1
-  full gcode  : N29 G2 X-0.0609 Y0.0609 I0 J0.0609
-  simple gcode: N27 G03 X-0.025 Y0.025 I-0.025
-  delta  : p0=0.086126 p1=0.026000 center=0.635200 radius=0.060900
+  full   : type=arc seq=28 p0=(7.45058e-09, 0.5446) p1=(7.45058e-09, 0.604) r=0.0297 valid=1
+  simple : type=arc seq=34 p0=(0, 0.604) p1=(-0.0312, 0.6352) r=0.0312 valid=1
+  full gcode  : N29 G3 X0 Y0.0594 I0 J0.0297
+  simple gcode: N25 G03 X0.025 Y0.025 J0.025
+  delta  : p0=0.059400 p1=0.044123 center=0.060900 radius=0.001500
 
 index 15 mismatch
-  full   : type=line seq=29 p0=(-0.0609, 0.6352) p1=(-0.0609, 0.6612) r=0 valid=1
-  simple : type=arc seq=36 p0=(-0.0609, 0.6612) p1=(0, 0.7221) r=0.0609 valid=1
-  full gcode  : N30 G1 X0 Y0.026
+  full   : type=arc seq=29 p0=(7.45058e-09, 0.604) p1=(-0.0312, 0.6352) r=0.0312 valid=1
+  simple : type=line seq=36 p0=(-0.0312, 0.6352) p1=(-0.0312, 0.6612) r=0 valid=1
+  full gcode  : N29 G2 X-0.0312 Y0.0312 I0 J0.0312
   simple gcode: N27 G03 X-0.025 Y0.025 I-0.025
-  delta  : p0=0.026000 p1=0.086126 center=0.661200 radius=0.060900
+  delta  : p0=0.044123 p1=0.026000 center=0.635200 radius=0.031200
 
 index 16 mismatch
-  full   : type=arc seq=30 p0=(-0.0609, 0.6612) p1=(0, 0.7221) r=0.0609 valid=1
-  simple : type=arc seq=38 p0=(0, 0.7221) p1=(-0.0608999, 0.7831) r=0.0609 valid=1
-  full gcode  : N30 G2 X0.0609 Y0.0609 I0.0609 J0
-  simple gcode: N29 Y0.1273
-  delta  : p0=0.086126 p1=0.086196 center=0.121800 radius=0.000000
+  full   : type=line seq=30 p0=(-0.0312, 0.6352) p1=(-0.0312, 0.6612) r=0 valid=1
+  simple : type=arc seq=36 p0=(-0.0312, 0.6612) p1=(0, 0.6924) r=0.0312 valid=1
+  full gcode  : N30 G1 X0 Y0.026
+  simple gcode: N27 G03 X-0.025 Y0.025 I-0.025
+  delta  : p0=0.026000 p1=0.044123 center=0.661200 radius=0.031200
 
 index 17 mismatch
-  full   : type=arc seq=31 p0=(0, 0.7221) p1=(-0.0609, 0.7831) r=0.0609 valid=1
-  simple : type=line seq=39 p0=(-0.0608999, 0.7831) p1=(-0.0609, 1.0238) r=0 valid=1
-  full gcode  : N31 G2 X-0.0609 Y0.061 I0 J0.0609
-  simple gcode: N30 X0.0658
-  delta  : p0=0.086196 p1=0.240700 center=0.783000 radius=0.060900
+  full   : type=arc seq=31 p0=(-0.0312, 0.6612) p1=(7.45058e-09, 0.6924) r=0.0312 valid=1
+  simple : type=arc seq=38 p0=(0, 0.6924) p1=(0, 0.7518) r=0.0297 valid=1
+  full gcode  : N30 G2 X0.0312 Y0.0312 I0.0312 J0
+  simple gcode: N29 Y0.1273
+  delta  : p0=0.044123 p1=0.059400 center=0.060900 radius=0.001500
 
 index 18 mismatch
-  full   : type=line seq=32 p0=(-0.0609, 0.7831) p1=(-0.0609, 1.0238) r=0 valid=1
-  simple : type=arc seq=39 p0=(-0.0609, 1.0238) p1=(-0.0407584, 1.06905) r=0.0609 valid=1
-  full gcode  : N32 G1 X0 Y0.2407
-  simple gcode: N30 X0.0658
-  delta  : p0=0.240700 p1=0.049530 center=1.023800 radius=0.060900
+  full   : type=arc seq=32 p0=(7.45058e-09, 0.6924) p1=(7.45058e-09, 0.7518) r=0.0297 valid=1
+  simple : type=arc seq=38 p0=(0, 0.7518) p1=(-0.0311999, 0.7831) r=0.0312001 valid=1
+  full gcode  : N31 G3 X0 Y0.0594 I0 J0.0297
+  simple gcode: N29 Y0.1273
+  delta  : p0=0.059400 p1=0.044194 center=0.060900 radius=0.001500
 
 index 19 mismatch
-  full   : type=arc seq=33 p0=(-0.0609, 1.0238) p1=(-0.0408, 1.069) r=0.0609 valid=1
-  simple : type=arc seq=44 p0=(-0.0407584, 1.06905) p1=(-0.0609, 1.1143) r=0.0609 valid=1
-  full gcode  : N32 G2 X0.0201 Y0.0452 I0.0609 J0
-  simple gcode: N35 Y0.1026
-  delta  : p0=0.049530 p1=0.049559 center=0.090500 radius=0.000000
+  full   : type=arc seq=33 p0=(7.45058e-09, 0.7518) p1=(-0.0312, 0.7831) r=0.0312 valid=1
+  simple : type=line seq=39 p0=(-0.0311999, 0.7831) p1=(-0.0312, 1.0238) r=0 valid=1
+  full gcode  : N31 G2 X-0.0312 Y0.0313 I0 J0.0312
+  simple gcode: N30 X0.0658
+  delta  : p0=0.044194 p1=0.240700 center=0.783000 radius=0.031200
 
-count mismatch: full=83 simple=80
+count mismatch: full=94 simple=91
 
 summary
   first mismatch index: 0
-  mismatch count: 80
-  type mismatch count: 49
+  mismatch count: 91
+  type mismatch count: 55
   validity mismatch count: 0
-  max p0 delta: 2.437450
-  max p1 delta: 2.437450
-  max center delta: 5.152426
-  max radius delta: 0.855503
+  max p0 delta: 1.138900
+  max p1 delta: 1.138900
+  max center delta: 5.152649
+  max radius delta: 0.885224

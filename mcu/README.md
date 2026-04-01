@@ -56,21 +56,24 @@ When entering compensation (`G41`/`G42`) from `G40`, grblHAL-side logic resolves
 
 1. Require `G17` (XY plane). If not XY, return illegal-plane status.
 2. Start with radius `0.0`.
-3. If a `D` word is present on the block:
-  - Use `D` value directly as cutter radius.
+3. If an `R` word is present on the block:
+  - Use `R` value directly as cutter radius.
+  - Clear the `R` word after consuming it.
+4. Else if a `D` word is present on the block:
+  - Use `D` value as cutter diameter (divided by 2 for radius).
   - Clear the `D` word after consuming it.
-4. If no `D` word is present:
+5. If neither `R` nor `D` is present:
   - If tool table is enabled and has tools, use tool table radius for active tool.
   - If current tool id is `0` and a pending tool exists, use pending tool id.
-5. If resolved radius is `<= 0.0`, return value-out-of-range status.
-6. Mark first compensation move and initialize core with:
+6. If resolved radius is `<= 0.0`, return value-out-of-range status.
+7. Mark first compensation move and initialize core with:
   - `cc_api_init(resolvedRadius, cc_emit_via_mc, 0)`
 
 Important behavior details:
 
-- In this flow, `D` is interpreted as a radius value, not a tool table index.
-- Tool table radius is a fallback only when `D` is not supplied.
-- Compensation entry fails fast if neither source provides a valid positive radius.
+- `R` is interpreted as a radius, `D` as a diameter. If both are present, `R` takes priority.
+- Tool table radius is a fallback only when neither `R` nor `D` is supplied.
+- Compensation entry fails fast if no source provides a valid positive radius.
 
 Optional mode selection on entry:
 

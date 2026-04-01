@@ -26,6 +26,7 @@ internal static class Program
             CompError.CE_ARC_RADIUS_MISMATCH => "Arc radius inconsistency",
             CompError.CE_INVALID_MOVE => "Invalid move",
             CompError.CE_COMP_MOVE_TOO_SHORT => "Comp move too short",
+            CompError.CE_ARC_LT_TOOL_RAD => "Arc smaller than tool radius",
             CompError.CE_FLIPPED_ARC => "Flipped arc",
             CompError.CE_COMP_IN_CROSSING => "Comp-in crossing",
             CompError.CE_COMP_OUT_CROSSING => "Comp-out crossing",

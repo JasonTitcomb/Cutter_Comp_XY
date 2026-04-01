@@ -1,13 +1,21 @@
+
+
 /*
  * cutter_comp.h
  * Jason Titcomb 2026
- * MIT License - see LICENSE file in repository root
+ * code is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  *
+ * You should have received a copy of the GNU General Public License
+ * along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef CUTTER_COMP_H
 #define CUTTER_COMP_H
 #include "config.h"
+#include <stdint.h>
 
 #if CUTTER_COMP_ENABLE
 
@@ -24,7 +32,7 @@ extern "C" {
  * CC_ENABLE_CORNER_TREATMENT 1 and CC_CORNER_TREATMENT_MODE != 0 -> chamfer-style treatment.
  */
 #ifndef CC_ENABLE_CORNER_TREATMENT
-#define CC_ENABLE_CORNER_TREATMENT 0
+#define CC_ENABLE_CORNER_TREATMENT 1
 #endif
 
 #ifndef CC_CORNER_TREATMENT_MODE
@@ -82,6 +90,12 @@ typedef struct
     float y;
 } vec2;
 
+
+typedef enum {
+    CC_UNITS_MM = 0,
+    CC_UNITS_INCH = 1
+} cc_units;
+
 typedef enum
 {
     CC_CM_NONE = 0,
@@ -126,18 +140,18 @@ typedef enum
 
 typedef enum
 {
-    Status_OK = 0,
-    Status_ArcRadiusMismatch = 101,
-    Status_InvalidMove = 102,
-    Status_MoveTooShort = 103,
-    Status_ArcLtToolRad = 104,
-    Status_FlippedArc = 105,
-    Status_CompInCrossing = 106,
-    Status_CompOutCrossing = 107,
-    Status_UnresolvedGap = 108,
-    Status_InputBufferOverflow = 109,
-    Status_OutputBufferOverflow = 110
-} status_code_t;
+    cc_status_OK = 0,
+    cc_status_ArcRadiusInconsistant = 101,
+    cc_status_InvalidMove = 102,
+    cc_status_MoveTooShort = 103,
+    cc_status_ArcLtToolRad = 104,
+    cc_status_FlippedArc = 105,
+    cc_status_CompInCrossing = 106,
+    cc_status_CompOutCrossing = 107,
+    cc_status_UnresolvedGap = 108,
+    cc_status_InputBufferOverflow = 109,
+    cc_status_OutputBufferOverflow = 110
+} cc_status_code_t;
 
 
 typedef struct
@@ -159,7 +173,9 @@ typedef struct
     bool suppressOutput;
 } move2d;
 
-typedef void (*cc_err_cb)( status_code_t err, uint32_t lineNum);
+vec2 cc_v2(float x, float y);
+
+typedef void (*cc_err_cb)( cc_status_code_t err, uint32_t lineNum);
 typedef void (*emit_move_cb)(const move2d *move);
 
 typedef enum
@@ -185,7 +201,7 @@ typedef struct
 
 typedef struct
 {
-    status_code_t status;
+    cc_status_code_t status;
 
     float toolR;
     int8_t toolSign;
@@ -193,14 +209,18 @@ typedef struct
     comp_mode compMode;
     uint8_t cornerTreatmentMode;
     uint32_t lastLineNum;
-    
+    cc_units units;
+    float arcTol;
+    float gapTol;
+    float minOutputLen;
+
     int inHead;
     int inCount;
     int outHead;
     int outCount;
     bool hasCompError;
     bool havePrevMove;
-    
+
     move2d prevOff;
     move2d input_buffer[CC_IN_CAP];
     move2d output_buffer[CC_OUT_CAP];
@@ -209,16 +229,16 @@ typedef struct
     int lookahead_count;
 #endif
 } cc_context;
-
-// Internal API - not guaranteed to be stable across versions. Only exposed for testing and advanced use cases.
-vec2 cc_v2(float x, float y);
+// Set units (mm or inch) and update tolerances accordingly
+void cc_api_set_units(cc_units u);
+cc_units cc_api_get_units(void);
 
 void cc_api_init(float radius,emit_move_cb emitCb, cc_err_cb errCb);
 
 // Process a move. If move is null, flushes any pending moves and reports any pending errors.
 // Returns CC_OK if the move was processed and emitted successfully, or if flushing completed successfully.
 // Returns an appropriate error code otherwise.
-status_code_t cc_api_process_move(const move2d *move);
+cc_status_code_t cc_api_process_move(const move2d *move);
 
 // comp_side is CC_COMP_OFF=0, CC_COMP_LEFT=1, or CC_COMP_RIGHT=-1
 void cc_api_set_comp(comp_side side);
@@ -226,6 +246,7 @@ comp_side cc_api_get_comp(void);
 
 //Requires CC_ENABLE_CORNER_TREATMENT set to 1
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);
+
 
 #ifdef __cplusplus
 }

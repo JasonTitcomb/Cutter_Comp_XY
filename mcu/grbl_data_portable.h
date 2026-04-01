@@ -298,7 +298,7 @@ typedef struct {
     bool is_rpm_rate_adjusted;
     bool tool_change;
     bool skip_blocks;
-    status_code_t last_error;
+    //status_code_t last_error;
     offset_id_t offset_id;
     coord_data_t offset_queue[MAX_OFFSET_ENTRIES];
     bool g92_offset_applied;

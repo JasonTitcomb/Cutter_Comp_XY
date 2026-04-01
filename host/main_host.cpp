@@ -31,7 +31,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.0609f;
+static constexpr float TOOL_RADIUS = 0.0620f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
@@ -63,9 +63,9 @@ static void host_error_cb(const char *message, CompError err, uint32_t lineNum)
     std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)lineNum);
 }
 
-static void host_xy_error_cb(status_code_t err, uint32_t lineNum)
+static void host_xy_error_cb(cc_status_code_t err, uint32_t lineNum)
 {
-  if (err != Status_OK)
+  if (err != cc_status_OK)
     std::fprintf(stderr, "[cc_xy] CompError code=%u N%u\n", (unsigned)err, (unsigned)lineNum);
 }
 
@@ -88,7 +88,7 @@ static gc_ccomp_t host_make_cc_state_for_side(CompSide side, bool enteringComp)
   return ccState;
 }
 
-static status_code_t cc_mc_line_arc_in_via_grblhal(const Move2D &mv, const gc_ccomp_t &ccState)
+static cc_status_code_t cc_mc_line_arc_in_via_grblhal(const Move2D &mv, const gc_ccomp_t &ccState)
 {
   plan_line_data_t pl_data = {};
   pl_data.feed_rate = mv.feed;
@@ -275,7 +275,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
     {
       if (exitingComp)
       {
-        if (cc_api_process_move(nullptr) != Status_OK)
+        if (cc_api_process_move(nullptr) != cc_status_OK)
         {
           g_simpleProfileOut = nullptr;
           return false;
@@ -287,7 +287,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     gc_ccomp_t ccState = host_make_cc_state_for_side(modal.comp, enteringComp);
 
-    if (cc_mc_line_arc_in_via_grblhal(mv, ccState) != Status_OK)
+    if (cc_mc_line_arc_in_via_grblhal(mv, ccState) != cc_status_OK)
     {
       g_simpleProfileOut = nullptr;
       return false;
@@ -296,7 +296,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
   }
 
   // final move to flush any pending compensation moves through the system.
-  if (cc_api_process_move(nullptr) != Status_OK)
+  if (cc_api_process_move(nullptr) != cc_status_OK)
   {
     g_simpleProfileOut = nullptr;
     return false;
@@ -650,18 +650,18 @@ int main(int argc, char *argv[])
   // const char *default_file = "../../data/G41_1.nc";
   // const char *default_file = "../../data/ThreadMill.nc";
   // const char *default_file = "../../data/G41_2.nc";
-  const char *default_file = "../../data/TortureTestG91.nc";
+  //const char *default_file = "../../data/TortureTestG91.nc";
   // const char *default_file = "../../data/Sample2.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   //const char *default_file = "../../data/simple1.nc";
-  // const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   // const char *default_file = "../../data/TortureTestLinux.nc";
   // const char *default_file = "../../data/ArcTooSmall.nc";
   // const char *default_file = "../../data/TortureTestLines.nc";
   // const char *default_file = "../../data/AI_Torture.nc";
   // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
-  //  const char *default_file = "../../data/SimpleSquarePocket.nc";
+  // const char *default_file = "../../data/SimpleSquarePocket.nc";
   // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   // const char *default_file = "../../data/CompErrorTest.nc";
   // const char *default_file = "../../data/Tangent_ArcLine.nc";

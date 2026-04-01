@@ -153,16 +153,6 @@ public sealed class CutterComp2D
                 continue;
             }
 
-            if (raw.compMode == CompMode.CM_IN || raw.compMode == CompMode.CM_OUT)
-            {
-                float moveLen = CcMath.Len(raw.p_1 - raw.p_0);
-                if (moveLen <= toolR)
-                {
-                    ReportCompError(CompError.CE_COMP_MOVE_TOO_SHORT);
-                    return false;
-                }
-            }
-
             if (!havePrevMove2D)
             {
                 prevOff = curOff;
@@ -174,12 +164,31 @@ public sealed class CutterComp2D
             int insertCount = 0;
 
             if (prevOff.compMode == CompMode.CM_IN)
+            {
                 prevOff.p_1 = curOff.p_0;
+                float moveLen = CcMath.Len(prevOff.p_1 - prevOff.p_0);
+                if (moveLen <= toolR)
+                {
+                    ReportCompError(CompError.CE_COMP_MOVE_TOO_SHORT);
+                    return false;
+                }
+            }
 
             if (curOff.compMode == CompMode.CM_OUT)
+            {
                 curOff.p_0 = prevOff.p_1;
+                float moveLen = CcMath.Len(curOff.p_1 - curOff.p_0);
+                if (moveLen <= toolR)
+                {
+                    ReportCompError(CompError.CE_COMP_MOVE_TOO_SHORT);
+                    return false;
+                }
+            }
 
-            ApplyLogic(ref prevOff, ref curOff, inserts, ref insertCount);
+            if (curOff.compMode == CompMode.CM_STEADY)
+                ApplyLogic(ref prevOff, ref curOff, inserts, ref insertCount);
+
+            CcMath.Validate(ref curOff);
 
             if (prevOff.valid)
             {
@@ -242,11 +251,14 @@ public sealed class CutterComp2D
     private Move2D MakeBevel(in Move2D a, in Move2D b)
     {
         Move2D m = new Move2D();
+        m.seqNum = a.seqNum;
         m.hasXY = true;
         m.type = MotionType.MOT_LINE;
         m.feed = a.feed > 0 ? a.feed : b.feed;
         m.p_0 = a.p_1;
         m.p_1 = b.p_0;
+        m.z_0 = a.z_1;
+        m.z_1 = b.z_0;
         CcMath.UpdateVectors(ref m);
         return m;
     }
@@ -441,7 +453,7 @@ public sealed class CutterComp2D
     private bool OffsetArc(in Move2D src, out Move2D dst)
     {
         float r0 = src.radius;
-        if (r0 < CcConst.TOL)
+        if (MathF.Abs(r0) < CcConst.TOL)
             r0 = CcMath.Len(src.p_0 - src.center);
         if (r0 < CcConst.TOL)
         {
@@ -517,7 +529,14 @@ public sealed class CutterComp2D
         roll.feed = a.feed > 0 ? a.feed : b.feed;
         roll.p_0 = a.p_1;
         roll.p_1 = b.p_0;
-        roll.center = a.src_1;
+        roll.z_0 = a.z_1;
+        roll.z_1 = b.z_0;
+
+        bool useLeft = comp_state == CompSide.COMP_LEFT;
+        if (toolSign < 0)
+            useLeft = !useLeft;
+
+        roll.center = CcMath.RollCenter(a.p_1, a.endDir, useLeft, toolR);
 
         Vec2 v0 = roll.p_0 - roll.center;
         Vec2 v1 = roll.p_1 - roll.center;
@@ -541,22 +560,8 @@ public sealed class CutterComp2D
 
         roll.radius = r;
 
-        bool useLeft = comp_state == CompSide.COMP_LEFT;
-        if (toolSign < 0)
-            useLeft = !useLeft;
-
         ArcDir preferredDir = useLeft ? ArcDir.ARC_CW : ArcDir.ARC_CCW;
         roll.arcDir = preferredDir;
-
-        const float turnEps = 1.0e-4f;
-        if (r0 >= CcConst.TOL && r1 >= CcConst.TOL)
-        {
-            float turnSign = CcMath.Cross(v0, v1) / (r0 * r1);
-            if (turnSign > turnEps && preferredDir != ArcDir.ARC_CCW)
-                roll.arcDir = ArcDir.ARC_CCW;
-            else if (turnSign < -turnEps && preferredDir != ArcDir.ARC_CW)
-                roll.arcDir = ArcDir.ARC_CW;
-        }
 
         roll.valid = true;
         CcMath.UpdateVectors(ref roll);
@@ -615,9 +620,12 @@ public sealed class CutterComp2D
 
         Vec2 offsetCap = partCorner + bisector * (-toolR);
         Move2D cap = new Move2D();
+        cap.seqNum = a.seqNum;
         cap.type = MotionType.MOT_LINE;
         cap.compMode = CompMode.CM_STEADY;
         cap.feed = a.feed > 0 ? a.feed : b.feed;
+        cap.z_0 = a.z_1;
+        cap.z_1 = b.z_0;
         float halfLen = 0.5f * (toolR + 2.0f);
         cap.p_0 = offsetCap - chamferDir * halfLen;
         cap.p_1 = offsetCap + chamferDir * halfLen;
@@ -693,8 +701,11 @@ public sealed class CutterComp2D
             return extLnOut;
 
         extLnOut.type = MotionType.MOT_LINE;
+        extLnOut.seqNum = arc.seqNum;
         extLnOut.compMode = arc.compMode;
         extLnOut.feed = arc.feed;
+        extLnOut.z_0 = fromEnd ? arc.z_1 : arc.z_0;
+        extLnOut.z_1 = extLnOut.z_0;
         extLnOut.p_0 = anchor;
         extLnOut.p_1 = anchor + dir * extent;
         extLnOut.startDir = dir;
@@ -712,13 +723,7 @@ public sealed class CutterComp2D
         float gap = CcMath.Len(b.p_0 - a.p_1);
         bool nearlyConnected = gap < gapTol;
         if (nearlyConnected)
-        {
-            Move2D bevel = MakeBevel(a, b);
-            if (!CcMath.Validate(ref bevel))
-                return false;
-            inserts[insertCount++] = bevel;
             return true;
-        }
 
         if (cornerTreatment == CornerType.CORNER_ROLL)
         {
@@ -987,6 +992,9 @@ public sealed class CutterComp2D
             if (!CcMath.AabbIntersects(src.bounds, target.bounds))
                 continue;
 
+            if (MathF.Abs(src.z_0 - target.z_0) > CcConst.TOL || MathF.Abs(src.z_0 - target.z_1) > CcConst.TOL)
+                continue;
+
             int n = CommonTIPAny(src, target, out Vec2 t1, out Vec2 t2);
             if (n <= 0)
                 continue;
@@ -1046,8 +1054,8 @@ public sealed class CutterComp2D
             {
                 if (moves[firstCutIdx].type == MotionType.MOT_ARC && moves[firstCutIdx].radius <= 0)
                 {
-                    CcMath.ReportCompError(CompError.CE_FLIPPED_ARC, moves[firstCutIdx].seqNum);
-                    return true;
+                    CcMath.ReportCompError(CompError.CE_ARC_LT_TOOL_RAD, moves[firstCutIdx].seqNum);
+                    return false;
                 }
             }
         }
@@ -1058,8 +1066,8 @@ public sealed class CutterComp2D
             {
                 if (moves[lastCutIdx].type == MotionType.MOT_ARC && moves[lastCutIdx].radius <= 0)
                 {
-                    CcMath.ReportCompError(CompError.CE_FLIPPED_ARC, moves[lastCutIdx].seqNum);
-                    return true;
+                    CcMath.ReportCompError(CompError.CE_ARC_LT_TOOL_RAD, moves[lastCutIdx].seqNum);
+                    return false;
                 }
             }
         }
