@@ -1,8 +1,0 @@
-================================================================================
-Linker Errors
-Generated: 2026-03-07T14:31:40.829Z
-Total Errors: 1
-================================================================================
-
-[LNK1168] (MSVC)
-cannot open D:\Repos\Cutter_Comp_XY\build\Debug\cuttercomp_host.exe for writing [D:\Repos\Cutter_Comp_XY\build\cuttercomp_host.vcxproj]

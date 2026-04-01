@@ -17,22 +17,15 @@ static void serial_output_cb(const char *text, size_t len)
 
 }
 
-static void serial_error_cb(const char *message, CompError err, uint32_t seqNum)
+static void serial_error_cb(const char *message, CompError err, uint32_t lineNum)
 {
   (void)err;
-  (void)seqNum;
+  (void)lineNum;
 
   Serial.println(message);
 
 }
 
-static void start_comp_cb(int toolRegister, int diaRegister)
-{
-  Serial.print("Start comp with tool register ");
-  Serial.print(toolRegister);
-  Serial.print(" and dia register ");
-  Serial.println(diaRegister);
-}
 
 void setup()
 {
@@ -45,7 +38,6 @@ void setup()
   CcMainOptions options;
   options.callbacks.output = serial_output_cb;
   options.callbacks.error = serial_error_cb;
-  options.callbacks.startComp = start_comp_cb;
   options.toolRadius = 0.005f;
   options.cornerTreatment = CORNER_ROLL;
   options.globalTrimCrossing = true;

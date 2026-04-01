@@ -18,7 +18,7 @@
 #define TWO_PI 6.2831853071795864769f
 #define MAX_SWEEP_DEG 359.9f
 #define MIN_ARC_LEN 0.001f
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
+
 
 float arcTol = ARC_TOL_IN;
 float gapTol = GAP_TOL_IN;
@@ -42,6 +42,9 @@ static float dot(const Vec2 &a, const Vec2 &b) { return a.x * b.x + a.y * b.y; }
 static float cross(const Vec2 &a, const Vec2 &b) { return a.x * b.y - a.y * b.x; }
 static float len(const Vec2 &v) { return sqrtf(dot(v, v)); }
 static float dist(const Vec2 &a, const Vec2 &b) { return len(a - b); }
+static bool is_near(const Vec2 &a, const Vec2 &b){ Vec2 d = a - b;  return dot(d, d) <= TOL * TOL;}
+static bool is_equal(const Vec2 &a, const Vec2 &b){ return dist(a, b) <= EPS; }
+static bool is_equal(const float a, const float b){ return fabsf(a - b) <= EPS; }
 
 static Vec2 normalize(const Vec2 &v)
 {
@@ -90,8 +93,8 @@ enum IntersectType : uint8_t
 enum CompSide : int8_t
 {
   COMP_OFF = 0,
-  COMP_LEFT = +1,
-  COMP_RIGHT = -1
+  COMP_LEFT,
+  COMP_RIGHT
 };
 
 enum CompError : uint8_t
@@ -128,7 +131,7 @@ struct Move2D
   float feed = 0.0f;
   float z_0 = 0.0f;
   float z_1 = 0.0f;
-  uint32_t seqNum = 0; // for debugging
+  uint32_t lnNum = 0; // for debugging
 
   MotionType type = MOT_EMPTY;
   ArcDir arcDir = ARC_CW;
@@ -136,6 +139,7 @@ struct Move2D
   bool hasXY = false;
   bool hasZ = false;
   bool valid = true;
+  bool suppressOutput = false;
 };
 
 static void update_vectors(Move2D &m)
@@ -168,12 +172,12 @@ static void update_vectors(Move2D &m)
   m.endDir = {0, 0};
 }
 
-// // Recover the original endpoint of an offset line segment TODO:BUG:
-// static Vec2 original_endpoint(const Vec2 &p_offset, const Vec2 &dir, bool useLeft, float toolR)
-// {
-//   Vec2 normal = useLeft ? leftNormal(dir) : rightNormal(dir);
-//   return p_offset - normal * toolR;
-// }
+// Recover the original endpoint of an offset line segment
+static Vec2 roll_center(const Vec2 &p_offset, const Vec2 &dir, bool useLeft, float toolR)
+{
+  Vec2 normal = useLeft ? leftNormal(dir) : rightNormal(dir);
+  return p_offset - normal * toolR;
+}
 
 static bool is_radius_consistent(const Move2D &m)
 {
@@ -196,45 +200,53 @@ static int get_winding_dir(Vec2 a, Vec2 b)
 
 static float angleNorm(float a)
 {
-  while (a < 0)
-    a += TWO_PI;
-  while (a >= TWO_PI)
-    a -= TWO_PI;
-  return a;
-}
-
-static float wrap2pi(float a)
-{
   a = fmodf(a, TWO_PI);
-  if (a < 0)
+  if (a < 0.0f)
     a += TWO_PI;
   return a;
 }
 
-static float arcSweepDeg(Move2D &m)
+
+static float arcSweepDeg(const Move2D &m)
 {
-  float a0 = wrap2pi(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
-  float a1 = wrap2pi(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
+  Vec2 r0 = (m.arcDir == ARC_CCW) ? rightNormal(m.startDir) : leftNormal(m.startDir);
+  Vec2 r1 = (m.arcDir == ARC_CCW) ? rightNormal(m.endDir)   : leftNormal(m.endDir);
 
-  if (m.arcDir == ARC_CCW)
-  {
-    float sw = a1 - a0;
-    if (sw < 0)
-      sw += TWO_PI;
+  float sw = 0.0f;
+  if (m.arcDir == ARC_CCW) {
+    sw = atan2f(cross(r0, r1), dot(r0, r1));
+  } else {
+    sw = atan2f(cross(r1, r0), dot(r1, r0));
+  }
 
-    // calculate length from sweep and radius.
-    // m.length = fabsf(m.radius) * sw;
-    return sw * (180.0f / PI); // [0, 360)
-  }
-  else
-  { // ARC_CW
-    float sw = a0 - a1;
-    if (sw < 0)
-      sw += TWO_PI;
-    // m.length = fabsf(m.radius) * sw;
-    return sw * (180.0f / PI); // [0, 360)
-  }
+  if (sw < 0.0f) sw += TWO_PI;
+  return sw * (180.0f / PI);
 }
+
+// static float arcSweepDeg_(Move2D &m)
+// {
+//   float a0 = wrap2pi(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
+//   float a1 = wrap2pi(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
+
+//   if (m.arcDir == ARC_CCW)
+//   {
+//     float sw = a1 - a0;
+//     if (sw < 0)
+//       sw += TWO_PI;
+
+//     // calculate length from sweep and radius.
+//     // m.length = fabsf(m.radius) * sw;
+//     return sw * (180.0f / PI); // [0, 360)
+//   }
+//   else
+//   { // ARC_CW
+//     float sw = a0 - a1;
+//     if (sw < 0)
+//       sw += TWO_PI;
+//     // m.length = fabsf(m.radius) * sw;
+//     return sw * (180.0f / PI); // [0, 360)
+//   }
+// }
 
 static float sweepCCW(float a0, float a1)
 {
@@ -294,11 +306,6 @@ static float distFromStart_along(const Move2D &m, Vec2 p)
   return 0.0f;
 }
 
-static bool is_near(const Vec2 &a, const Vec2 &b)
-{
-  Vec2 d = a - b;
-  return dot(d, d) <= TOL * TOL;
-}
 
 static bool isMotionValid(const Move2D &m)
 {
@@ -364,13 +371,17 @@ static bool pointOnSegment(Vec2 a, Vec2 b, Vec2 p)
   Vec2 ab = b - a;
   float lab2 = dot(ab, ab);
   if (lab2 < TOL)
-    return (len(p - a) < TOL);
+  {
+    Vec2 pa = p - a;
+    return dot(pa, pa) < TOL * TOL;
+  }
 
   float t = dot(p - a, ab) / lab2;
   if (t < -TOL || t > 1.0f + TOL)
     return false;
-  float d = fabsf(cross(p - a, ab)) / sqrtf(lab2);
-  return d < TOL;
+
+  float c = cross(p - a, ab);
+  return (c * c) < (TOL * TOL * lab2);
 }
 
 
@@ -528,9 +539,3 @@ static IntersectType intersectLineCircle(Vec2 l1, Vec2 a1, Vec2 ctr, float r, Ve
   return IT_INTERSECT;
 }
 
-static Vec2 pickClosest(Vec2 ref, Vec2 a, Vec2 b)
-{
-  Vec2 da = a - ref;
-  Vec2 db = b - ref;
-  return (dot(da, da) <= dot(db, db)) ? a : b;
-}

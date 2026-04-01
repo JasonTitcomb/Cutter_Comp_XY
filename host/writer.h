@@ -166,6 +166,8 @@ static void write_svg(const char *path,
     {
         for (auto &m : mv)
         {
+            if (m.suppressOutput)
+                continue;
             if (onlyValid && (!m.valid || m.type == MOT_EMPTY))
                 continue;
             auto pts = approx_move_points(m);
@@ -187,8 +189,8 @@ static void write_svg(const char *path,
        << minx << " " << miny << " " << w << " " << h << "\">\n";
     ss << "<rect x=\"" << minx << "\" y=\"" << miny << "\" width=\"" << w
        << "\" height=\"" << h << "\" fill=\"white\" />\n";
-    const float textSize = 0.012f * std::max(w, h);
-    const float textNudge = 0.006f * std::max(w, h);
+    const float textSize = 0.015f * std::max(w, h);
+    const float textNudge = 0.015f * std::max(w, h);
      if (input_base_name && input_base_name[0] != '\0')
      {
           const float headerX = minx + 0.5f * w;
@@ -202,7 +204,7 @@ static void write_svg(const char *path,
     {
         for (auto &m : *original)
         {
-            if (m.type == MOT_EMPTY)
+            if (m.type == MOT_EMPTY || m.suppressOutput)
                 continue;
             auto pts = approx_move_points(m);
             for (auto &p : pts)
@@ -235,9 +237,9 @@ static void write_svg(const char *path,
                 if (mirror_y)
                     tp.y = b.maxy + b.miny - tp.y;
                 ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
-                   << "\" fill=\"#1f77b4\" font-size=\"" << textSize
+                   << "\" fill=\"#1fb482\" font-size=\"" << textSize
                    << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
-                   << m.seqNum << "</text>\n";
+                   << m.lnNum << "</text>\n";
             }
         }
     }
@@ -256,7 +258,7 @@ static void write_svg(const char *path,
             ss << "<g opacity=\"" << pass.opacity << "\">\n";
             for (auto &m : moves)
             {
-                if (!m.valid || m.type == MOT_EMPTY)
+                if (!m.valid || m.type == MOT_EMPTY || m.suppressOutput)
                     continue;
                 if ((m.type == MOT_RAPID) != pass.rapid)
                     continue;
@@ -290,7 +292,7 @@ static void write_svg(const char *path,
         float step = 0.5f * tool_diameter; // step size for lerping, 50% of tool diameter
         for (auto &m : moves)
         {
-            if (!m.valid || m.type == MOT_EMPTY)
+            if (!m.valid || m.type == MOT_EMPTY || m.suppressOutput)
                 continue;
             auto pts = approx_move_points(m, 10); // finer for smoother lerp
             for (size_t i = 0; i + 1 < pts.size(); ++i)
@@ -321,6 +323,8 @@ static void write_svg(const char *path,
     for (auto &m : moves)
     {
         if (m.type == MOT_EMPTY)
+            continue;
+        if (m.suppressOutput)
             continue;
         if (!plot_invalid_elements && !m.valid)
             continue;
@@ -358,7 +362,7 @@ static void write_svg(const char *path,
                 ss << "<text x=\"" << (tp.x + textNudge) << "\" y=\"" << (tp.y - textNudge)
                     << "\" fill=\"" << moveColor << "\" font-size=\"" << textSize
                << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
-               << m.seqNum << "</text>\n";
+               << m.lnNum << "</text>\n";
         }
     }
     ss << "</svg>\n";

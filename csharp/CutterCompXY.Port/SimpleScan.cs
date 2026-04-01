@@ -35,6 +35,8 @@ public struct ScanLine
     public bool sawG41;
     public bool sawG42;
     public bool sawG40;
+    public bool sawG20;
+    public bool sawG21;
 
     // Motion mode tracking
     public bool sawG0;
@@ -49,6 +51,7 @@ public struct ModalState
     public bool planeXY;
     public bool absXYZ;
     public bool absoluteMode;
+    public bool inchMode;
     public int motionG;
     public CompSide comp;
     public CompMode compMode;
@@ -65,6 +68,7 @@ public struct ModalState
         planeXY = true;
         absXYZ = true;
         absoluteMode = true;
+        inchMode = true;
         motionG = 0;
         comp = CompSide.COMP_OFF;
         compMode = CompMode.CM_NONE;
@@ -229,6 +233,10 @@ public static class SimpleScan
                     s.sawG3 = true;
                 if (s.G == 17)
                     s.sawG17 = true;
+                if (s.G == 20)
+                    s.sawG20 = true;
+                if (s.G == 21)
+                    s.sawG21 = true;
                 if (s.G == 90)
                     s.sawG90 = true;
                 if (s.G == 91)
@@ -278,7 +286,12 @@ public static class SimpleScan
             else if (c == 'D')
             {
                 s.hasD = true;
-                i = ParseFloat(line, i, out s.D);
+                i = ParseInt(line, i, out s.D);
+            }
+            else if (c == 'T')
+            {
+                s.hasT = true;
+                i = ParseInt(line, i, out s.T);
             }
             else if (c == 'S')
             {
@@ -339,10 +352,15 @@ public static class SimpleScan
     {
         if (s.sawG17)
             modeState.planeXY = true;
+        if (s.sawG20)
+            modeState.inchMode = true;
+        if (s.sawG21)
+            modeState.inchMode = false;
         if (s.sawG90)
-            modeState.absXYZ = true;
+            modeState.absoluteMode = true;
         if (s.sawG91)
-            modeState.absXYZ = false;
+            modeState.absoluteMode = false;
+        modeState.absXYZ = modeState.absoluteMode;
         if (s.sawG40)
             modeState.comp = CompSide.COMP_OFF;
         if (s.sawG41)
@@ -352,7 +370,11 @@ public static class SimpleScan
         if (s.hasF)
             modeState.feed = s.F;
         if (s.hasD)
-            modeState.toolDiameterOffset = s.D;
+            modeState.D_Register = s.D;
+        if (s.hasT)
+            modeState.T_Register = s.T;
+        if (s.hasN)
+            modeState.N_number = s.N;
         if (s.hasS)
             modeState.speed = s.S;
 
@@ -373,17 +395,17 @@ public static class SimpleScan
         bool anyXYZ = false;
         if (s.hasX)
         {
-            p1.x = modeState.absXYZ ? s.X : p0.x + s.X;
+            p1.x = modeState.absoluteMode ? s.X : p0.x + s.X;
             anyXYZ = true;
         }
         if (s.hasY)
         {
-            p1.y = modeState.absXYZ ? s.Y : p0.y + s.Y;
+            p1.y = modeState.absoluteMode ? s.Y : p0.y + s.Y;
             anyXYZ = true;
         }
         if (s.hasZ)
         {
-            z1 = modeState.absXYZ ? s.Z : z0 + s.Z;
+            z1 = modeState.absoluteMode ? s.Z : z0 + s.Z;
             anyXYZ = true;
         }
 

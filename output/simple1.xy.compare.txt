@@ -1,0 +1,30 @@
+cc_xy comparison report
+full profile count: 6
+simple profile count: 6
+suppressed full count: 0
+suppressed simple count: 0
+shared count: 6
+
+index 4 mismatch
+  full   : type=line seq=6 p0=(1, 1) p1=(1, 0) r=0 valid=1
+  simple : type=line seq=6 p0=(1, 1) p1=(1.2, 0) r=0 valid=1
+  full gcode  : N5 G1 X1 Y0
+  simple gcode: G40 X1.2
+  delta  : p0=0.000000 p1=0.200000 center=0.000000 radius=0.000000
+
+index 5 mismatch
+  full   : type=line seq=7 p0=(1, 0) p1=(1.2, 0) r=0 valid=1
+  simple : type=line seq=16908290 p0=(1.2, 0) p1=(1, 0) r=0 valid=1
+  full gcode  : N6 G1 X1.2 Y0
+  simple gcode: <line out of range>
+  delta  : p0=0.200000 p1=0.200000 center=0.000000 radius=0.000000
+
+summary
+  first mismatch index: 4
+  mismatch count: 2
+  type mismatch count: 0
+  validity mismatch count: 0
+  max p0 delta: 0.200000
+  max p1 delta: 0.200000
+  max center delta: 0.000000
+  max radius delta: 0.000000

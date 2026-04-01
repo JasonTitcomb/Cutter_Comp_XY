@@ -27,9 +27,24 @@
 			"detail": "CMake template build task"
 		},
 		{
-			"label": "Copy cc_* to GRBLHAL Pendant",
+			"label": "Copy cutter_comp to GRBLHAL Due",
 			"type": "shell",
-			"command": "Copy-Item -Path 'src/cc_*' -Destination 'D:\\Repos\\GRBLHAL_Pendant\\src' -Force",
+			"command": "Copy-Item -Path 'mcu/cutter_comp*' -Destination 'D:\\Repos\\SAM3X8E\\grblHAL_Due\\src\\grbl' -Force;",
+			"problemMatcher": []
+		},
+		{
+			"label": "Copy cutter_comp to GRBLHAL Teensy",
+			"type": "shell",
+			"command": "Copy-Item -Path 'mcu/cutter_comp*' -Destination 'D:\\Repos\\iMXRT1062\\grblHAL_Teensy4\\src\\grbl' -Force;",
+			"problemMatcher": []
+		},
+		{
+			"label": "Copy cutter_comp to all GRBLHAL targets",
+			"dependsOn": [
+				"Copy cutter_comp to GRBLHAL Due",
+				"Copy cutter_comp to GRBLHAL Teensy"
+			],
+			"dependsOrder": "sequence",
 			"problemMatcher": []
 		}
 	]

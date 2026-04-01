@@ -80,10 +80,12 @@ public enum CompError : byte
     CE_ARC_RADIUS_MISMATCH,
     CE_INVALID_MOVE,
     CE_COMP_MOVE_TOO_SHORT,
+    CE_ARC_LT_TOOL_RAD,
     CE_FLIPPED_ARC,
     CE_COMP_IN_CROSSING,
     CE_COMP_OUT_CROSSING,
-    CE_UNRESOLVED_GAP
+    CE_UNRESOLVED_GAP,
+    CE_OUTPUT_BUFFER_OVERFLOW
 }
 
 public enum Units : byte
@@ -122,6 +124,7 @@ public struct Move2D
     public bool hasXY;
     public bool hasZ;
     public bool valid;
+    public bool suppressOutput;
 
     public Move2D()
     {
@@ -143,6 +146,7 @@ public struct Move2D
         hasXY = false;
         hasZ = false;
         valid = true;
+        suppressOutput = false;
     }
 }
 
@@ -187,6 +191,12 @@ public static class CcMath
 
     public static Vec2 LeftNormal(in Vec2 v) => new Vec2(-v.y, v.x);
     public static Vec2 RightNormal(in Vec2 v) => new Vec2(v.y, -v.x);
+
+    public static Vec2 RollCenter(in Vec2 pOffset, in Vec2 dir, bool useLeft, float toolR)
+    {
+        Vec2 normal = useLeft ? LeftNormal(dir) : RightNormal(dir);
+        return pOffset - normal * toolR;
+    }
 
     public static void UpdateVectors(ref Move2D m)
     {

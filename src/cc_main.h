@@ -7,7 +7,6 @@
  */
 
 #pragma once
-
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -32,11 +31,10 @@ private:
     static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be positive");
     static_assert(EMIT_HOLDBACK >= TRIM_OVERLAP_MOVES, "EMIT_HOLDBACK must preserve trim overlap across batches");
     static_assert(MAX_PROFILE_MOVES > MIN_PENDING_BEFORE_BATCH, "MAX_PROFILE_MOVES must exceed batch threshold");
-  
+
     CcMainOptions options_{};
     CcOutputCB outputCB_ = nullptr;
     CcErrorCB errorCB_ = nullptr;
-    CcStartCompCB startCompCB_ = nullptr;
 
     ModalState modalState_{};
     CutterComp2D cc_{};
@@ -55,6 +53,11 @@ private:
     bool inchMode_ = true;
 
 public:
+    void incrementLineNumber(void)
+    {
+        modalState_.lineNumber++;
+    }
+
     bool begin(const CcMainOptions &options)
     {
         options_ = options;
@@ -68,17 +71,17 @@ public:
         modalState_.feed = 0;
         modalState_.speed = 0;
         modalState_.pos = v2(0, 0);
-        modalState_.N_number = 0;
         modalState_.T_Register = 0;
         modalState_.D_Register = 0;
         modalState_.inchMode = true;
+        modalState_.lineNumber = 0;
         inchMode_ = true;
 
         cc_.setOptions(options_);
+        sync_units_from_modal();
 
         outputCB_ = options_.callbacks.output;
         errorCB_ = options_.callbacks.error;
-        startCompCB_ = options_.callbacks.startComp;
 
         globalTrim_ = options_.globalTrimCrossing;
         emittedProfileCount_ = 0;
@@ -95,6 +98,11 @@ public:
     {
         cc_.setToolRadius(r);
     }
+    void sync_units_from_modal()
+    {
+        inchMode_ = modalState_.inchMode;
+        cc_.setUnits(inchMode_ ? UNITS_INCH : UNITS_MM);
+    }
 
     bool processLine(const char *line)
     {
@@ -109,27 +117,27 @@ public:
         ScanLine scanLn;
         scan_line(peekClean, scanLn);
 
-        const bool compIsOff = (cc_.comp_state == COMP_OFF);
-        const bool canEmitRaw = compIsOff && !scanLn.sawG41 && !scanLn.sawG42 && (!sawCompStart_ || compClosed_);
+        const bool compIsOff = (cc_.compSide == COMP_OFF);
+        const bool emitNonComp = compIsOff && !scanLn.sawG41 && !scanLn.sawG42 && (!sawCompStart_ || compClosed_);
         const bool entersComp = compIsOff && (scanLn.sawG41 || scanLn.sawG42) && !compClosed_;
         if (entersComp)
         {
+            if (!scanLn.isMove)
+            {
+                report_error("(move expected on G41/G42 line)", CE_ERROR);
+                return false;
+            }
             sawCompStart_ = true;
             emit_status("(COMP ON)\n");
-            if (startCompCB_)
-            {
-                startCompCB_(modalState_.T_Register, modalState_.D_Register);
-            }
         }
 
-        if (canEmitRaw)
+        if (emitNonComp)
         {
             if (!process_raw_gcode_line(line, scanLn))
             {
                 runActive_ = false;
                 return false;
             }
-
             return true;
         }
 
@@ -139,7 +147,7 @@ public:
             return false;
         }
 
-        if (cc_.comp_state != COMP_OFF)
+        if (cc_.compSide != COMP_OFF)
         {
             const int pendingProfileWindow = profileCount_ - emittedProfileCount_;
             if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
@@ -163,11 +171,10 @@ public:
             }
         }
 
-        if (cc_.comp_state == COMP_OFF && sawCompStart_ && !compClosed_)
+        if (cc_.compSide == COMP_OFF && sawCompStart_ && !compClosed_)
         {
             sawG40_ = true;
             compClosed_ = true;
-
             if (!trim_and_merge_pending_profile())
             {
                 report_error("(trim failed)", CE_ERROR);
@@ -247,7 +254,7 @@ private:
     void onCompError(CompError err)
     {
         char msg[64];
-        snprintf(msg, sizeof(msg), "CompError %u N%u", (unsigned)err, (unsigned)modalState_.N_number);
+        snprintf(msg, sizeof(msg), "CompError %u N%u", (unsigned)err, (unsigned)modalState_.lineNumber);
         report_error(msg, err);
     }
 
@@ -272,7 +279,7 @@ private:
     void report_error(const char *message, CompError err)
     {
         if (errorCB_)
-            errorCB_(message, err, modalState_.N_number);
+            errorCB_(message, err, modalState_.lineNumber);
     }
 
     void profile_reset()
@@ -284,9 +291,7 @@ private:
     {
         if (profileCount_ >= MAX_PROFILE_MOVES)
             return false;
-        Move2D t = m;
-        t.valid = true;
-        profile_[profileCount_++] = t;
+        profile_[profileCount_++] = m;
         return true;
     }
 
@@ -359,9 +364,9 @@ private:
         static float lastFeed = 0.0f;
 
         // Emit sequence number if present
-        if (m.seqNum != 0)
+        if (m.lnNum != 0)
         {
-            n = snprintf(line, sizeof(line), "N%u ", (unsigned)m.seqNum);
+            n = snprintf(line, sizeof(line), "N%u ", (unsigned)m.lnNum);
         }
 
         if (m.type == MOT_LINE || m.type == MOT_RAPID)
@@ -401,6 +406,7 @@ private:
         }
         else if (m.type == MOT_ARC)
         {
+
             Vec2 dCenter = m.center - m.p_0;
             n += snprintf(line + n, sizeof(line) - (size_t)n, "%s", (m.arcDir == ARC_CW) ? "G2" : "G3");
 
@@ -450,7 +456,9 @@ private:
         for (int i = emittedProfileCount_; i < emitLimit; ++i)
         {
             const Move2D &m = profile_[i];
-            if (!m.valid || m.type == MOT_EMPTY)
+            if (!m.valid || m.type == MOT_EMPTY || m.suppressOutput)
+                continue;
+            if (m.type == MOT_LINE && m.hasXY && !m.hasZ && len(m.p_1 - m.p_0) < TOL)
                 continue;
             emit_move_as_gcode(m);
         }
@@ -461,16 +469,17 @@ private:
 
     bool process_one_gcode_line(ScanLine s)
     {
+        // Set modalState_.lineNumber to ln_number before calling interpret_move
+        modalState_.lineNumber = modalState_.lineNumber;
         Move2D mv = interpret_move(s, modalState_);
+        sync_units_from_modal();
 
-        if (s.sawG41 || s.sawG42)
-            cc_.setComp(modalState_.comp);
+        cc_.setComp(modalState_.comp);
 
         if (mv.type == MOT_EMPTY)
         {
             if (s.sawG40)
             {
-                cc_.setComp(COMP_OFF);
                 cc_.flush();
                 Move2D out;
                 while (cc_.popOut(out))
@@ -510,7 +519,6 @@ private:
         if (s.sawG40)
         {
             cc_.flush();
-            cc_.setComp(COMP_OFF);
 
             while (cc_.popOut(out))
             {
@@ -528,6 +536,7 @@ private:
     bool process_raw_gcode_line(const char *rawLine, ScanLine s)
     {
         (void)interpret_move(s, modalState_);
+        sync_units_from_modal();
         emit_raw_line(rawLine);
         return true;
     }
@@ -566,7 +575,10 @@ private:
             int retTargetIdx = -1;
             if (!cc_.trimCrossingElements(profile_, aabbs, srcIdx, currentProfileCount, MAX_LOOKAHEAD, retTargetIdx))
                 return false;
+        }
 
+        if (options_.globalMerge)
+        {
             int mergeStart = trimStart;
             if (mergeStart > emittedProfileCount_)
                 mergeStart -= 1;
