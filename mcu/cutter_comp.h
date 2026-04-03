@@ -141,7 +141,7 @@ typedef enum
 typedef enum
 {
     cc_status_OK = 0,
-    cc_status_ArcRadiusInconsistant = 101,
+    cc_status_ArcRadiusInconsistent = 101,
     cc_status_InvalidMove = 102,
     cc_status_MoveTooShort = 103,
     cc_status_ArcLtToolRad = 104,
@@ -178,7 +178,6 @@ typedef struct
     uint8_t arcDir;
     uint8_t compMode;
     bool valid;
-    bool suppressOutput;
 } move2d;
 
 vec2 cc_v2(float x, float y);

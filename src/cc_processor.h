@@ -119,17 +119,13 @@ private:
 
     bool validate(Move2D &m)
     {
-        m.suppressOutput = false;
-
         if (m.type == MOT_LINE)
         {
             const float lineLen = len(m.p_1 - m.p_0);
             if (lineLen < TOL)
             {
-                // Keep the element available for downstream logic, but never emit as motion.
                 m.hasXY = false;
                 m.valid = false;//VALIDATE FAIL
-                m.suppressOutput = true;
                 return false;//VALIDATE FAIL
             }
 
@@ -146,8 +142,6 @@ private:
 
         if (degenerate|| !sweepOk)
         {
-            // Keep degenerate arcs trackable in profile/calculation flows, but suppress output.
-            m.suppressOutput = true;
             m.valid = false;
             if (options.globalTrimCrossing)
                 return m.valid;

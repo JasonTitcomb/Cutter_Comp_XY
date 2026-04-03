@@ -166,8 +166,6 @@ static void write_svg(const char *path,
     {
         for (auto &m : mv)
         {
-            if (m.suppressOutput)
-                continue;
             if (onlyValid && (!m.valid || m.type == MOT_EMPTY))
                 continue;
             auto pts = approx_move_points(m);
@@ -204,7 +202,7 @@ static void write_svg(const char *path,
     {
         for (auto &m : *original)
         {
-            if (m.type == MOT_EMPTY || m.suppressOutput)
+            if (m.type == MOT_EMPTY || !m.valid)
                 continue;
             auto pts = approx_move_points(m);
             for (auto &p : pts)
@@ -258,7 +256,7 @@ static void write_svg(const char *path,
             ss << "<g opacity=\"" << pass.opacity << "\">\n";
             for (auto &m : moves)
             {
-                if (!m.valid || m.type == MOT_EMPTY || m.suppressOutput)
+                if (!m.valid || m.type == MOT_EMPTY)
                     continue;
                 if ((m.type == MOT_RAPID) != pass.rapid)
                     continue;
@@ -292,7 +290,7 @@ static void write_svg(const char *path,
         float step = 0.5f * tool_diameter; // step size for lerping, 50% of tool diameter
         for (auto &m : moves)
         {
-            if (!m.valid || m.type == MOT_EMPTY || m.suppressOutput)
+            if (!m.valid || m.type == MOT_EMPTY)
                 continue;
             auto pts = approx_move_points(m, 10); // finer for smoother lerp
             for (size_t i = 0; i + 1 < pts.size(); ++i)
@@ -323,8 +321,6 @@ static void write_svg(const char *path,
     for (auto &m : moves)
     {
         if (m.type == MOT_EMPTY)
-            continue;
-        if (m.suppressOutput)
             continue;
         if (!plot_invalid_elements && !m.valid)
             continue;

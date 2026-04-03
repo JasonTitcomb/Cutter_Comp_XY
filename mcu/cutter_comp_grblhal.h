@@ -64,8 +64,8 @@ extern "C"
         case cc_status_MoveTooShort:
             msg = "Move too short to compensate";
             break;
-        case cc_status_ArcRadiusInconsistant:
-            msg = "Arc radius inconsistant";
+        case cc_status_ArcRadiusInconsistent:
+            msg = "Arc radius inconsistent";
             break;
         case cc_status_FlippedArc:
             msg = "Flipped arc";
@@ -86,7 +86,7 @@ extern "C"
             msg = "Cutter compensation output buffer overflow";
             break;
         case cc_status_GlobalSelfIntersection:
-            msg = "Global self intersection detected in compensation moves";
+            msg = "Global self-intersection detected in compensation moves";
             break;
         }   
 
@@ -283,7 +283,7 @@ extern "C"
         plan_line_data_t local_pl_data = {0};
         plan_line_data_t *pl_data = &local_pl_data;
 
-        if (!mv || !mv->valid || mv->suppressOutput)
+        if (!mv || !mv->valid)
             return;
 
         if (cc_mc_active_plan_data)

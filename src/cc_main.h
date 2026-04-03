@@ -456,7 +456,7 @@ private:
         for (int i = emittedProfileCount_; i < emitLimit; ++i)
         {
             const Move2D &m = profile_[i];
-            if (!m.valid || m.type == MOT_EMPTY || m.suppressOutput)
+            if (!m.valid || m.type == MOT_EMPTY)
                 continue;
             if (m.type == MOT_LINE && m.hasXY && !m.hasZ && len(m.p_1 - m.p_0) < TOL)
                 continue;

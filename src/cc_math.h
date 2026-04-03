@@ -140,7 +140,6 @@ struct Move2D
   bool hasXY = false;
   bool hasZ = false;
   bool valid = true;
-  bool suppressOutput = false;
 };
 
 static void update_vectors(Move2D &m)

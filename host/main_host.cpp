@@ -31,7 +31,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.0612f;
+static constexpr float TOOL_RADIUS = 0.0787f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
@@ -128,9 +128,7 @@ extern "C"
       mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
       mv.lnNum = pl_data ? pl_data->line_number : 0;
       mv.type = (pl_data && pl_data->condition.rapid_motion) ? MOT_RAPID : MOT_LINE;
-      mv.valid = true;
-      if (len(mv.p_1 - mv.p_0) < TOL && fabsf(mv.z_1 - mv.z_0) < TOL)
-        mv.suppressOutput = true;
+      mv.valid = !(len(mv.p_1 - mv.p_0) < TOL && fabsf(mv.z_1 - mv.z_0) < TOL);
       g_simpleProfileOut->push_back(mv);
     }
     g_mc_host_pos[0] = xyz[0];
@@ -339,13 +337,13 @@ static std::string lookup_gcode_line(const std::vector<std::string> &program, ui
   return program[index];
 }
 
-static std::vector<Move2D> filter_suppressed_moves(const std::vector<Move2D> &moves)
+static std::vector<Move2D> filter_valid_moves(const std::vector<Move2D> &moves)
 {
   std::vector<Move2D> filtered;
   filtered.reserve(moves.size());
   for (const Move2D &m : moves)
   {
-    if (m.suppressOutput)
+    if (!m.valid)
       continue;
     filtered.push_back(m);
   }
@@ -360,7 +358,7 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
 
   for (const Move2D &m : moves)
   {
-    if (m.suppressOutput)
+    if (!m.valid)
       continue;
 
     const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL;
@@ -391,7 +389,7 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
 
   for (const Move2D &m : moves)
   {
-    if (m.suppressOutput)
+    if (!m.valid)
       continue;
 
     const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL;
@@ -410,12 +408,12 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
   return filtered;
 }
 
-static size_t count_suppressed_moves(const std::vector<Move2D> &moves)
+static size_t count_invalid_moves(const std::vector<Move2D> &moves)
 {
   size_t count = 0;
   for (const Move2D &m : moves)
   {
-    if (m.suppressOutput)
+    if (!m.valid)
       ++count;
   }
   return count;
@@ -426,8 +424,8 @@ static void write_xy_compare_report(const char *path,
                                     const std::vector<Move2D> &simpleProfile,
                                     const std::vector<std::string> &fullProgram,
                                     const std::vector<std::string> &simpleProgram,
-                                    size_t suppressedFullCount,
-                                    size_t suppressedSimpleCount)
+                                    size_t invalidFullCount,
+                                    size_t invalidSimpleCount)
 {
   std::ofstream out(path);
   const float compareTol = 0.001f;
@@ -446,8 +444,8 @@ static void write_xy_compare_report(const char *path,
   out << "cc_xy comparison report\n";
   out << "full profile count: " << fullProfile.size() << "\n";
   out << "simple profile count: " << simpleProfile.size() << "\n";
-  out << "suppressed full count: " << suppressedFullCount << "\n";
-  out << "suppressed simple count: " << suppressedSimpleCount << "\n";
+  out << "invalid full count: " << invalidFullCount << "\n";
+  out << "invalid simple count: " << invalidSimpleCount << "\n";
   out << "shared count: " << sharedCount << "\n";
 
   for (size_t i = 0; i < sharedCount; ++i)
@@ -616,13 +614,13 @@ int main(int argc, char *argv[])
   // const char *default_file = "../../data/G41_1.nc";
   // const char *default_file = "../../data/ThreadMill.nc";
   // const char *default_file = "../../data/G41_2.nc";
-  //const char *default_file = "../../data/TortureTestG91.nc";
+  const char *default_file = "../../data/TortureTestG91.nc";
   //const char *default_file = "../../data/Sample2.nc";
   //const char *default_file = "../../data/Sample2mm.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   //const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   // const char *default_file = "../../data/TortureTestLinux.nc";
   // const char *default_file = "../../data/ArcTooSmall.nc";
   // const char *default_file = "../../data/TortureTestLines.nc";
@@ -712,18 +710,18 @@ int main(int argc, char *argv[])
 
   std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
   auto compensated = build_original_moves(compProgram);
-  std::vector<Move2D> compensatedVisible = filter_suppressed_moves(compensated);
+  std::vector<Move2D> compensatedVisible = filter_valid_moves(compensated);
 
   if (outputSVG)
   {
     auto orig = build_original_moves(program);
-    const size_t suppressedFullCount = count_suppressed_moves(compensated);
-    const size_t suppressedSimpleCount = count_suppressed_moves(simpleCompensated);
-    std::vector<Move2D> simpleVisible = filter_suppressed_moves(simpleCompensated);
+    const size_t invalidFullCount = count_invalid_moves(compensated);
+    const size_t invalidSimpleCount = count_invalid_moves(simpleCompensated);
+    std::vector<Move2D> simpleVisible = filter_valid_moves(simpleCompensated);
     std::vector<Move2D> simpleCompareVisible = filter_compare_moves(simpleCompensated);
     std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
     write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleCompareVisible, compProgram, program,
-                            suppressedFullCount, suppressedSimpleCount);
+                            invalidFullCount, invalidSimpleCount);
 
     write_svg(svgPath.c_str(), compensatedVisible, &orig, false, true, fabs(toolRadius * 2.0f),
               false, true, false, inputBaseName.c_str(), toolRadius); // mirror for better visualization
@@ -733,12 +731,12 @@ int main(int argc, char *argv[])
   }
   else
   {
-    const size_t suppressedFullCount = count_suppressed_moves(compensated);
-    const size_t suppressedSimpleCount = count_suppressed_moves(simpleCompensated);
+    const size_t invalidFullCount = count_invalid_moves(compensated);
+    const size_t invalidSimpleCount = count_invalid_moves(simpleCompensated);
     std::vector<Move2D> simpleVisible = filter_compare_moves(simpleCompensated);
     std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
     write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleVisible, compProgram, program,
-                            suppressedFullCount, suppressedSimpleCount);
+                            invalidFullCount, invalidSimpleCount);
     std::printf("Wrote: %s (full)\n", ngcPath.c_str());
     std::printf("Standalone cc_xy moves: %zu\n", simpleVisible.size());
     std::printf("Compare report: %s\n", comparePath.c_str());

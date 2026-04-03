@@ -124,7 +124,6 @@ public struct Move2D
     public bool hasXY;
     public bool hasZ;
     public bool valid;
-    public bool suppressOutput;
 
     public Move2D()
     {
@@ -146,7 +145,6 @@ public struct Move2D
         hasXY = false;
         hasZ = false;
         valid = true;
-        suppressOutput = false;
     }
 }
 

@@ -512,14 +512,11 @@ static inline void cc_report_msg(cc_context *ctx, cc_status_code_t msg,msg_type_
 
 static inline bool cc_validate(cc_context *ctx, move2d *m)
 {
-    m->suppressOutput = false;
-
     if (m->type == CC_MOT_LINE)
     {
         if (cc_len(cc_sub(m->p_1, m->p_0)) < CC_TOL)
         {
             m->valid = false;//VALIDATE FAIL
-            m->suppressOutput = true;
             return false;//VALIDATE FAIL
         }
 
@@ -537,7 +534,6 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
 
         if (degenerate || !sweep_ok)
         {
-            m->suppressOutput = true;
             m->valid = false;
 
 #if CC_ENABLE_LOOKAHEAD
@@ -564,7 +560,7 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
 
         bool consistent = cc_is_radius_consistent(m);
         if (!consistent)
-            cc_report_msg(ctx, cc_status_ArcRadiusInconsistant, CC_MSG_ERROR);
+            cc_report_msg(ctx, cc_status_ArcRadiusInconsistent, CC_MSG_ERROR);
         if (!sweep_ok)
             cc_report_msg(ctx, cc_status_InvalidMove, CC_MSG_ERROR);
 
@@ -789,7 +785,6 @@ static inline bool cc_offset_line(const cc_context *ctx, move2d *m)
     if (l < CC_TOL)
     {
         m->valid = false;
-        m->suppressOutput = true;
         return false;
     }
 
@@ -1954,7 +1949,7 @@ static inline void cc_core_drain(void)
         return;
     while (cc_pop_out(&g_core_ctx, &out))
     {
-        if (out.suppressOutput)
+        if (!out.valid)
             continue;
         g_core_emit_cb(&out);
     }

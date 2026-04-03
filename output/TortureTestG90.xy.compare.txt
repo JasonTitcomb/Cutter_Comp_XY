@@ -1,8 +1,8 @@
 cc_xy comparison report
 full profile count: 102
 simple profile count: 102
-suppressed full count: 0
-suppressed simple count: 1
+invalid full count: 0
+invalid simple count: 1
 shared count: 102
 
 summary
