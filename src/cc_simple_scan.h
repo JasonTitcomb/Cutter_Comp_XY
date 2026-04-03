@@ -318,6 +318,7 @@ static void scan_line(const char *line, ScanLine &s)
 static bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, ArcDir dir, Vec2 &outC)
 {
     float r = fabsf(R);
+    bool useShortArc = (R >= 0.0f);
     Vec2 chord = p1 - p0;
     float d = len(chord);
     if (d < TOL)
@@ -339,7 +340,9 @@ static bool arc_center_from_R(const Vec2 &p0, const Vec2 &p1, float R, ArcDir di
     {
         Vec2 a = p0 - C, b = p1 - C;
         float z = cross(a, b);
-        return (dir == ARC_CCW) ? (z > 0) : (z < 0);
+        if (dir == ARC_CCW)
+            return useShortArc ? (z > 0.0f) : (z < 0.0f);
+        return useShortArc ? (z < 0.0f) : (z > 0.0f);
     };
 
     bool ok1 = ok(C1), ok2 = ok(C2);

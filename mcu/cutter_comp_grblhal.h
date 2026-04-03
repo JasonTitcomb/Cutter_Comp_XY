@@ -47,11 +47,11 @@ extern "C"
             cc_mc_input_pos[i] = pos[i];
     }
 
-    static void cc_error(cc_status_code_t err, uint32_t lineNum)
+    static void cc_message(cc_status_code_t msgcode, msg_type_t severity, uint32_t lineNum)
     {
         const char *msg = "Unknown";
         char formatted_msg[128];
-        switch (err)
+        switch (msgcode)
         {
         case cc_status_OK:
             return;
@@ -85,16 +85,19 @@ extern "C"
         case cc_status_OutputBufferOverflow:
             msg = "Cutter compensation output buffer overflow";
             break;
-        }
+        case cc_status_GlobalSelfIntersection:
+            msg = "Global self intersection detected in compensation moves";
+            break;
+        }   
 
         if (lineNum != 0)
         {
-            snprintf(formatted_msg, sizeof(formatted_msg), "%s at line %lu", msg, (unsigned long)lineNum);
-            report_message(formatted_msg, Message_Error);
+            snprintf(formatted_msg, sizeof(formatted_msg), "CC:%s at line %lu", msg, (unsigned long)lineNum);
+            report_message(formatted_msg, (message_type_t)severity);
             return;
         }
 
-        report_message(msg, Message_Error);
+        report_message(msg, (message_type_t)severity);
     }
 
 
@@ -203,10 +206,10 @@ extern "C"
 
         if (turningOn)
         {
-
-            float r  = cc_api_get_units() == CC_UNITS_INCH ?  cc.radius * 25.4f :  cc.radius;  
+            bool inch = cc_api_get_units() == CC_UNITS_INCH;
+            float r = inch ? cc.radius / 25.4f : cc.radius;
             char msg[64];
-            snprintf(msg, sizeof(msg), "CC_On R=%.4f", r);
+            snprintf(msg, sizeof(msg), "CC_On R=%.4f %s", r, inch ? "in" : "mm");
             report_message(msg, Message_Info);
         }
 
@@ -293,7 +296,7 @@ extern "C"
 #if CC_DEBUG_TRACE
         {
             char dbg[128];
-            snprintf(dbg, sizeof(dbg), "CC_EMIT t=%d cm=%d p0=(%.3f,%.3f) p1=(%.3f,%.3f) z0=%.3f z1=%.3f",
+            snprintf(dbg, sizeof(dbg), "CC_EMIT type=%d cm=%d p0=(%.3f,%.3f) p1=(%.3f,%.3f) z0=%.3f z1=%.3f",
                      mv->type, mv->compMode, mv->p_0.x, mv->p_0.y, mv->p_1.x, mv->p_1.y, mv->z_0, mv->z_1);
             report_message(dbg, Message_Info);
         }

@@ -18,6 +18,7 @@
 #define TWO_PI 6.2831853071795864769f
 #define MAX_SWEEP_DEG 359.9f
 #define MIN_ARC_LEN 0.001f
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 
 float arcTol = ARC_TOL_IN;
@@ -144,9 +145,12 @@ struct Move2D
 
 static void update_vectors(Move2D &m)
 {
-  if (m.type == MOT_LINE)
+  if (m.type == MOT_LINE)//TODO: do i need to update line vectors?
   {
     Vec2 d = m.p_1 - m.p_0;
+    if (dot(d, d) < TOL * TOL)
+      return;
+
     Vec2 u = normalize(d);
     m.startDir = u;
     m.endDir = u;
@@ -435,20 +439,21 @@ static bool pointOnArcCached(const Move2D &a, Vec2 p, const ArcAngles &aa)
 static IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
 {
   Vec2 p = ln1.p_0;
-  Vec2 r = ln1.p_1 - ln1.p_0;
   Vec2 q = ln2.p_0;
-  Vec2 s = ln2.p_1 - ln2.p_0;
 
-  float lr = len(r);
-  float ls = len(s);
-  if (lr < TOL || ls < TOL)
+  float lr = dist(ln1.p_0, ln1.p_1);
+  float ls = dist(ln2.p_0, ln2.p_1);
+  Vec2 r = ln1.startDir;
+  Vec2 s = ln2.startDir;
+
+  if (lr < TOL || ls < TOL || len(r) < TOL || len(s) < TOL)
   {
     tip = false;
-    return IT_NONE;
+    //return IT_NONE;
   }
 
   float den = cross(r, s);
-  float denTol = PARALLEL_TOL * lr * ls;
+  float denTol = PARALLEL_TOL * len(r) * len(s);
   if (fabsf(den) <= denTol)
   {
     tip = false; // too parallel to reliably intersect
@@ -459,7 +464,7 @@ static IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec
   float u = cross(q - p, r) / den;
   ip = p + r * t;
 
-  tip = (t >= -TOL && t <= 1.0f + TOL && u >= -TOL && u <= 1.0f + TOL);
+  tip = (t >= -TOL && t <= lr + TOL && u >= -TOL && u <= ls + TOL);
   return IT_INTERSECT;
 }
 

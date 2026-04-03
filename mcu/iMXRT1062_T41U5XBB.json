@@ -1,0 +1,22 @@
+{
+    "driver": "iMXRT1062",
+    "URL": "https://github.com/grblHAL/iMXRT1062",
+    "board": "BOARD_T41U5XBB",
+    "symbols": [
+        "USB_SERIAL_CDC=1",
+        "N_AXIS=4",
+        "PROBE_ENABLE=1",
+        "MPG_ENABLE=2",
+        "EEPROM_ENABLE=16",
+        "SDCARD_ENABLE=1",
+        "N_TOOLS=12",
+        "ACCELERATION_TICKS_PER_SECOND=100",
+        "ENABLE_BACKLASH_COMPENSATION=1",
+        "SINGLE_BLOCK_ENABLE=1",
+        "CONTROL_ENABLE=70",
+        "SPINDLE0_ENABLE=11",
+        "N_SPINDLE=1"
+    ],
+    "docker_instance": "",
+    "grblHAL": "webBuilder"
+}

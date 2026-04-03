@@ -545,24 +545,22 @@ public static class CcMath
     public static IntersectType IntersectLineLine(in Move2D ln1, in Move2D ln2, out Vec2 ip, out bool tip)
     {
         Vec2 p = ln1.p_0;
-        Vec2 r = ln1.p_1 - ln1.p_0;
         Vec2 q = ln2.p_0;
-        Vec2 s = ln2.p_1 - ln2.p_0;
+        Vec2 r = ln1.startDir;
+        Vec2 s = ln2.startDir;
+        float lr = Len(ln1.p_1 - ln1.p_0);
+        float ls = Len(ln2.p_1 - ln2.p_0);
 
-        float lr = Len(r);
-        float ls = Len(s);
-        if (lr < CcConst.TOL || ls < CcConst.TOL)
+        ip = new Vec2(0, 0);
+        if (lr < CcConst.TOL || ls < CcConst.TOL || Len(r) < CcConst.TOL || Len(s) < CcConst.TOL)
         {
-            ip = new Vec2(0, 0);
             tip = false;
-            return IntersectType.IT_NONE;
         }
 
         float den = Cross(r, s);
-        float denTol = CcConst.PARALLEL_TOL * lr * ls;
+        float denTol = CcConst.PARALLEL_TOL * Len(r) * Len(s);
         if (MathF.Abs(den) <= denTol)
         {
-            ip = new Vec2(0, 0);
             tip = false;
             return IntersectType.IT_NONE;
         }
@@ -571,7 +569,7 @@ public static class CcMath
         float u = Cross(q - p, r) / den;
         ip = p + r * t;
 
-        tip = (t >= -CcConst.TOL && t <= 1.0f + CcConst.TOL && u >= -CcConst.TOL && u <= 1.0f + CcConst.TOL);
+        tip = (t >= -CcConst.TOL && t <= lr + CcConst.TOL && u >= -CcConst.TOL && u <= ls + CcConst.TOL);
         return IntersectType.IT_INTERSECT;
     }
 

@@ -150,9 +150,17 @@ typedef enum
     cc_status_CompOutCrossing = 107,
     cc_status_UnresolvedGap = 108,
     cc_status_InputBufferOverflow = 109,
-    cc_status_OutputBufferOverflow = 110
+    cc_status_OutputBufferOverflow = 110,
+    cc_status_GlobalSelfIntersection = 111
 } cc_status_code_t;
 
+typedef enum {
+    CC_MSG_PLAIN = 0,
+    CC_MSG_INFO,
+    CC_MSG_WARNING,
+    CC_MSG_ERROR,
+    CC_MSG_DEBUG
+} msg_type_t;
 
 typedef struct
 {
@@ -175,7 +183,7 @@ typedef struct
 
 vec2 cc_v2(float x, float y);
 
-typedef void (*cc_err_cb)( cc_status_code_t err, uint32_t lineNum);
+typedef void (*cc_msg_cb)( cc_status_code_t msg, msg_type_t severity, uint32_t lineNum);
 typedef void (*emit_move_cb)(const move2d *move);
 
 typedef enum
@@ -218,7 +226,7 @@ typedef struct
     int inCount;
     int outHead;
     int outCount;
-    bool hasCompError;
+    bool stopErr;
     bool havePrevMove;
 
     move2d prevOff;
@@ -229,11 +237,9 @@ typedef struct
     int lookahead_count;
 #endif
 } cc_context;
-// Set units (mm or inch) and update tolerances accordingly
-void cc_api_set_units(cc_units u);
 cc_units cc_api_get_units(void);
 
-void cc_api_init(float radius,emit_move_cb emitCb, cc_err_cb errCb);
+void cc_api_init(float radius, cc_units units, emit_move_cb emitCb, cc_msg_cb errCb);
 
 // Process a move. If move is null, flushes any pending moves and reports any pending errors.
 // Returns CC_OK if the move was processed and emitted successfully, or if flushing completed successfully.

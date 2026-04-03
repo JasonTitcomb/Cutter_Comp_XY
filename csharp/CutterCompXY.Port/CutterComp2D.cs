@@ -165,8 +165,11 @@ public sealed class CutterComp2D
 
             if (prevOff.compMode == CompMode.CM_IN)
             {
+                Vec2 prevStart = prevOff.p_0;
+                Vec2 prevEnd = prevOff.p_1;
                 prevOff.p_1 = curOff.p_0;
-                float moveLen = CcMath.Len(prevOff.p_1 - prevOff.p_0);
+                float moveLen = MathF.Min(CcMath.Len(prevEnd - prevStart),
+                                          CcMath.Len(prevOff.p_1 - prevStart));
                 if (moveLen <= toolR)
                 {
                     ReportCompError(CompError.CE_COMP_MOVE_TOO_SHORT);
@@ -176,8 +179,11 @@ public sealed class CutterComp2D
 
             if (curOff.compMode == CompMode.CM_OUT)
             {
+                Vec2 curStart = curOff.p_0;
+                Vec2 curEnd = curOff.p_1;
                 curOff.p_0 = prevOff.p_1;
-                float moveLen = CcMath.Len(curOff.p_1 - curOff.p_0);
+                float moveLen = MathF.Min(CcMath.Len(curEnd - curStart),
+                                          CcMath.Len(curEnd - curOff.p_0));
                 if (moveLen <= toolR)
                 {
                     ReportCompError(CompError.CE_COMP_MOVE_TOO_SHORT);
@@ -325,6 +331,35 @@ public sealed class CutterComp2D
         if (it2 == IntersectType.IT_NONE)
             return 0;
         return count2;
+    }
+
+    private static int FiniteIntersectionPoints(in Move2D a, in Move2D b, out Vec2 p1, out Vec2 p2)
+    {
+        p1 = new Vec2(0, 0);
+        p2 = new Vec2(0, 0);
+
+        int carrierCount = IntersectCarrier(a, b, out Vec2 c0, out Vec2 c1);
+        Vec2[] carrierPts = { c0, c1 };
+        int finiteCount = 0;
+
+        for (int i = 0; i < carrierCount; ++i)
+        {
+            Vec2 p = carrierPts[i];
+            if (!PointOnFiniteElem(a, p) || !PointOnFiniteElem(b, p))
+                continue;
+
+            if (finiteCount > 0 && CcMath.IsNear(p1, p))
+                continue;
+
+            if (finiteCount == 0)
+                p1 = p;
+            else
+                p2 = p;
+
+            finiteCount++;
+        }
+
+        return finiteCount;
     }
 
     private bool IsForwardExtensionPoint(in Move2D a, in Move2D b, in Vec2 p)
@@ -887,78 +922,13 @@ public sealed class CutterComp2D
         tip1 = new Vec2(0, 0);
         tip2 = new Vec2(0, 0);
 
-        if (A.type == MotionType.MOT_LINE && B.type == MotionType.MOT_LINE)
-        {
-            IntersectType it = CcMath.IntersectLineLine(A, B, out Vec2 ip, out bool tip);
-            if (it != IntersectType.IT_NONE && tip)
-            {
-                tip1 = ip;
-                return 1;
-            }
-            return 0;
-        }
-
-        if ((A.type == MotionType.MOT_LINE && B.type == MotionType.MOT_ARC) || (A.type == MotionType.MOT_ARC && B.type == MotionType.MOT_LINE))
-        {
-            Move2D L = A.type == MotionType.MOT_LINE ? A : B;
-            Move2D C = A.type == MotionType.MOT_ARC ? A : B;
-
-            IntersectType it = CcMath.IntersectLineCircle(L.p_0, L.p_1, C.center, C.radius, out Vec2 p1, out Vec2 p2, out int count);
-            if (it == IntersectType.IT_NONE)
-                return 0;
-
-            ArcAngles ca = CcMath.PrecomputeArcAngles(C);
-
-            int n = 0;
-            if (count >= 1 && CcMath.PointOnSegment(L.p_0, L.p_1, p1) && CcMath.PointOnArcCached(C, p1, ca))
-            {
-                tip1 = p1;
-                n++;
-            }
-
-            if (count == 2 && CcMath.PointOnSegment(L.p_0, L.p_1, p2) && CcMath.PointOnArcCached(C, p2, ca))
-            {
-                if (n == 0)
-                    tip1 = p2;
-                else
-                    tip2 = p2;
-                n++;
-            }
-            return n;
-        }
-
         if (A.type == MotionType.MOT_ARC && B.type == MotionType.MOT_ARC)
         {
             if (CcMath.IsNear(A.p_1, B.p_0) || CcMath.IsNear(A.center, B.center))
                 return 0;
-
-            IntersectType it = CcMath.IntersectCircleCircle(A, B, out Vec2 p1, out Vec2 p2, out int count);
-            if (it == IntersectType.IT_NONE)
-                return 0;
-
-            ArcAngles aa = CcMath.PrecomputeArcAngles(A);
-            ArcAngles ba = CcMath.PrecomputeArcAngles(B);
-
-            int n = 0;
-            if (count >= 1 && CcMath.PointOnArcCached(A, p1, aa) && CcMath.PointOnArcCached(B, p1, ba))
-            {
-                tip1 = p1;
-                n++;
-            }
-
-            if (count == 2 && CcMath.PointOnArcCached(A, p2, aa) && CcMath.PointOnArcCached(B, p2, ba))
-            {
-                if (n == 0)
-                    tip1 = p2;
-                else
-                    tip2 = p2;
-                n++;
-            }
-
-            return n;
         }
 
-        return 0;
+        return FiniteIntersectionPoints(A, B, out tip1, out tip2);
     }
 
     private static CrossingHit LookAheadForCrossing(Move2D[] moves, int numMoves, int srcIdx, int startTargetIdx, int maxIdx, int maxLookahead, int firstCutIdx, int lastCutIdx)

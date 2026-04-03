@@ -63,17 +63,17 @@ When entering compensation (`G41`/`G42`) from `G40`, grblHAL-side logic resolves
   - Use `D` value as cutter diameter (divided by 2 for radius).
   - Clear the `D` word after consuming it.
 5. If neither `R` nor `D` is present:
-  - If tool table is enabled and has tools, use tool table radius for active tool.
-  - If current tool id is `0` and a pending tool exists, use pending tool id.
-6. If resolved radius is `<= 0.0`, return value-out-of-range status.
-7. Mark first compensation move and initialize core with:
-  - `cc_api_init(resolvedRadius, cc_emit_via_mc, 0)`
+  - Try to use tool table radius for active tool.
+  - Use G10 L1 P[toolnum] R[toolRad] to set the tool radius in the tool table.
+
 
 Important behavior details:
 
 - `R` is interpreted as a radius, `D` as a diameter. If both are present, `R` takes priority.
 - Tool table radius is a fallback only when neither `R` nor `D` is supplied.
-- Compensation entry fails fast if no source provides a valid positive radius.
+- If zero radius the cutter comp engine is bypassed.
+- if `#define CC_ENABLE_LOOKAHEAD 1` a info message will report when trimming occurs.
+- if `#define CC_ENABLE_LOOKAHEAD 0` a hold command is issued and a message is reported.
 
 Optional mode selection on entry:
 

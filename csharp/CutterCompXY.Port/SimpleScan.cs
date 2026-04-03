@@ -308,6 +308,7 @@ public static class SimpleScan
     public static bool ArcCenterFromR(Vec2 p0, Vec2 p1, float rIn, ArcDir dir, out Vec2 outC)
     {
         float r = MathF.Abs(rIn);
+        bool useShortArc = rIn >= 0.0f;
         Vec2 chord = p1 - p0;
         float d = CcMath.Len(chord);
 
@@ -332,7 +333,9 @@ public static class SimpleScan
             Vec2 a = p0 - c;
             Vec2 b = p1 - c;
             float z = CcMath.Cross(a, b);
-            return dir == ArcDir.ARC_CCW ? z > 0 : z < 0;
+            if (dir == ArcDir.ARC_CCW)
+                return useShortArc ? z > 0.0f : z < 0.0f;
+            return useShortArc ? z < 0.0f : z > 0.0f;
         }
 
         bool ok1 = Ok(c1);

@@ -31,7 +31,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = -0.0625f;
+static constexpr float TOOL_RADIUS = 6.35f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
@@ -60,13 +60,14 @@ static void host_error_cb(const char *message, CompError err, uint32_t lineNum)
   if (message)
     std::fprintf(stderr, "%s\n", message);
   if (err != CE_ERROR)
-    std::fprintf(stderr, "CompError code=%u N%u\n", (unsigned)err, (unsigned)lineNum);
+    std::fprintf(stderr, "CompMsg code=%u Ln%u\n", (unsigned)err, (unsigned)lineNum);
 }
 
-static void host_xy_error_cb(cc_status_code_t err, uint32_t lineNum)
+static void host_xy_error_cb(cc_status_code_t err, msg_type_t severity, uint32_t lineNum)
 {
+  (void)severity;
   if (err != cc_status_OK)
-    std::fprintf(stderr, "[cc_xy] CompError code=%u N%u\n", (unsigned)err, (unsigned)lineNum);
+    std::fprintf(stderr, "[cc_xy] CompMsg code=%u Ln%u\n", (unsigned)err, (unsigned)lineNum);
 }
 
 static std::vector<Move2D> *g_simpleProfileOut = nullptr;
@@ -246,7 +247,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
   // Initialize the cc_xy adapter with the provided tool radius,
   // and set up callbacks for move emission and error reporting.
-  cc_api_init(toolRadius, cc_emit_via_mc, host_xy_error_cb);
+  cc_api_init(toolRadius,modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM,  cc_emit_via_mc, host_xy_error_cb);
 
   g_simpleProfileOut = &profileOut;
 
@@ -268,7 +269,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
     const bool exitingComp = (prevComp != COMP_OFF && modal.comp == COMP_OFF);
 
     if (enteringComp){
-      cc_api_init(toolRadius, cc_emit_via_mc, host_xy_error_cb);
+      cc_api_init(toolRadius, modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM, cc_emit_via_mc, host_xy_error_cb);
     }
 
     if (mv.type == MOT_EMPTY)
@@ -362,6 +363,8 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
     if (m.suppressOutput)
       continue;
 
+    const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL;
+
     const std::string gcodeLine = lookup_gcode_line(program, m.lnNum);
     if (gcodeLine.find("G53") != std::string::npos || gcodeLine.find("M30") != std::string::npos)
       continue;
@@ -369,8 +372,14 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
     if (fabsf(m.z_1 - m.z_0) >= TOL)
       continue;
 
+    if (!hasXYMotion && m.type == MOT_RAPID)
+      continue;
+
     filtered.push_back(m);
   }
+
+  while (!filtered.empty() && filtered.back().type == MOT_RAPID)
+    filtered.pop_back();
 
   return filtered;
 }
@@ -399,49 +408,6 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
     filtered.pop_back();
 
   return filtered;
-}
-
-static std::vector<Move2D> order_moves_by_connectivity(const std::vector<Move2D> &moves)
-{
-  std::vector<Move2D> visible = filter_suppressed_moves(moves);
-  if (visible.size() < 2)
-    return visible;
-
-  std::vector<Move2D> ordered;
-  ordered.reserve(visible.size());
-  std::vector<bool> used(visible.size(), false);
-
-  size_t currentIndex = 0;
-  ordered.push_back(visible[currentIndex]);
-  used[currentIndex] = true;
-
-  while (ordered.size() < visible.size())
-  {
-    const Vec2 currentEnd = ordered.back().p_1;
-    size_t bestIndex = visible.size();
-    float bestDist = 0.0f;
-
-    for (size_t i = 0; i < visible.size(); ++i)
-    {
-      if (used[i])
-        continue;
-
-      const float distance = len(visible[i].p_0 - currentEnd);
-      if (bestIndex == visible.size() || distance < bestDist)
-      {
-        bestIndex = i;
-        bestDist = distance;
-      }
-    }
-
-    if (bestIndex == visible.size())
-      break;
-
-    ordered.push_back(visible[bestIndex]);
-    used[bestIndex] = true;
-  }
-
-  return ordered;
 }
 
 static size_t count_suppressed_moves(const std::vector<Move2D> &moves)
@@ -651,11 +617,12 @@ int main(int argc, char *argv[])
   // const char *default_file = "../../data/ThreadMill.nc";
   // const char *default_file = "../../data/G41_2.nc";
   //const char *default_file = "../../data/TortureTestG91.nc";
-  // const char *default_file = "../../data/Sample2.nc";
+  //const char *default_file = "../../data/Sample2.nc";
+  const char *default_file = "../../data/Sample2mm.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   //const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   // const char *default_file = "../../data/TortureTestLinux.nc";
   // const char *default_file = "../../data/ArcTooSmall.nc";
   // const char *default_file = "../../data/TortureTestLines.nc";
@@ -743,7 +710,6 @@ int main(int argc, char *argv[])
   if (!simpleValid)
     std::puts("(warning: standalone cc_xy validation failed)");
 
-  std::vector<Move2D> simpleCompensatedOrdered = order_moves_by_connectivity(simpleCompensated);
   std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
   auto compensated = build_original_moves(compProgram);
   std::vector<Move2D> compensatedVisible = filter_suppressed_moves(compensated);
@@ -753,8 +719,8 @@ int main(int argc, char *argv[])
     auto orig = build_original_moves(program);
     const size_t suppressedFullCount = count_suppressed_moves(compensated);
     const size_t suppressedSimpleCount = count_suppressed_moves(simpleCompensated);
-    std::vector<Move2D> simpleVisible = filter_suppressed_moves(simpleCompensatedOrdered);
-    std::vector<Move2D> simpleCompareVisible = filter_compare_moves(simpleCompensatedOrdered);
+    std::vector<Move2D> simpleVisible = filter_suppressed_moves(simpleCompensated);
+    std::vector<Move2D> simpleCompareVisible = filter_compare_moves(simpleCompensated);
     std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
     write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleCompareVisible, compProgram, program,
                             suppressedFullCount, suppressedSimpleCount);
@@ -769,7 +735,7 @@ int main(int argc, char *argv[])
   {
     const size_t suppressedFullCount = count_suppressed_moves(compensated);
     const size_t suppressedSimpleCount = count_suppressed_moves(simpleCompensated);
-    std::vector<Move2D> simpleVisible = filter_compare_moves(simpleCompensatedOrdered);
+    std::vector<Move2D> simpleVisible = filter_compare_moves(simpleCompensated);
     std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
     write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleVisible, compProgram, program,
                             suppressedFullCount, suppressedSimpleCount);

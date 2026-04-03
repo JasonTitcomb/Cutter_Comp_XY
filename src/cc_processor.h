@@ -141,8 +141,10 @@ private:
             return m.valid;
 
         bool degenerate = fabsf(m.radius) < TOL;
+        float sw = arcSweepDeg(m);
+        bool sweepOk = sw <= MAX_SWEEP_DEG && sw >= MIN_ARC_LEN;
 
-        if (degenerate)
+        if (degenerate|| !sweepOk)
         {
             // Keep degenerate arcs trackable in profile/calculation flows, but suppress output.
             m.suppressOutput = true;
@@ -167,9 +169,7 @@ private:
         }
 
         bool consistent = is_radius_consistent(m);
-        float sw = arcSweepDeg(m);
-        bool sweepOk = sw <= MAX_SWEEP_DEG && sw >= MIN_ARC_LEN;
-
+ 
         m.valid = consistent && sweepOk;
 
         if (!consistent)
@@ -352,8 +352,11 @@ public:
             if (prevOff.compMode == CM_IN)
             {
                 // modify the previous move so that the end is the start of the current move,
+                Vec2 prevStart = prevOff.p_0;
+                Vec2 prevEnd = prevOff.p_1;
                 prevOff.p_1 = curOff.p_0;
-                float moveLen = len(prevOff.p_1 - prevOff.p_0);
+                float moveLen = MIN(len(prevEnd - prevStart),
+                                         len(prevOff.p_1 - prevStart));
                 if (moveLen <= toolR)
                 {
                     reportCompError(CE_COMP_MOVE_TOO_SHORT);
@@ -364,8 +367,11 @@ public:
             if (curOff.compMode == CM_OUT)
             {
                 // modify the G40 start is the end of the previous move,
+                Vec2 curStart = curOff.p_0;
+                Vec2 curEnd = curOff.p_1;
                 curOff.p_0 = prevOff.p_1;
-                float moveLen = len(curOff.p_1 - curOff.p_0);
+                float moveLen = MIN(len(curEnd - curStart),
+                                         len(curEnd - curOff.p_0));
                 if (moveLen <= toolR)
                 {
                     reportCompError(CE_COMP_MOVE_TOO_SHORT);
