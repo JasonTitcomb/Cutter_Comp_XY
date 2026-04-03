@@ -187,8 +187,7 @@ static bool is_radius_consistent(const Move2D &m)
 {
   float r0 = len(m.p_0 - m.center);
   float r1 = len(m.p_1 - m.center);
-  bool isValid = fabsf(r0 - r1) <= arcTol;
-  return isValid;
+  return fabsf(r0 - r1) <= arcTol;
 }
 
 static int get_winding_dir(Vec2 a, Vec2 b)

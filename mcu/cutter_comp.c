@@ -518,9 +518,9 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
     {
         if (cc_len(cc_sub(m->p_1, m->p_0)) < CC_TOL)
         {
-            m->valid = true;
+            m->valid = false;//VALIDATE FAIL
             m->suppressOutput = true;
-            return true;
+            return false;//VALIDATE FAIL
         }
 
         m->valid = true;
@@ -538,12 +538,13 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
         if (degenerate || !sweep_ok)
         {
             m->suppressOutput = true;
+            m->valid = false;
+
 #if CC_ENABLE_LOOKAHEAD
             return m->valid;
 #else
-            m->valid = false;
             cc_report_msg(ctx, cc_status_ArcLtToolRad, CC_MSG_ERROR);
-            return false;
+            return m->valid;
 #endif
         }
 
@@ -556,15 +557,12 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
             {
                 m->valid = false;
                 cc_report_msg(ctx, cc_status_ArcLtToolRad, CC_MSG_ERROR);
-                return false;
+                return m->valid;
             }
         }
 #endif
 
         bool consistent = cc_is_radius_consistent(m);
-
-        m->valid = consistent && sweep_ok;
-
         if (!consistent)
             cc_report_msg(ctx, cc_status_ArcRadiusInconsistant, CC_MSG_ERROR);
         if (!sweep_ok)
@@ -790,9 +788,9 @@ static inline bool cc_offset_line(const cc_context *ctx, move2d *m)
     l = cc_len(v);
     if (l < CC_TOL)
     {
-        m->valid = true;
+        m->valid = false;
         m->suppressOutput = true;
-        return true;
+        return false;
     }
 
     u = cc_scale(v, 1.0f / l);

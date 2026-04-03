@@ -1,95 +1,16 @@
 cc_xy comparison report
-full profile count: 111
-simple profile count: 110
+full profile count: 102
+simple profile count: 102
 suppressed full count: 0
 suppressed simple count: 1
-shared count: 110
-
-index 99 mismatch
-  full   : type=line seq=106 p0=(2.3758, 0.6024) p1=(1.8232, 0.3007) r=0 valid=1
-  simple : type=line seq=68 p0=(2.3758, 0.602421) p1=(1.81983, 0.2989) r=0 valid=1
-  full gcode  : N67 G1 X1.8232 Y0.3007
-  simple gcode: N67 X1.3471
-  delta  : p0=0.000021 p1=0.003823 center=0.000000 radius=0.000000
-
-index 100 mismatch
-  full   : type=arc seq=107 p0=(1.8232, 0.3007) p1=(1.816, 0.2989) r=0.0150359 valid=1
-  simple : type=line seq=69 p0=(1.81983, 0.2989) p1=(1.3471, 0.2989) r=0 valid=1
-  full gcode  : N67 G2 X1.816 Y0.2989 I-0.0072 J0.0132
-  simple gcode: N68 G3 X0.8147 Y0. I-0.2483 J-0.1873
-  delta  : p0=0.003823 p1=0.468900 center=1.842929 radius=0.015036
-
-index 101 mismatch
-  full   : type=line seq=108 p0=(1.816, 0.2989) p1=(1.3471, 0.2989) r=0 valid=1
-  simple : type=arc seq=69 p0=(1.3471, 0.2989) p1=(1.33512, 0.304867) r=0.015 valid=1
-  full gcode  : N68 G1 X1.3471 Y0.2989
-  simple gcode: N68 G3 X0.8147 Y0. I-0.2483 J-0.1873
-  delta  : p0=0.468900 p1=0.013379 center=1.383189 radius=0.015000
-
-index 102 mismatch
-  full   : type=arc seq=109 p0=(1.3471, 0.2989) p1=(1.3351, 0.3049) r=0.015 valid=1
-  simple : type=arc seq=70 p0=(1.33512, 0.304867) p1=(0.82841, 0.00610952) r=0.296021 valid=1
-  full gcode  : N68 G2 X1.3351 Y0.3049 I0 J0.015
-  simple gcode: N69 G1 X0.
-  delta  : p0=0.013379 p1=0.588226 center=0.311021 radius=0.281021
-
-index 103 mismatch
-  full   : type=arc seq=110 p0=(1.3351, 0.3049) p1=(0.8284, 0.0061) r=0.296021 valid=1
-  simple : type=arc seq=70 p0=(0.82841, 0.00610952) p1=(0.8147, -0.014998) r=0.015002 valid=1
-  full gcode  : N69 G3 X0.8284 Y0.0061 I-0.2363 J-0.1783
-  simple gcode: N69 G1 X0.
-  delta  : p0=0.588226 p1=0.025156 center=0.311021 radius=0.281019
-
-index 104 mismatch
-  full   : type=arc seq=111 p0=(0.8284, 0.0061) p1=(0.8147, -0.015) r=0.0149967 valid=1
-  simple : type=line seq=71 p0=(0.8147, -0.014998) p1=(0, -0.015) r=0 valid=1
-  full gcode  : N69 G2 X0.8147 Y-0.015 I-0.0137 J-0.0061
-  simple gcode: N70 Y0.0829
-  delta  : p0=0.025156 p1=0.814700 center=0.814700 radius=0.014997
-
-index 105 mismatch
-  full   : type=line seq=112 p0=(0.8147, -0.015) p1=(0, -0.015) r=0 valid=1
-  simple : type=arc seq=71 p0=(0, -0.015) p1=(-0.015, 0) r=0.015 valid=1
-  full gcode  : N70 G1 X0 Y-0.015
-  simple gcode: N70 Y0.0829
-  delta  : p0=0.814700 p1=0.021213 center=0.000000 radius=0.015000
-
-index 106 mismatch
-  full   : type=arc seq=113 p0=(0, -0.015) p1=(-0.015, 0) r=0.015 valid=1
-  simple : type=line seq=72 p0=(-0.015, 0) p1=(-0.015, 0.0829) r=0 valid=1
-  full gcode  : N70 G2 X-0.015 Y0 I0 J0.015
-  simple gcode: N71 Y0.1329
-  delta  : p0=0.021213 p1=0.082900 center=0.000000 radius=0.015000
-
-index 107 mismatch
-  full   : type=line seq=114 p0=(-0.015, 0) p1=(-0.015, 0.0829) r=0 valid=1
-  simple : type=line seq=73 p0=(-0.015, 0.0829) p1=(-0.015, 0.1329) r=0 valid=1
-  full gcode  : N71 G1 X-0.015 Y0.0829
-  simple gcode: N72 G3 X-0.0293 Y0.2036 I-0.1 J0.
-  delta  : p0=0.082900 p1=0.050000 center=0.000000 radius=0.000000
-
-index 108 mismatch
-  full   : type=line seq=115 p0=(-0.015, 0.0829) p1=(-0.015, 0.1329) r=0 valid=1
-  simple : type=arc seq=74 p0=(-0.015, 0.1329) p1=(-0.0398959, 0.193004) r=0.085 valid=1
-  full gcode  : N72 G1 X-0.015 Y0.1329
-  simple gcode: N73 G1 G40 X-0.1707 Y0.3451
-  delta  : p0=0.050000 p1=0.065056 center=0.166320 radius=0.085000
-
-index 109 mismatch
-  full   : type=arc seq=116 p0=(-0.015, 0.1329) p1=(-0.0399, 0.193) r=0.085 valid=1
-  simple : type=line seq=74 p0=(-0.0398959, 0.193004) p1=(-0.1707, 0.3451) r=0 valid=1
-  full gcode  : N73 G3 X-0.0399 Y0.193 I-0.085 J0
-  simple gcode: N73 G1 G40 X-0.1707 Y0.3451
-  delta  : p0=0.065056 p1=0.200607 center=0.166320 radius=0.085000
-
-count mismatch: full=111 simple=110
+shared count: 102
 
 summary
-  first mismatch index: 99
-  mismatch count: 11
-  type mismatch count: 7
+  first mismatch index: -1
+  mismatch count: 0
+  type mismatch count: 0
   validity mismatch count: 0
-  max p0 delta: 0.814700
-  max p1 delta: 0.814700
-  max center delta: 1.842929
-  max radius delta: 0.281021
+  max p0 delta: 0.000093
+  max p1 delta: 0.000093
+  max center delta: 0.000100
+  max radius delta: 0.000600

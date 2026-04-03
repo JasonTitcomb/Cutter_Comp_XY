@@ -128,9 +128,9 @@ private:
             {
                 // Keep the element available for downstream logic, but never emit as motion.
                 m.hasXY = false;
-                m.valid = true;
+                m.valid = false;//VALIDATE FAIL
                 m.suppressOutput = true;
-                return true;
+                return false;//VALIDATE FAIL
             }
 
             m.valid = true;
@@ -148,10 +148,10 @@ private:
         {
             // Keep degenerate arcs trackable in profile/calculation flows, but suppress output.
             m.suppressOutput = true;
+            m.valid = false;
             if (options.globalTrimCrossing)
                 return m.valid;
 
-            m.valid = false;
             reportCompError(CE_ARC_LT_TOOL_RAD);
             return false;
         }
@@ -170,8 +170,6 @@ private:
 
         bool consistent = is_radius_consistent(m);
  
-        m.valid = consistent && sweepOk;
-
         if (!consistent)
             reportCompError(CE_ARC_RADIUS_MISMATCH);
         if (!sweepOk)

@@ -31,7 +31,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 6.35f;
+static constexpr float TOOL_RADIUS = 0.0612f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
@@ -618,11 +618,11 @@ int main(int argc, char *argv[])
   // const char *default_file = "../../data/G41_2.nc";
   //const char *default_file = "../../data/TortureTestG91.nc";
   //const char *default_file = "../../data/Sample2.nc";
-  const char *default_file = "../../data/Sample2mm.nc";
+  //const char *default_file = "../../data/Sample2mm.nc";
   //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   // const char *default_file = "../../data/TortureTestmm.nc";
   //const char *default_file = "../../data/simple1.nc";
-  //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   // const char *default_file = "../../data/TortureTestLinux.nc";
   // const char *default_file = "../../data/ArcTooSmall.nc";
   // const char *default_file = "../../data/TortureTestLines.nc";
