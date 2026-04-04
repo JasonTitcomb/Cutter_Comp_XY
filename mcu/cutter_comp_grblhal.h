@@ -67,9 +67,6 @@ extern "C"
         case cc_status_ArcRadiusInconsistent:
             msg = "Arc radius inconsistent";
             break;
-        case cc_status_FlippedArc:
-            msg = "Flipped arc";
-            break;
         case cc_status_CompInCrossing:
             msg = "Crossing detected on move into compensation";
             break;
@@ -86,7 +83,7 @@ extern "C"
             msg = "Cutter compensation output buffer overflow";
             break;
         case cc_status_GlobalSelfIntersection:
-            msg = "Global self-intersection detected in compensation moves";
+            msg = "Self-intersection avoided by trimming move";
             break;
         }   
 

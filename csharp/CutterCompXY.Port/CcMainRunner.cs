@@ -7,32 +7,39 @@ namespace CutterCompXY.Port;
 
 public sealed class CcMainRunner
 {
-    // Keep lookahead for trim solver window.
     public const int MAX_LOOKAHEAD = 20;
+    private const int TARGET_BATCH_EMIT_MOVES = 40;
+    private const int PROFILE_BURST_MARGIN = 2;
+    private const int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
+    private const int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
+    private const int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
+    private const int MAX_PROFILE_MOVES = MIN_PENDING_BEFORE_BATCH + PROFILE_BURST_MARGIN;
 
     public CcMainOptions options;
     public CcOutputCB outputCB;
     public CcErrorCB errorCB;
     public CcStartCompCB startCompCB;
-
     public ModalState modalState;
     public CutterComp2D cc = new CutterComp2D();
+    public readonly List<Move2D> profile = new List<Move2D>(MAX_PROFILE_MOVES);
+    public bool sawCompStart;
+    public bool sawG40;
+    public bool compClosed;
+    public bool runActive;
+    public bool globalTrim;
+    public bool emitComments;
+    public bool inchMode;
 
-    public readonly List<Move2D> profile = new List<Move2D>();
-    public bool sawCompStart = false;
-    public bool sawG40 = false;
-    public bool compClosed = false;
-    public bool runActive = false;
-    public bool globalTrim = false;
-    public bool emitComments = true;
-    public bool inchMode = true;
-    private bool hasLastFeed = false;
-    private float lastFeed = 0.0f;
+    private bool hasLastFeed;
+    private float lastFeed;
+    private int emittedProfileCount;
+    private int trimResumeIndex;
 
     public bool Begin(CcMainOptions opts)
     {
         options = opts;
         runActive = true;
+
         modalState = new ModalState();
         modalState.planeXY = true;
         modalState.absXYZ = true;
@@ -40,10 +47,10 @@ public sealed class CcMainRunner
         modalState.motionG = 0;
         modalState.comp = CompSide.COMP_OFF;
         modalState.compMode = CompMode.CM_NONE;
-        modalState.feed = 0;
-        modalState.speed = 0;
+        modalState.feed = 0.0f;
+        modalState.speed = 0.0f;
         modalState.pos = new Vec2(0, 0);
-        modalState.z = 0;
+        modalState.z = 0.0f;
         modalState.N_number = 0;
         modalState.T_Register = 0;
         modalState.D_Register = 0;
@@ -51,9 +58,7 @@ public sealed class CcMainRunner
         inchMode = true;
 
         cc = new CutterComp2D();
-        cc.SetToolRadius(options.toolRadius);
-        cc.SetCornerTreatment(options.cornerTreatment);
-        cc.SetPerformTrim(options.globalTrimCrossing);
+        cc.SetOptions(options);
         cc.SetErrorCallback(OnCompError);
         SyncUnitsFromModal();
 
@@ -61,6 +66,8 @@ public sealed class CcMainRunner
         errorCB = options.callbacks.error;
         startCompCB = options.callbacks.startComp;
         globalTrim = options.globalTrimCrossing;
+        emittedProfileCount = 0;
+        trimResumeIndex = 0;
         sawCompStart = false;
         sawG40 = false;
         compClosed = false;
@@ -78,8 +85,10 @@ public sealed class CcMainRunner
 
     public bool ProcessLine(string line)
     {
-        if (!runActive || string.IsNullOrEmpty(line))
+        if (!runActive)
             return false;
+        if (string.IsNullOrEmpty(line))
+            return true;
 
         string peekClean = SimpleScan.StripComments(line);
         if (string.IsNullOrEmpty(peekClean))
@@ -88,23 +97,30 @@ public sealed class CcMainRunner
         ScanLine scanLn = new ScanLine();
         SimpleScan.ScanLineText(peekClean, ref scanLn);
 
-        bool compIsOff = (cc.comp_state == CompSide.COMP_OFF);
-        bool canEmitRaw = compIsOff && !scanLn.sawG41 && !scanLn.sawG42 && (!sawCompStart || compClosed);
+        bool compIsOff = cc.comp_state == CompSide.COMP_OFF;
+        bool emitNonComp = compIsOff && !scanLn.sawG41 && !scanLn.sawG42 && (!sawCompStart || compClosed);
         bool entersComp = compIsOff && (scanLn.sawG41 || scanLn.sawG42) && !compClosed;
         if (entersComp)
         {
+            if (!scanLn.isMove)
+            {
+                ReportError("(move expected on G41/G42 line)", CompError.CE_ERROR);
+                return false;
+            }
+
             sawCompStart = true;
             EmitStatus("(COMP ON)\n");
             startCompCB?.Invoke(modalState.T_Register, modalState.D_Register);
         }
 
-        if (canEmitRaw)
+        if (emitNonComp)
         {
             if (!ProcessRawGcodeLine(line, scanLn))
             {
                 runActive = false;
                 return false;
             }
+
             return true;
         }
 
@@ -112,6 +128,30 @@ public sealed class CcMainRunner
         {
             runActive = false;
             return false;
+        }
+
+        if (cc.comp_state != CompSide.COMP_OFF)
+        {
+            int pendingProfileWindow = profile.Count - emittedProfileCount;
+            if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
+            {
+                if (!TrimAndMergePendingProfile())
+                {
+                    ReportError("(trim failed)", CompError.CE_ERROR);
+                    runActive = false;
+                    return false;
+                }
+
+                if (!EmitCompProfile(EMIT_HOLDBACK, false))
+                {
+                    ReportError("(emit failed)", CompError.CE_ERROR);
+                    runActive = false;
+                    return false;
+                }
+
+                ProfileCompact();
+                EmitStatus("(BATCH)\n");
+            }
         }
 
         if (cc.comp_state == CompSide.COMP_OFF && sawCompStart && !compClosed)
@@ -124,14 +164,18 @@ public sealed class CcMainRunner
                 runActive = false;
                 return false;
             }
-            if (!EmitCompProfile())
+
+            if (!EmitCompProfile(0, true))
             {
                 ReportError("(emit failed)", CompError.CE_ERROR);
                 runActive = false;
                 return false;
             }
+
+            ProfileCompact();
             EmitStatus("(COMP OFF)\n");
         }
+
         return true;
     }
 
@@ -139,6 +183,7 @@ public sealed class CcMainRunner
     {
         if (!runActive)
             return false;
+
         if (sawCompStart && !compClosed)
         {
             if (!FlushPipeline())
@@ -146,21 +191,27 @@ public sealed class CcMainRunner
                 runActive = false;
                 return false;
             }
+
             if (!TrimAndMergePendingProfile())
             {
                 ReportError("(final trim failed)", CompError.CE_ERROR);
                 runActive = false;
                 return false;
             }
-            if (!EmitCompProfile())
+
+            if (!EmitCompProfile(0, true))
             {
                 ReportError("(final emit failed)", CompError.CE_ERROR);
                 runActive = false;
                 return false;
             }
+
+            ProfileCompact();
         }
+
         if (!sawG40)
             ReportError("(warning: reached EOF before G40)", CompError.CE_ERROR);
+
         runActive = false;
         return true;
     }
@@ -169,13 +220,16 @@ public sealed class CcMainRunner
     {
         if (program == null || lineCount <= 0)
             return true;
+
         if (!Begin(opts))
             return false;
+
         for (int i = 0; i < lineCount; ++i)
         {
             if (!ProcessLine(program[i]))
                 return false;
         }
+
         return Finish();
     }
 
@@ -183,22 +237,6 @@ public sealed class CcMainRunner
     {
         if (emitComments && outputCB != null && !string.IsNullOrEmpty(text))
             outputCB(text, text.Length);
-    }
-
-    private void ReportError(string message, CompError err)
-    {
-        errorCB?.Invoke(message, (int)err, (uint)modalState.N_number);
-    }
-
-    private void OnCompError(CompError err, uint seqNum)
-    {
-        ReportError($"CompError {(uint)err} N{seqNum}", err);
-    }
-
-    private void SyncUnitsFromModal()
-    {
-        inchMode = modalState.inchMode;
-        cc.SetUnits(inchMode ? Units.UNITS_INCH : Units.UNITS_MM);
     }
 
     private void EmitRawLine(string text)
@@ -211,6 +249,16 @@ public sealed class CcMainRunner
             outputCB("\n", 1);
     }
 
+    private void ReportError(string message, CompError err)
+    {
+        errorCB?.Invoke(message, (int)err, (uint)modalState.N_number);
+    }
+
+    private void OnCompError(CompError err, uint seqNum)
+    {
+        ReportError($"CompError {(uint)err} N{seqNum}", err);
+    }
+
     private void ProfileReset()
     {
         profile.Clear();
@@ -218,25 +266,29 @@ public sealed class CcMainRunner
 
     private bool ProfilePush(Move2D m)
     {
-        m.valid = true;
+        if (profile.Count >= MAX_PROFILE_MOVES)
+            return false;
+
         profile.Add(m);
         return true;
     }
 
-    private bool TrimAndMergePendingProfile()
+    private void ProfileCompact()
     {
-        if (!globalTrim || profile.Count == 0)
-            return true;
+        if (emittedProfileCount <= 0)
+            return;
 
-        Move2D[] moves = profile.ToArray();
-        int srcIdx = 0;
-        if (!cc.TrimCrossingElements(moves, ref srcIdx, moves.Length, MAX_LOOKAHEAD, out _))
-            return false;
+        int dropCount = emittedProfileCount;
+        int keepCount = profile.Count - dropCount;
+        if (keepCount > 0)
+            profile.RemoveRange(0, dropCount);
+        else
+            profile.Clear();
 
-        cc.MergeAllColinear(moves, moves.Length);
-        profile.Clear();
-        profile.AddRange(moves);
-        return true;
+        emittedProfileCount = 0;
+        trimResumeIndex -= dropCount;
+        if (trimResumeIndex < 0)
+            trimResumeIndex = 0;
     }
 
     private static string TrimTrailingZeros(string value)
@@ -261,6 +313,12 @@ public sealed class CcMainRunner
         sb.Append(num);
     }
 
+    private void SyncUnitsFromModal()
+    {
+        inchMode = modalState.inchMode;
+        cc.SetUnits(inchMode ? Units.UNITS_INCH : Units.UNITS_MM);
+    }
+
     private void EmitMoveAsGcode(Move2D m)
     {
         if (outputCB == null)
@@ -278,10 +336,11 @@ public sealed class CcMainRunner
             float dx = m.p_1.x - m.p_0.x;
             float dy = m.p_1.y - m.p_0.y;
             float dz = m.z_1 - m.z_0;
+            bool isAbs = modalState.absoluteMode;
 
             if (m.hasXY)
             {
-                if (modalState.absoluteMode)
+                if (isAbs)
                 {
                     AppendCoord(sb, "X", m.p_1.x, posDigits);
                     AppendCoord(sb, "Y", m.p_1.y, posDigits);
@@ -301,7 +360,7 @@ public sealed class CcMainRunner
             }
 
             if (m.hasZ)
-                AppendCoord(sb, "Z", modalState.absoluteMode ? m.z_1 : dz, posDigits);
+                AppendCoord(sb, "Z", isAbs ? m.z_1 : dz, posDigits);
         }
         else if (m.type == MotionType.MOT_ARC)
         {
@@ -309,10 +368,11 @@ public sealed class CcMainRunner
             float dx = m.p_1.x - m.p_0.x;
             float dy = m.p_1.y - m.p_0.y;
             float dz = m.z_1 - m.z_0;
+            bool isAbs = modalState.absoluteMode;
 
             sb.Append(m.arcDir == ArcDir.ARC_CW ? "G2" : "G3");
-            AppendCoord(sb, "X", modalState.absoluteMode ? m.p_1.x : dx, posDigits);
-            AppendCoord(sb, "Y", modalState.absoluteMode ? m.p_1.y : dy, posDigits);
+            AppendCoord(sb, "X", isAbs ? m.p_1.x : dx, posDigits);
+            AppendCoord(sb, "Y", isAbs ? m.p_1.y : dy, posDigits);
             AppendCoord(sb, "I", dCenter.x, posDigits);
             AppendCoord(sb, "J", dCenter.y, posDigits);
 
@@ -324,7 +384,7 @@ public sealed class CcMainRunner
             }
 
             if (m.hasZ)
-                AppendCoord(sb, "Z", modalState.absoluteMode ? m.z_1 : dz, posDigits);
+                AppendCoord(sb, "Z", isAbs ? m.z_1 : dz, posDigits);
         }
 
         if (sb.Length > 0)
@@ -335,16 +395,33 @@ public sealed class CcMainRunner
         }
     }
 
-    private bool EmitCompProfile()
+    private bool EmitCompProfile(int holdBackCount, bool flushAll)
     {
-        for (int i = 0; i < profile.Count; ++i)
+        if (emittedProfileCount < 0)
+            emittedProfileCount = 0;
+
+        int emitLimit = profile.Count;
+        if (!flushAll)
+        {
+            emitLimit = profile.Count - holdBackCount;
+            if (emitLimit < 0)
+                emitLimit = 0;
+        }
+
+        if (emittedProfileCount >= emitLimit)
+            return true;
+
+        for (int i = emittedProfileCount; i < emitLimit; ++i)
         {
             Move2D m = profile[i];
             if (!m.valid || m.type == MotionType.MOT_EMPTY)
                 continue;
+            if (m.type == MotionType.MOT_LINE && m.hasXY && !m.hasZ && CcMath.Len(m.p_1 - m.p_0) < CcConst.TOL)
+                continue;
             EmitMoveAsGcode(m);
         }
-        profile.Clear();
+
+        emittedProfileCount = emitLimit;
         return true;
     }
 
@@ -356,35 +433,18 @@ public sealed class CcMainRunner
         return true;
     }
 
-    private bool FlushPipeline()
-    {
-        cc.Flush();
-        Move2D outputMove;
-        while (cc.PopOut(out outputMove))
-        {
-            if (!ProfilePush(outputMove))
-            {
-                ReportError("(profile buffer full)", CompError.CE_ERROR);
-                return false;
-            }
-        }
-        return true;
-    }
-
     private bool ProcessOneGcodeLine(ScanLine s)
     {
         Move2D mv = SimpleScan.InterpretMove(s, ref modalState);
-        Move2D outputMove;
         SyncUnitsFromModal();
-        if (s.sawG41 || s.sawG42)
-            cc.SetComp(modalState.comp);
+        cc.SetComp(modalState.comp);
+
         if (mv.type == MotionType.MOT_EMPTY)
         {
             if (s.sawG40)
             {
-                cc.SetComp(CompSide.COMP_OFF);
                 cc.Flush();
-                while (cc.PopOut(out outputMove))
+                while (cc.PopOut(out Move2D outputMove))
                 {
                     if (!ProfilePush(outputMove))
                     {
@@ -393,19 +453,23 @@ public sealed class CcMainRunner
                     }
                 }
             }
+
             return true;
         }
+
         if (!cc.PushIn(mv))
         {
             ReportError("(comp input buffer full)", CompError.CE_ERROR);
             return false;
         }
+
         if (!cc.Process())
         {
             ReportError("(comp processing failed!)", CompError.CE_ERROR);
             return false;
         }
-        while (cc.PopOut(out outputMove))
+
+        while (cc.PopOut(out Move2D outputMove))
         {
             if (!ProfilePush(outputMove))
             {
@@ -417,8 +481,7 @@ public sealed class CcMainRunner
         if (s.sawG40)
         {
             cc.Flush();
-            cc.SetComp(CompSide.COMP_OFF);
-            while (cc.PopOut(out outputMove))
+            while (cc.PopOut(out Move2D outputMove))
             {
                 if (!ProfilePush(outputMove))
                 {
@@ -428,6 +491,68 @@ public sealed class CcMainRunner
             }
         }
 
+        return true;
+    }
+
+    private bool FlushPipeline()
+    {
+        cc.Flush();
+        while (cc.PopOut(out Move2D outputMove))
+        {
+            if (!ProfilePush(outputMove))
+            {
+                ReportError("(profile buffer full)", CompError.CE_ERROR);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool TrimAndMergePendingProfile()
+    {
+        if (!globalTrim)
+            return true;
+
+        int currentProfileCount = profile.Count;
+        int trimStart = trimResumeIndex;
+        if (trimStart < emittedProfileCount)
+            trimStart = emittedProfileCount;
+
+        if (trimStart >= currentProfileCount)
+            return true;
+
+        Move2D[] moves = profile.ToArray();
+
+        if (options.globalTrimCrossing)
+        {
+            int srcIdx = trimStart;
+            if (!cc.TrimCrossingElements(moves, ref srcIdx, currentProfileCount, MAX_LOOKAHEAD, out _))
+                return false;
+        }
+
+        if (options.globalMerge)
+        {
+            int mergeStart = trimStart;
+            if (mergeStart > emittedProfileCount)
+                mergeStart -= 1;
+
+            int mergeCount = currentProfileCount - mergeStart;
+            Move2D[] mergeSlice = new Move2D[mergeCount];
+            Array.Copy(moves, mergeStart, mergeSlice, 0, mergeCount);
+            cc.MergeAllColinear(mergeSlice, mergeCount);
+            Array.Copy(mergeSlice, 0, moves, mergeStart, mergeCount);
+        }
+
+        profile.Clear();
+        profile.AddRange(moves);
+
+        int nextTrimStart = currentProfileCount - TRIM_OVERLAP_MOVES;
+        if (nextTrimStart < emittedProfileCount)
+            nextTrimStart = emittedProfileCount;
+        if (nextTrimStart < 0)
+            nextTrimStart = 0;
+        trimResumeIndex = nextTrimStart;
         return true;
     }
 }

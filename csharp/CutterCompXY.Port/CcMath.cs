@@ -158,6 +158,7 @@ public struct ArcAngles
 public static class CcMath
 {
     public static CompErrorCB ErrorCallback;
+    public static float arcTol = CcConst.ARC_TOL_IN;
 
     public static void ReportCompError(CompError err, uint seqNum)
     {
@@ -232,7 +233,7 @@ public static class CcMath
     {
         float r0 = Len(m.p_0 - m.center);
         float r1 = Len(m.p_1 - m.center);
-        bool ok = MathF.Abs(r0 - r1) <= CcConst.INPUT_ARC_TOL;
+        bool ok = MathF.Abs(r0 - r1) <= arcTol;
         if (!ok)
             ReportCompError(CompError.CE_ARC_RADIUS_MISMATCH, m.seqNum);
         return ok;

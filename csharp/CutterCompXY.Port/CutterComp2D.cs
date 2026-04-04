@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.InteropServices;
 namespace CutterCompXY.Port;
 
 // Native callback delegates matching C++ signatures
@@ -15,9 +14,21 @@ public struct CcMainOptions
         public CcErrorCB error;
         public CcStartCompCB startComp;
     }
+
+    public CcMainOptions()
+    {
+        toolRadius = 0.0f;
+        cornerTreatment = CornerType.CORNER_ROLL;
+        globalTrimCrossing = true;
+        globalMerge = true;
+        emitStatusComments = true;
+        callbacks = new CcMainCallbacks();
+    }
+
     public float toolRadius;
     public CornerType cornerTreatment;
     public bool globalTrimCrossing;
+    public bool globalMerge;
     public bool emitStatusComments;
     public CcMainCallbacks callbacks;
 }
@@ -48,12 +59,14 @@ public sealed class CutterComp2D
     public float toolR = 0.0f;
     public sbyte toolSign = 0;
     public CompSide comp_state = CompSide.COMP_OFF;
+    public CompMode compMode = CompMode.CM_NONE;
     public bool havePrevMove2D = false;
     public Move2D prevOff = new Move2D();
     private Units units = Units.UNITS_MM;
     public float gapTol = CcConst.GAP_TOL_IN;
     public bool hasCompError = false;
     public uint lastSeqNum = 0;
+    private CcMainOptions options = new CcMainOptions();
 
     public struct CrossingHit
     {
@@ -67,15 +80,27 @@ public sealed class CutterComp2D
     public void SetPerformTrim(bool en) => performTrim = en;
     public void SetErrorCallback(CompErrorCB cb) => CcMath.ErrorCallback = cb;
 
+    public void SetOptions(CcMainOptions opts)
+    {
+        options = opts;
+        SetToolRadius(opts.toolRadius);
+        ResetState();
+        cornerTreatment = opts.cornerTreatment;
+        performTrim = opts.globalTrimCrossing;
+        SetErrorCallback(null);
+    }
+
     public void SetUnits(Units u)
     {
         units = u;
         if (units == Units.UNITS_INCH)
         {
+            CcMath.arcTol = CcConst.ARC_TOL_IN;
             gapTol = CcConst.GAP_TOL_IN;
         }
         else
         {
+            CcMath.arcTol = CcConst.ARC_TOL_IN * CcConst.IN_TO_MM;
             gapTol = CcConst.GAP_TOL_IN * CcConst.IN_TO_MM;
         }
     }
@@ -86,10 +111,116 @@ public sealed class CutterComp2D
         toolSign = (sbyte)(r < 0 ? -1 : 1);
     }
 
+    private CompSide EffectiveCompSide()
+    {
+        if (toolSign >= 0)
+            return comp_state;
+
+        if (comp_state == CompSide.COMP_LEFT)
+            return CompSide.COMP_RIGHT;
+
+        if (comp_state == CompSide.COMP_RIGHT)
+            return CompSide.COMP_LEFT;
+
+        return comp_state;
+    }
+
+    private bool CompUsesLeft() => EffectiveCompSide() == CompSide.COMP_LEFT;
+
+    private bool Validate(ref Move2D m)
+    {
+        if (m.type == MotionType.MOT_LINE)
+        {
+            float lineLen = CcMath.Len(m.p_1 - m.p_0);
+            if (lineLen < CcConst.TOL)
+            {
+                m.hasXY = false;
+                m.valid = false;
+                return false;
+            }
+
+            m.valid = true;
+            return true;
+        }
+
+        if (m.type != MotionType.MOT_ARC)
+            return m.valid;
+
+        bool degenerate = MathF.Abs(m.radius) < CcConst.TOL;
+        float sweep = CcMath.ArcSweepDeg(m);
+        bool sweepOk = sweep <= CcConst.MAX_SWEEP_DEG && sweep >= CcConst.MIN_ARC_LEN;
+
+        if (degenerate || !sweepOk)
+        {
+            m.valid = false;
+            if (options.globalTrimCrossing)
+                return m.valid;
+
+            ReportCompError(CompError.CE_ARC_LT_TOOL_RAD);
+            return false;
+        }
+
+        if (!options.globalTrimCrossing)
+        {
+            CompSide side = EffectiveCompSide();
+            bool innerArc =
+                (side == CompSide.COMP_LEFT && m.arcDir == ArcDir.ARC_CCW) ||
+                (side == CompSide.COMP_RIGHT && m.arcDir == ArcDir.ARC_CW);
+
+            if (innerArc && MathF.Abs(m.radius) < toolR)
+            {
+                m.valid = false;
+                ReportCompError(CompError.CE_ARC_LT_TOOL_RAD);
+                return false;
+            }
+        }
+
+        bool consistent = CcMath.IsRadiusConsistent(m);
+        if (!consistent)
+            ReportCompError(CompError.CE_ARC_RADIUS_MISMATCH);
+        if (!sweepOk)
+            ReportCompError(CompError.CE_INVALID_MOVE);
+
+        return m.valid;
+    }
+
     public void SetComp(CompSide s)
     {
+        CompSide prevSide = comp_state;
         comp_state = s;
-        ResetState();
+
+        if (prevSide == CompSide.COMP_OFF && s != CompSide.COMP_OFF)
+        {
+            compMode = CompMode.CM_IN;
+            return;
+        }
+
+        if (prevSide != CompSide.COMP_OFF && s == CompSide.COMP_OFF)
+        {
+            compMode = CompMode.CM_OUT;
+            return;
+        }
+
+        if (s == CompSide.COMP_OFF)
+        {
+            compMode = CompMode.CM_NONE;
+            return;
+        }
+
+        if (prevSide != s)
+        {
+            compMode = CompMode.CM_IN;
+            return;
+        }
+
+        if (compMode == CompMode.CM_NONE || compMode == CompMode.CM_OUT)
+        {
+            compMode = CompMode.CM_IN;
+            return;
+        }
+
+        if (compMode != CompMode.CM_IN)
+            compMode = CompMode.CM_STEADY;
     }
 
     public void ReportCompError(CompError err)
@@ -109,38 +240,23 @@ public sealed class CutterComp2D
 
     public bool Process()
     {
-        if (hasCompError)
-            return false;
-        if (comp_state == CompSide.COMP_OFF || toolR < CcConst.TOL)
-        {
-            while (inCount > 0)
-            {
-                if (!OutHasSpace(1))
-                    return false;
-                Move2D m = PopIn();
-                PushOut(m);
-            }
-            return true;
-        }
-
         while (inCount > 0)
         {
             if (!OutHasSpace(4))
                 return false;
 
-            Move2D raw = PopIn();
-            if (raw.seqNum != 0)
-                lastSeqNum = raw.seqNum;
-            if (raw.type == MotionType.MOT_EMPTY)
+            Move2D curOff = PopIn();
+            curOff.compMode = compMode;
+            if (curOff.seqNum != 0)
+                lastSeqNum = curOff.seqNum;
+            if (curOff.type == MotionType.MOT_EMPTY)
                 continue;
 
-            CcMath.UpdateVectors(ref raw);
+            CcMath.UpdateVectors(ref curOff);
+            curOff.hasZ = MathF.Abs(curOff.z_1 - curOff.z_0) > CcConst.EPS;
+            curOff.hasXY = !CcMath.IsNear(curOff.p_1, curOff.p_0);
 
-            Move2D curOff;
-            OffsetMove(raw, out curOff);
-            CcMath.Validate(ref curOff);
-
-            if (!raw.hasXY && raw.hasZ)
+            if (curOff.hasZ && !curOff.hasXY)
             {
                 if (havePrevMove2D)
                 {
@@ -153,10 +269,19 @@ public sealed class CutterComp2D
                 continue;
             }
 
+            if (!Validate(ref curOff))
+                return false;
+            if (!OffsetMove(curOff, out curOff))
+                return false;
+
             if (!havePrevMove2D)
             {
                 prevOff = curOff;
                 havePrevMove2D = true;
+                if (curOff.compMode == CompMode.CM_IN)
+                    compMode = CompMode.CM_STEADY;
+                else if (curOff.compMode == CompMode.CM_OUT)
+                    compMode = CompMode.CM_NONE;
                 continue;
             }
 
@@ -194,7 +319,7 @@ public sealed class CutterComp2D
             if (curOff.compMode == CompMode.CM_STEADY)
                 ApplyLogic(ref prevOff, ref curOff, inserts, ref insertCount);
 
-            CcMath.Validate(ref curOff);
+            Validate(ref curOff);
 
             if (prevOff.valid)
             {
@@ -203,18 +328,23 @@ public sealed class CutterComp2D
                     PushOut(inserts[i]);
             }
 
+            if (curOff.compMode == CompMode.CM_IN)
+                compMode = CompMode.CM_STEADY;
+            else if (curOff.compMode == CompMode.CM_OUT)
+                compMode = CompMode.CM_NONE;
+
             prevOff = curOff;
         }
         return true;
     }
-    // ...existing code...
 
     public void Flush()
     {
         Process();
         if (havePrevMove2D && OutHasSpace(1))
         {
-            PushOut(prevOff);
+            if (prevOff.valid && prevOff.type != MotionType.MOT_EMPTY)
+                PushOut(prevOff);
             havePrevMove2D = false;
         }
     }
@@ -233,7 +363,14 @@ public sealed class CutterComp2D
         return true;
     }
 
-    private bool OutHasSpace(int n) => (outCount + n) <= OUT_CAP;
+    private bool OutHasSpace(int n)
+    {
+        bool ok = (outCount + n) <= OUT_CAP;
+        if (!ok)
+            ReportCompError(CompError.CE_OUTPUT_BUFFER_OVERFLOW);
+
+        return ok;
+    }
 
     private Move2D PopIn()
     {
@@ -246,7 +383,10 @@ public sealed class CutterComp2D
     private void PushOut(in Move2D m)
     {
         if (outCount >= OUT_CAP)
+        {
+            ReportCompError(CompError.CE_OUTPUT_BUFFER_OVERFLOW);
             return;
+        }
 
         output_buffer[(outHead + outCount) % OUT_CAP] = m;
         outCount++;
@@ -274,9 +414,7 @@ public sealed class CutterComp2D
         if (cw == 0)
             return false;
 
-        bool isLeft = comp_state == CompSide.COMP_LEFT;
-        if (toolSign < 0)
-            isLeft = !isLeft;
+        bool isLeft = CompUsesLeft();
 
         if (isLeft)
             return !(cw > 0);
@@ -497,7 +635,7 @@ public sealed class CutterComp2D
         }
 
         dst = src;
-        CcMath.Validate(ref dst);
+        Validate(ref dst);
         dst.src_1 = src.p_1;
 
         float dr = toolR;
@@ -531,8 +669,8 @@ public sealed class CutterComp2D
         b.p_0 = tip;
         CcMath.UpdateVectors(ref a);
         CcMath.UpdateVectors(ref b);
-        CcMath.Validate(ref a);
-        CcMath.Validate(ref b);
+        Validate(ref a);
+        Validate(ref b);
         return a.valid && b.valid;
     }
 
@@ -548,8 +686,8 @@ public sealed class CutterComp2D
             CcMath.UpdateVectors(ref a);
             CcMath.UpdateVectors(ref b);
 
-            CcMath.Validate(ref a);
-            CcMath.Validate(ref b);
+            Validate(ref a);
+            Validate(ref b);
         }
 
         return a.valid && b.valid;
@@ -679,14 +817,14 @@ public sealed class CutterComp2D
 
         cap.p_0 = ipForL1;
         cap.p_1 = ipForL2;
-        if (!CcMath.Validate(ref cap))
+        if (!Validate(ref cap))
             return 0;
 
         if (a.type == MotionType.MOT_LINE)
         {
             a.p_1 = ipForL1;
             CcMath.UpdateVectors(ref a);
-            if (!CcMath.Validate(ref a))
+            if (!Validate(ref a))
                 return 0;
         }
 
@@ -694,7 +832,7 @@ public sealed class CutterComp2D
         {
             b.p_0 = ipForL2;
             CcMath.UpdateVectors(ref b);
-            if (!CcMath.Validate(ref b))
+            if (!Validate(ref b))
                 return 0;
         }
 
@@ -702,7 +840,7 @@ public sealed class CutterComp2D
         {
             extA.p_1 = ipForL1;
             CcMath.UpdateVectors(ref extA);
-            if (!CcMath.Validate(ref extA))
+            if (!Validate(ref extA))
                 return 0;
             output[outCountLocal++] = extA;
         }
@@ -714,7 +852,7 @@ public sealed class CutterComp2D
             extB.p_0 = ipForL2;
             extB.p_1 = b.p_0;
             CcMath.UpdateVectors(ref extB);
-            if (!CcMath.Validate(ref extB))
+            if (!Validate(ref extB))
                 return 0;
             output[outCountLocal++] = extB;
         }
@@ -747,7 +885,7 @@ public sealed class CutterComp2D
         extLnOut.endDir = dir;
 
         CcMath.UpdateVectors(ref extLnOut);
-        CcMath.Validate(ref extLnOut);
+        Validate(ref extLnOut);
         return extLnOut;
     }
 
@@ -765,7 +903,7 @@ public sealed class CutterComp2D
             Move2D roll = MakeRollArc(a, b);
             if (insertCount >= 3)
                 return false;
-            if (!CcMath.Validate(ref roll))
+            if (!Validate(ref roll))
                 return false;
 
             roll.hasXY = true;

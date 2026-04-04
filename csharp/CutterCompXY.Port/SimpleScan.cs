@@ -4,6 +4,7 @@ namespace CutterCompXY.Port;
 
 public struct ScanLine
 {
+    public bool isMove;
     public bool hasN;
     public int N;
     public bool hasG;
@@ -252,11 +253,13 @@ public static class SimpleScan
             {
                 s.hasX = true;
                 i = ParseFloat(line, i, out s.X);
+                s.isMove = true;
             }
             else if (c == 'Y')
             {
                 s.hasY = true;
                 i = ParseFloat(line, i, out s.Y);
+                s.isMove = true;
             }
             else if (c == 'Z')
             {
