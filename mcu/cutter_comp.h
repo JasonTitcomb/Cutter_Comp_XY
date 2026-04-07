@@ -19,6 +19,8 @@
 
 #if CUTTER_COMP_ENABLE
 
+#define CUTTER_COMP_VERSION "0.1"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -176,6 +178,8 @@ typedef struct
     uint8_t type;
     uint8_t arcDir;
     uint8_t compMode;
+    bool hasXY;
+    bool hasZ;
     bool valid;
 } move2d;
 
@@ -226,8 +230,10 @@ typedef struct
     int outCount;
     bool stopErr;
     bool havePrevMove;
+    bool havePendingZMove;
 
     move2d prevOff;
+    move2d pendingZMove;
     move2d input_buffer[CC_IN_CAP];
     move2d output_buffer[CC_OUT_CAP];
 #if CC_ENABLE_LOOKAHEAD
@@ -247,6 +253,7 @@ cc_status_code_t cc_api_process_move(const move2d *move);
 // comp_side is CC_COMP_OFF=0, CC_COMP_LEFT=1, or CC_COMP_RIGHT=-1
 void cc_api_set_comp(comp_side side);
 comp_side cc_api_get_comp(void);
+comp_mode cc_api_get_mode(void);
 
 //Requires CC_ENABLE_CORNER_TREATMENT set to 1
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);

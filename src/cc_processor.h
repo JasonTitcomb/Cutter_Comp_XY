@@ -117,16 +117,44 @@ private:
         return effectiveCompSide() == COMP_LEFT;
     }
 
+    static bool isLineLike(const Move2D &m)
+    {
+        return m.type == MOT_LINE || m.type == MOT_RAPID;
+    }
+
+    static bool hasRapidMove(const Move2D &a, const Move2D &b)
+    {
+        return a.type == MOT_RAPID || b.type == MOT_RAPID;
+    }
+
+    static int zMoveDirection(float z0, float z1)
+    {
+        if (is_equal(z0, z1))
+            return 0;
+        return (z1 > z0) ? 1 : -1;
+    }
+
+    static bool shouldReplacePendingZTarget(const Move2D &pending, const Move2D &candidate)
+    {
+        const int pendingDir = zMoveDirection(pending.z_0, pending.z_1);
+        const int candidateDir = zMoveDirection(candidate.z_0, candidate.z_1);
+
+        if (pendingDir != 0 && pendingDir == candidateDir)
+            return fabsf(candidate.z_1) > fabsf(pending.z_1);
+
+        return true;
+    }
+
     bool validate(Move2D &m)
     {
-        if (m.type == MOT_LINE)
+        if (isLineLike(m))
         {
             const float lineLen = len(m.p_1 - m.p_0);
             if (lineLen < TOL)
             {
                 m.hasXY = false;
-                m.valid = false;//VALIDATE FAIL
-                return false;//VALIDATE FAIL
+                m.valid = false; // VALIDATE FAIL
+                return false;    // VALIDATE FAIL
             }
 
             m.valid = true;
@@ -140,7 +168,7 @@ private:
         float sw = arcSweepDeg(m);
         bool sweepOk = sw <= MAX_SWEEP_DEG && sw >= MIN_ARC_LEN;
 
-        if (degenerate|| !sweepOk)
+        if (degenerate || !sweepOk)
         {
             m.valid = false;
             if (options.globalTrimCrossing)
@@ -163,7 +191,7 @@ private:
         }
 
         bool consistent = is_radius_consistent(m);
- 
+
         if (!consistent)
             reportCompError(CE_ARC_RADIUS_MISMATCH);
         if (!sweepOk)
@@ -198,6 +226,8 @@ private:
     // Delayed output state
     bool havePrevMove2D = false;
     Move2D prevOff;
+    bool havePendingZMove = false;
+    Move2D pendingZMove;
 
 public:
     CompSide compSide = COMP_OFF;
@@ -283,11 +313,30 @@ public:
         return true;
     }
 
+    bool emitPendingZMoveAt(const Move2D &anchor)
+    {
+        if (!havePendingZMove)
+            return true;
+
+        Move2D zMove = pendingZMove;
+        zMove.p_0 = anchor.p_1;
+        zMove.p_1 = anchor.p_1;
+        zMove.z_0 = anchor.z_1;
+        zMove.hasXY = false;
+        zMove.hasZ = !is_equal(zMove.z_1, zMove.z_0);
+
+        if (zMove.hasZ)
+            pushOut(zMove);
+
+        havePendingZMove = false;
+        return !hasCompError;
+    }
+
     // Main pump
     bool process(void)
     {
-        //if (hasCompError)
-        //    return false;
+        // if (hasCompError)
+        //     return false;
 
         while (inCount > 0)
         {
@@ -307,18 +356,42 @@ public:
             update_vectors(curOff);
 
             curOff.hasZ = !is_equal(curOff.z_1, curOff.z_0);
-            curOff.hasXY = !is_equal(curOff.p_1, curOff.p_0);
             // Z-only move: no XY displacement, nothing to offset
             if (curOff.hasZ && !curOff.hasXY)
             {
                 if (havePrevMove2D)
-                { // copy the XY from the previous move.
-                    curOff.p_0 = prevOff.p_0;
-                    curOff.p_1 = prevOff.p_0;
+                {
+                    if (havePendingZMove)
+                    {
+                        // Edge case: if we get multiple Z-only moves in a row, only keep the longest one in the same direction
+                        // Check if the new Z move should replace the pending one
+                        // (e.g. if it's a longer move in the same direction)
+                        if (shouldReplacePendingZTarget(pendingZMove, curOff))
+                        {
+                            pendingZMove.z_1 = curOff.z_1;
+                            pendingZMove.lnNum = curOff.lnNum;
+                            pendingZMove.feed = curOff.feed;
+                            pendingZMove.type = curOff.type;
+                            pendingZMove.hasZ = !is_equal(pendingZMove.z_1, pendingZMove.z_0);
+                        }
+                    }
+                    else
+                    {
+                        pendingZMove = curOff;
+                        pendingZMove.p_0 = prevOff.p_1;
+                        pendingZMove.p_1 = prevOff.p_1;
+                        pendingZMove.z_0 = prevOff.z_1;
+                        pendingZMove.hasXY = false;
+                        pendingZMove.hasZ = !is_equal(pendingZMove.z_1, pendingZMove.z_0);
+                        havePendingZMove = pendingZMove.hasZ;
+                    }
                 }
-                if (!outHasSpace(1))
-                    return false;
-                pushOut(curOff);
+                else
+                {
+                    if (!outHasSpace(1))
+                        return false;
+                    pushOut(curOff);
+                }
                 continue;
             }
 
@@ -326,7 +399,7 @@ public:
                 return false;
             if (!offsetMove(curOff))
                 return false;
-                
+
             if (!havePrevMove2D)
             {
                 prevOff = curOff;
@@ -343,35 +416,49 @@ public:
 
             if (prevOff.compMode == CM_IN)
             {
-                // modify the previous move so that the end is the start of the current move,
-                Vec2 prevStart = prevOff.p_0;
-                Vec2 prevEnd = prevOff.p_1;
-                prevOff.p_1 = curOff.p_0;
-                float moveLen = MIN(len(prevEnd - prevStart),
-                                         len(prevOff.p_1 - prevStart));
-                if (moveLen <= toolR)
+                const float originalLen = len(prevOff.p_1 - prevOff.p_0);
+                if (originalLen <= toolR + TOL)
                 {
                     reportCompError(CE_COMP_MOVE_TOO_SHORT);
                     return false;
                 }
+
+                // Modify the previous move so that the end is the start of the current move.
+                prevOff.p_1 = curOff.p_0;
+
+                const float finalLen = len(prevOff.p_1 - prevOff.p_0);
+                if (finalLen <= TOL)
+                {
+                    reportCompError(CE_COMP_MOVE_TOO_SHORT);
+                    return false;
+                }
+
+                update_vectors(prevOff);
             }
 
             if (curOff.compMode == CM_OUT)
             {
-                // modify the G40 start is the end of the previous move,
-                Vec2 curStart = curOff.p_0;
-                Vec2 curEnd = curOff.p_1;
-                curOff.p_0 = prevOff.p_1;
-                float moveLen = MIN(len(curEnd - curStart),
-                                         len(curEnd - curOff.p_0));
-                if (moveLen <= toolR)
+                const float originalLen = len(curOff.p_1 - curOff.p_0);
+                if (originalLen <= toolR + TOL)
                 {
                     reportCompError(CE_COMP_MOVE_TOO_SHORT);
                     return false;
                 }
+
+                // Modify the G40 move so that the start is the end of the previous move.
+                curOff.p_0 = prevOff.p_1;
+
+                const float finalLen = len(curOff.p_1 - curOff.p_0);
+                if (finalLen <= TOL)
+                {
+                    reportCompError(CE_COMP_MOVE_TOO_SHORT);
+                    return false;
+                }
+
+                update_vectors(curOff);
             }
 
-             // Apply decision tree between prevOff and curOff
+            // Apply decision tree between prevOff and curOff
             if (curOff.compMode == CM_STEADY)
                 applyLogic(prevOff, curOff, inserts, insertCount);
 
@@ -381,6 +468,8 @@ public:
             if (prevOff.valid)
             {
                 pushOut(prevOff);
+                if (!emitPendingZMoveAt(prevOff))
+                    return false;
                 for (int i = 0; i < insertCount; ++i)
                     pushOut(inserts[i]);
             }
@@ -399,10 +488,13 @@ public:
     void flush()
     {
         process();
-        if (havePrevMove2D && outHasSpace(1))
+        if (havePrevMove2D && outHasSpace(havePendingZMove ? 2 : 1))
         {
             if (prevOff.valid && prevOff.type != MOT_EMPTY)
+            {
                 pushOut(prevOff);
+                (void)emitPendingZMoveAt(prevOff);
+            }
             havePrevMove2D = false;
         }
     }
@@ -447,7 +539,11 @@ private:
         outCount++;
     }
 
-    void resetState() { havePrevMove2D = false; }
+    void resetState()
+    {
+        havePrevMove2D = false;
+        havePendingZMove = false;
+    }
 
     Move2D makeBevel(const Move2D &a, const Move2D &b)
     {
@@ -458,8 +554,9 @@ private:
         m.feed = (a.feed > 0) ? a.feed : b.feed;
         m.p_0 = a.p_1;
         m.p_1 = b.p_0;
-        m.z_0 = a.z_1;
+        m.z_0 = b.z_0;
         m.z_1 = b.z_0;
+        m.hasZ = false;
         update_vectors(m);
         return m;
     }
@@ -484,7 +581,7 @@ private:
 
     static bool pointOnFiniteElem(const Move2D &m, Vec2 p)
     {
-        if (m.type == MOT_LINE)
+        if (isLineLike(m))
             return pointOnSegment(m.p_0, m.p_1, p);
 
         if (m.type == MOT_ARC)
@@ -498,7 +595,7 @@ private:
 
     static int intersectCarrier(const Move2D &a, const Move2D &b, Vec2 pts[2])
     {
-        if (a.type == MOT_LINE && b.type == MOT_LINE)
+        if (isLineLike(a) && isLineLike(b))
         {
             bool tip = false;
             IntersectType it = intersectLineLine(a, b, pts[0], tip);
@@ -517,7 +614,7 @@ private:
             return count;
         }
 
-        const Move2D &line = (a.type == MOT_LINE) ? a : b;
+        const Move2D &line = isLineLike(a) ? a : b;
         const Move2D &arc = (a.type == MOT_ARC) ? a : b;
         int count = 0;
         IntersectType it = intersectLineCircle(line.p_0, line.p_1, arc.center, arc.radius, pts[0], pts[1], count);
@@ -803,8 +900,9 @@ private:
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
         roll.p_0 = a.p_1;
         roll.p_1 = b.p_0;
-        roll.z_0 = a.z_1;
+        roll.z_0 = b.z_0;
         roll.z_1 = b.z_0;
+        roll.hasZ = false;
 
         // Calculate the roll arc center using the angle bisector method
         roll.center = roll_center(a.p_1, a.endDir, compUsesLeft(), toolR);
@@ -814,15 +912,14 @@ private:
         float r0 = len(v0);
         float r1 = len(v1);
 
-       float r = toolR;
-       if (r0 >= TOL && r1 >= TOL)
+        float r = toolR;
+        if (r0 >= TOL && r1 >= TOL)
             r = 0.5f * (r0 + r1);
         else if (r0 >= TOL)
             r = r0;
         else if (r1 >= TOL)
             r = r1;
-        else
- 
+
         if (r0 >= TOL)
             roll.p_0 = roll.center + v0 * (r / r0);
         if (r1 >= TOL)
@@ -862,7 +959,7 @@ private:
             return outCountLocal;
         }
 
-        if (a.type == MOT_LINE)
+        if (isLineLike(a))
         {
             l1 = a;
         }
@@ -875,7 +972,7 @@ private:
             haveExtA = true;
         }
 
-        if (b.type == MOT_LINE)
+        if (isLineLike(b))
         {
             l2 = b;
         }
@@ -908,8 +1005,9 @@ private:
         cap.type = MOT_LINE;
         cap.compMode = CM_STEADY;
         cap.feed = (a.feed > 0) ? a.feed : b.feed;
-        cap.z_0 = a.z_1;
+        cap.z_0 = b.z_0;
         cap.z_1 = b.z_0;
+        cap.hasZ = false;
         const float halfLen = 0.5f * (toolR + 2.0f);
         cap.p_0 = offsetCap - chamferDir * halfLen;
         cap.p_1 = offsetCap + chamferDir * halfLen;
@@ -934,7 +1032,7 @@ private:
         if (!validate(cap))
             return 0;
 
-        if (a.type == MOT_LINE)
+        if (isLineLike(a))
         {
             a.p_1 = ipForL1;
             // a.o_1 = a.p_1;
@@ -943,7 +1041,7 @@ private:
                 return 0;
         }
 
-        if (b.type == MOT_LINE)
+        if (isLineLike(b))
         {
             b.p_0 = ipForL2;
             // b.o_0 = b.p_0;
@@ -955,6 +1053,9 @@ private:
         if (haveExtA)
         {
             extA.p_1 = ipForL1;
+            extA.z_0 = b.z_0;
+            extA.z_1 = b.z_0;
+            extA.hasZ = false;
             update_vectors(extA);
             if (!validate(extA))
                 return 0;
@@ -967,6 +1068,9 @@ private:
         {
             extB.p_0 = ipForL2;
             extB.p_1 = b.p_0;
+            extB.z_0 = b.z_0;
+            extB.z_1 = b.z_0;
+            extB.hasZ = false;
             update_vectors(extB);
             if (!validate(extB))
                 return 0;
@@ -1050,8 +1154,10 @@ private:
     void applyLogic(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
         insertCount = 0;
-
-        if (a.type == MOT_LINE && b.type == MOT_LINE)
+        if (!a.hasXY || !b.hasXY)
+            return;
+            
+        if (isLineLike(a) && isLineLike(b))
         {
             handleLineLine(a, b, inserts, insertCount);
         }
@@ -1059,7 +1165,7 @@ private:
         {
             handleArcArc(a, b, inserts, insertCount);
         }
-        else if ((a.type == MOT_ARC && b.type == MOT_LINE) || (a.type == MOT_LINE && b.type == MOT_ARC))
+        else if ((a.type == MOT_ARC && isLineLike(b)) || (isLineLike(a) && b.type == MOT_ARC))
         {
             handleArcLine(a, b, inserts, insertCount);
         }
@@ -1069,7 +1175,8 @@ private:
     {
         Junction junction;
         float gap = dist(b.p_0, a.p_1);
-        bool allowExtend = (gap < gapTol); // allow extend for very small gaps since it can be hard to trim down to a tiny gap, and extending won't cause major issues.
+        bool anyRapid = hasRapidMove(a, b);
+        bool allowExtend = anyRapid || (gap < gapTol); // rapid corners should resolve by trim/extend instead of inserting a roll.
         bool resolved = solveJunction(a, b, allowExtend, junction);
 
         if (junction.type == JT_TRIM_TO_INTERSECTION)
@@ -1113,7 +1220,7 @@ private:
             return;
         }
 
-        if (resolved && junction.type == JT_ROLL_AROUND)
+        if (!anyRapid && resolved && junction.type == JT_ROLL_AROUND)
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP);
@@ -1172,7 +1279,8 @@ private:
 
         float gap = len(b.p_0 - a.p_1);
         Junction junction;
-        bool resolved = solveJunction(a, b, gap < gapTol, junction);
+        bool anyRapid = hasRapidMove(a, b);
+        bool resolved = solveJunction(a, b, anyRapid || (gap < gapTol), junction);
 
         if (junction.type == JT_TRIM_TO_INTERSECTION)
         {
@@ -1186,7 +1294,7 @@ private:
                 return;
         }
 
-        if (resolved && junction.type == JT_ROLL_AROUND)
+        if (!anyRapid && resolved && junction.type == JT_ROLL_AROUND)
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP);
@@ -1258,7 +1366,7 @@ private:
     {
         for (int i = start; i < count; ++i)
         {
-            if (moves[i].type != MOT_EMPTY && moves[i].valid)
+            if (isMotionValid(moves[i]))
                 bounds[i] = aabb_of(moves[i]);
         }
     }
@@ -1280,7 +1388,7 @@ private:
         best.hit = false;
         best.dist = 1e30f; // start with big distance so that any real crossing will be closer.
 
-        if (!moves[srcIdx].valid)
+        if (!isMotionValid(moves[srcIdx]))
             return best;
 
         Move2D &src = moves[srcIdx];
@@ -1289,7 +1397,7 @@ private:
         for (int r = 0; r <= maxLookahead && j < maxIdx && j < numMoves; ++r, ++j)
         {
             Move2D &target = moves[j];
-            if (!target.valid)
+            if (!isMotionValid(target))
                 continue;
 
             // Closed-loop seam case: do not trim when comparing first cutting move vs last cutting move.
@@ -1393,14 +1501,14 @@ public:
 
         while (srcIdx < maxIdx)
         {
-            while (srcIdx < maxIdx && (!moves[srcIdx].valid)) //|| moves[srcIdx].compMode == CM_IN
+            while (srcIdx < maxIdx && !isMotionValid(moves[srcIdx])) //|| moves[srcIdx].compMode == CM_IN
                 srcIdx++;
 
             if (srcIdx >= maxIdx)
                 break;
 
             int targetIdx = srcIdx + 1;
-            while (targetIdx < maxIdx && !moves[targetIdx].valid)
+            while (targetIdx < maxIdx && !isMotionValid(moves[targetIdx]))
                 targetIdx++; // skip invalid targets
             if (targetIdx >= maxIdx)
                 break; // if we have no valid targets ahead, we are done.

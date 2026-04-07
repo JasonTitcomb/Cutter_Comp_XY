@@ -19,6 +19,7 @@
 #include "cc_main.h"
 #include "../mcu/cutter_comp_grblhal.h"
 #include "writer.h"
+#include <cstdarg>
 /*
   This is a desktop test harness for the CutterComp2D class, which performs 2D cutter compensation on linear and arc moves.
 
@@ -31,8 +32,8 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.0787f;
-static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
+static constexpr float TOOL_RADIUS = 0.1f;
+static constexpr CornerType CORNER_TREATMENT = CORNER_CHAMFER; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
 static constexpr bool GLOBAL_MERGE = false;
@@ -135,6 +136,17 @@ extern "C"
     g_mc_host_pos[1] = xyz[1];
     g_mc_host_pos[2] = xyz[2];
     return true;
+  }
+
+  void debug_printf(const char *fmt, ...)
+  {
+    char debug_out[100];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(debug_out, sizeof(debug_out) - 1, fmt, args);
+    va_end(args);
+    std::printf("(%s)\n", debug_out);
   }
 
   void report_message(const char *msg, message_type_t type)
@@ -245,7 +257,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
   // Initialize the cc_xy adapter with the provided tool radius,
   // and set up callbacks for move emission and error reporting.
-  cc_api_init(toolRadius,modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM,  cc_emit_via_mc, host_xy_error_cb);
+  cc_api_init(toolRadius, modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM, cc_emit_via_mc, host_xy_error_cb);
 
   g_simpleProfileOut = &profileOut;
 
@@ -266,7 +278,8 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
     const bool enteringComp = (prevComp == COMP_OFF && modal.comp != COMP_OFF);
     const bool exitingComp = (prevComp != COMP_OFF && modal.comp == COMP_OFF);
 
-    if (enteringComp){
+    if (enteringComp)
+    {
       cc_api_init(toolRadius, modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM, cc_emit_via_mc, host_xy_error_cb);
     }
 
@@ -291,7 +304,6 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
       g_simpleProfileOut = nullptr;
       return false;
     }
-
   }
 
   // final move to flush any pending compensation moves through the system.
@@ -335,6 +347,42 @@ static std::string lookup_gcode_line(const std::vector<std::string> &program, ui
     return "<line out of range>";
 
   return program[index];
+}
+
+static bool try_extract_n_word(const std::string &line, uint32_t &nWord)
+{
+  size_t i = 0;
+  while (i < line.size())
+  {
+    while (i < line.size() && std::isspace(static_cast<unsigned char>(line[i])))
+      ++i;
+
+    if (i >= line.size())
+      return false;
+
+    if (line[i] == '(')
+      return false;
+
+    if (line[i] == 'N' || line[i] == 'n')
+    {
+      ++i;
+      size_t start = i;
+      while (i < line.size() && std::isdigit(static_cast<unsigned char>(line[i])))
+        ++i;
+
+      if (i > start)
+      {
+        nWord = static_cast<uint32_t>(std::strtoul(line.substr(start, i - start).c_str(), nullptr, 10));
+        return true;
+      }
+      return false;
+    }
+
+    while (i < line.size() && !std::isspace(static_cast<unsigned char>(line[i])))
+      ++i;
+  }
+
+  return false;
 }
 
 static std::vector<Move2D> filter_valid_moves(const std::vector<Move2D> &moves)
@@ -495,19 +543,28 @@ static void write_xy_compare_report(const char *path,
     ++mismatchCount;
     if (mismatchCount <= 20)
     {
+      const std::string fullGcodeLine = lookup_gcode_line(fullProgram, full.lnNum);
+      const std::string simpleGcodeLine = lookup_gcode_line(simpleProgram, simple.lnNum);
+      uint32_t fullNWord = 0;
+      uint32_t simpleNWord = 0;
+      const bool fullHasNWord = try_extract_n_word(fullGcodeLine, fullNWord);
+      const bool simpleHasNWord = try_extract_n_word(simpleGcodeLine, simpleNWord);
+
       out << "\nindex " << i << " mismatch\n";
       out << "  full   : type=" << motion_type_name(full.type)
-          << " seq=" << full.lnNum
+        << " out_line=" << full.lnNum
+        << (fullHasNWord ? " n=" + std::to_string(fullNWord) : "")
           << " p0=(" << full.p_0.x << ", " << full.p_0.y << ")"
           << " p1=(" << full.p_1.x << ", " << full.p_1.y << ")"
           << " r=" << full.radius << " valid=" << full.valid << "\n";
       out << "  simple : type=" << motion_type_name(simple.type)
-          << " seq=" << simple.lnNum
+        << " src_line=" << simple.lnNum
+        << (simpleHasNWord ? " n=" + std::to_string(simpleNWord) : "")
           << " p0=(" << simple.p_0.x << ", " << simple.p_0.y << ")"
           << " p1=(" << simple.p_1.x << ", " << simple.p_1.y << ")"
           << " r=" << simple.radius << " valid=" << simple.valid << "\n";
-        out << "  full gcode  : " << lookup_gcode_line(fullProgram, full.lnNum) << "\n";
-        out << "  simple gcode: " << lookup_gcode_line(simpleProgram, simple.lnNum) << "\n";
+      out << "  full gcode  : " << fullGcodeLine << "\n";
+      out << "  simple gcode: " << simpleGcodeLine << "\n";
       out << std::fixed << std::setprecision(6)
           << "  delta  : p0=" << p0Delta
           << " p1=" << p1Delta
@@ -610,26 +667,26 @@ static bool run_profile_streaming(const char *inputPath,
 //   svg: "svg" (default, output SVG), or "nosvg" (do not output SVG)
 int main(int argc, char *argv[])
 {
-  //  const char *default_file = "../../data/RapidComp.nc";
+  // const char *default_file = "../../data/RapidComp.nc";
   // const char *default_file = "../../data/G41_1.nc";
   // const char *default_file = "../../data/ThreadMill.nc";
   // const char *default_file = "../../data/G41_2.nc";
-  const char *default_file = "../../data/TortureTestG91.nc";
-  //const char *default_file = "../../data/Sample2.nc";
-  //const char *default_file = "../../data/Sample2mm.nc";
-  //  const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
-  // const char *default_file = "../../data/TortureTestmm.nc";
-  //const char *default_file = "../../data/simple1.nc";
+  // const char *default_file = "../../data/TortureTestG91.nc";
+  const char *default_file = "../../data/Sample2.nc";
+  // const char *default_file = "../../data/Sample2mm.nc";
+  //   const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
+  //  const char *default_file = "../../data/TortureTestmm.nc";
+  //  const char *default_file = "../../data/simple1.nc";
   //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
-  // const char *default_file = "../../data/TortureTestLinux.nc";
-  // const char *default_file = "../../data/ArcTooSmall.nc";
-  // const char *default_file = "../../data/TortureTestLines.nc";
-  // const char *default_file = "../../data/AI_Torture.nc";
-  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
-  // const char *default_file = "../../data/SimpleSquarePocket.nc";
-  // const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
-  // const char *default_file = "../../data/CompErrorTest.nc";
-  // const char *default_file = "../../data/Tangent_ArcLine.nc";
+  //  const char *default_file = "../../data/TortureTestLinux.nc";
+  //  const char *default_file = "../../data/ArcTooSmall.nc";
+  //  const char *default_file = "../../data/TortureTestLines.nc";
+  //  const char *default_file = "../../data/AI_Torture.nc";
+  //  const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  //  const char *default_file = "../../data/SimpleSquarePocket.nc";
+  //  const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
+  //  const char *default_file = "../../data/CompErrorTest.nc";
+  //  const char *default_file = "../../data/Tangent_ArcLine.nc";
 
   const char *input_file = (argc > 1) ? argv[1] : default_file;
   const std::string inputFilePath(input_file);

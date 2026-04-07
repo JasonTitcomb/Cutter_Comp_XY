@@ -1,3 +1,0 @@
-N1 G0 G90 G21
-N2 X0 Y0.1
-(COMP ON)

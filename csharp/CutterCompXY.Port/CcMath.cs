@@ -160,6 +160,8 @@ public static class CcMath
     public static CompErrorCB ErrorCallback;
     public static float arcTol = CcConst.ARC_TOL_IN;
 
+    public static bool IsLineLike(in Move2D m) => m.type == MotionType.MOT_LINE || m.type == MotionType.MOT_RAPID;
+
     public static void ReportCompError(CompError err, uint seqNum)
     {
         ErrorCallback?.Invoke(err, seqNum);
@@ -199,7 +201,16 @@ public static class CcMath
 
     public static void UpdateVectors(ref Move2D m)
     {
-        if (m.type == MotionType.MOT_LINE)
+        m.hasXY = !IsNear(m.p_1, m.p_0);
+
+        if (!m.hasXY)
+        {
+            m.startDir = new Vec2(0, 0);
+            m.endDir = new Vec2(0, 0);
+            return;
+        }
+
+        if (IsLineLike(m))
         {
             Vec2 d = m.p_1 - m.p_0;
             Vec2 u = Normalize(d);
@@ -339,7 +350,7 @@ public static class CcMath
     {
         for (int i = start; i < count; ++i)
         {
-            if (moves[i].type != MotionType.MOT_EMPTY && moves[i].valid)
+            if (IsMotionValid(moves[i]))
             {
                 moves[i].bounds = AabbOf(moves[i]);
             }
@@ -362,7 +373,7 @@ public static class CcMath
 
     public static float DistFromStartAlong(in Move2D m, in Vec2 p)
     {
-        if (m.type == MotionType.MOT_LINE)
+        if (IsLineLike(m))
         {
             float t = LineT(m, p);
             t = Clamp(t, 0.0f, 1.0f);
@@ -382,7 +393,7 @@ public static class CcMath
 
     public static bool Validate(ref Move2D m)
     {
-        if (m.type == MotionType.MOT_LINE)
+        if (IsLineLike(m))
         {
             m.valid = Len(m.p_1 - m.p_0) >= CcConst.TOL;
         }
@@ -412,7 +423,7 @@ public static class CcMath
         return Dot(d, d) <= CcConst.TOL * CcConst.TOL;
     }
 
-    public static bool IsMotionValid(in Move2D m) => m.valid && m.type != MotionType.MOT_EMPTY;
+    public static bool IsMotionValid(in Move2D m) => m.valid && m.type != MotionType.MOT_EMPTY && m.hasXY;
 
     public static bool IsColinearWith(in Move2D a, in Move2D b)
     {

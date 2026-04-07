@@ -144,7 +144,16 @@ struct Move2D
 
 static void update_vectors(Move2D &m)
 {
-  if (m.type == MOT_LINE)//TODO: do i need to update line vectors?
+  m.hasXY = !is_equal(m.p_1, m.p_0);
+
+  if (!m.hasXY)
+  {
+    m.startDir = {0, 0};
+    m.endDir = {0, 0};
+    return;
+  }
+
+  if (m.type == MOT_LINE || m.type == MOT_RAPID)
   {
     Vec2 d = m.p_1 - m.p_0;
     if (dot(d, d) < TOL * TOL)
@@ -292,7 +301,7 @@ static float line_t(const Move2D &m, Vec2 p)
 // distance-along-source used for "nearest crossing" selection
 static float distFromStart_along(const Move2D &m, Vec2 p)
 {
-  if (m.type == MOT_LINE)
+  if (m.type == MOT_LINE || m.type == MOT_RAPID)
   {
     float t = line_t(m, p);
     t = c2d_clamp(t, 0.0f, 1.0f);
@@ -311,7 +320,7 @@ static float distFromStart_along(const Move2D &m, Vec2 p)
 
 static bool isMotionValid(const Move2D &m)
 {
-  return m.valid && m.type != MOT_EMPTY;
+  return m.valid && m.type != MOT_EMPTY && m.hasXY;
 }
 
 // Check if two elements are colinear.
