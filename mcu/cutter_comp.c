@@ -46,6 +46,7 @@
 static cc_context g_core_ctx;
 static emit_move_cb g_core_emit_cb = (emit_move_cb)0;
 static cc_msg_cb g_core_msg_cb = (cc_msg_cb)0;
+static inline void cc_core_drain(void);
 
 cc_units cc_api_get_units(void)
 {
@@ -68,6 +69,11 @@ typedef struct
     vec2 tip;
     float dist;
 } cc_crossing_hit;
+
+static inline bool cc_lookahead_runtime_enabled(const cc_context *ctx)
+{
+    return ctx->lookaheadEnabled;
+}
 #endif
 
 static inline comp_side cc_effective_comp_side(const cc_context *ctx)
@@ -1266,6 +1272,14 @@ static inline bool cc_stage_out(cc_context *ctx, const move2d *m)
         return true;
     }
 
+    if (!cc_lookahead_runtime_enabled(ctx))
+    {
+        if (!cc_out_has_space(ctx, 1))
+            return false;
+        cc_push_out(ctx, m);
+        return true;
+    }
+
     /* Keep using lookahead while compensation is active or draining.
        During comp-out, compSide is already OFF but compMode/lookahead still
        carry pending compensated elements that must preserve order. */
@@ -1306,6 +1320,9 @@ static inline bool cc_stage_out(cc_context *ctx, const move2d *m)
 
 static inline bool cc_stage_flush(cc_context *ctx)
 {
+    if (!cc_lookahead_runtime_enabled(ctx))
+        return true;
+
     if (!cc_la_trim(ctx))
         return false;
 
@@ -1826,6 +1843,9 @@ static void cc_init_internal(cc_context *ctx, float toolRadius)
     ctx->cornerTreatmentMode = (uint8_t)CC_CORNER_TREATMENT_MODE;
     ctx->toolR = (toolRadius < 0.0f) ? -toolRadius : toolRadius;
     ctx->toolSign = (toolRadius < 0.0f) ? -1 : 1;
+#if CC_ENABLE_LOOKAHEAD
+    ctx->lookaheadEnabled = true;
+#endif
     cc_reset_state(ctx);
 }
 
@@ -2109,6 +2129,34 @@ comp_side cc_api_get_comp(void)
 comp_mode cc_api_get_mode(void)
 {
     return g_core_ctx.compMode;
+}
+
+bool cc_api_get_lookahead_enabled(void)
+{
+#if CC_ENABLE_LOOKAHEAD
+    return g_core_ctx.lookaheadEnabled;
+#else
+    return false;
+#endif
+}
+
+void cc_api_set_lookahead_enabled(bool enabled)
+{
+#if CC_ENABLE_LOOKAHEAD
+    if (g_core_ctx.lookaheadEnabled == enabled)
+        return;
+
+    if (!enabled && g_core_ctx.lookahead_count > 0)
+    {
+        if (!cc_stage_flush(&g_core_ctx))
+            return;
+        cc_core_drain();
+    }
+
+    g_core_ctx.lookaheadEnabled = enabled;
+#else
+    (void)enabled;
+#endif
 }
 
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode)

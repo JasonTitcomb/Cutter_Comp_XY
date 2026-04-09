@@ -56,6 +56,25 @@ extern "C"
             cc_mc_input_pos[i] = pos[i];
     }
 
+    static inline bool cc_mc_single_block_active(void)
+    {
+#if defined(SINGLE_BLOCK_ENABLE) && SINGLE_BLOCK_ENABLE
+        return sys.flags.single_block;
+#else
+        return false;
+#endif
+    }
+
+    static inline void cc_mc_update_lookahead_mode(void)
+    {
+#if CC_ENABLE_LOOKAHEAD
+        bool enabled = !cc_mc_single_block_active();
+
+        if (cc_api_get_lookahead_enabled() != enabled)
+            cc_api_set_lookahead_enabled(enabled);
+#endif
+    }
+
     static void cc_message(cc_status_code_t msgcode, msg_type_t severity, uint32_t lineNum)
     {
         const char *msg = "Unknown";
@@ -178,6 +197,8 @@ extern "C"
         comp_side current_side = cc_api_get_comp();
         bool turning_off = current_side != CC_COMP_OFF && side == CC_COMP_OFF;
 
+        cc_mc_update_lookahead_mode();
+
         if (side != current_side || (side != CC_COMP_OFF && cc_api_get_mode() == CC_CM_NONE))
             cc_api_set_comp(side);
 
@@ -226,6 +247,8 @@ extern "C"
         comp_side side = cc.side == CComp_Left ? CC_COMP_LEFT : (cc.side == CComp_Right ? CC_COMP_RIGHT : CC_COMP_OFF);
         comp_side current_side = cc_api_get_comp();
         bool turning_off = current_side != CC_COMP_OFF && side == CC_COMP_OFF;
+
+        cc_mc_update_lookahead_mode();
 
         if (side != current_side || (side != CC_COMP_OFF && cc_api_get_mode() == CC_CM_NONE))
             cc_api_set_comp(side);

@@ -15,6 +15,7 @@
 #ifndef CUTTER_COMP_H
 #define CUTTER_COMP_H
 #include "config.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 #if CUTTER_COMP_ENABLE
@@ -223,6 +224,7 @@ typedef struct
     float arcTol;
     float gapTol;
     float minOutputLen;
+    bool lookaheadEnabled;
 
     int inHead;
     int inCount;
@@ -254,6 +256,8 @@ cc_status_code_t cc_api_process_move(const move2d *move);
 void cc_api_set_comp(comp_side side);
 comp_side cc_api_get_comp(void);
 comp_mode cc_api_get_mode(void);
+bool cc_api_get_lookahead_enabled(void);
+void cc_api_set_lookahead_enabled(bool enabled);
 
 //Requires CC_ENABLE_CORNER_TREATMENT set to 1
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);
