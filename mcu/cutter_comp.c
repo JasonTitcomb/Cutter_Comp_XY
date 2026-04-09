@@ -4,7 +4,7 @@
  *
  * Cutter compensation engine intended for grblHAL-style
  * integration.
- * 
+ *
  * code is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
@@ -537,7 +537,7 @@ static inline intersect_type cc_intersect_line_circle(vec2 l1, vec2 l2, vec2 ctr
     return CC_IT_INTERSECT;
 }
 
-static inline void cc_report_msg(cc_context *ctx, cc_status_code_t msg,msg_type_t severity)
+static inline void cc_report_msg(cc_context *ctx, cc_status_code_t msg, msg_type_t severity)
 {
     ctx->stopErr = (severity == CC_MSG_ERROR);
     ctx->status = msg;
@@ -553,8 +553,8 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
     {
         if (cc_len(cc_sub(m->p_1, m->p_0)) < CC_TOL)
         {
-            m->valid = false;//VALIDATE FAIL
-            return false;//VALIDATE FAIL
+            m->valid = false; // VALIDATE FAIL
+            return false;     // VALIDATE FAIL
         }
 
         m->valid = true;
@@ -1374,7 +1374,7 @@ static inline move2d cc_make_roll_arc(const cc_context *ctx, const move2d *a, co
     roll.p_0 = a->p_1;
     roll.p_1 = b->p_0;
     roll.z_0 = b->z_0;
-    roll.z_1 = b->z_0;    
+    roll.z_1 = b->z_0;
     roll.center = cc_roll_center(a->p_1, a->endDir, useLeft, ctx->toolR);
 
     v0 = cc_sub(roll.p_0, roll.center);
@@ -1389,7 +1389,7 @@ static inline move2d cc_make_roll_arc(const cc_context *ctx, const move2d *a, co
         r = r0;
     else if (r1 >= CC_TOL)
         r = r1;
-        
+
     if (r0 >= CC_TOL)
         roll.p_0 = cc_add(roll.center, cc_scale(v0, r / r0));
     if (r1 >= CC_TOL)
@@ -1426,7 +1426,7 @@ static inline move2d cc_make_arc_extension_line_only(const cc_context *ctx, cons
     ext.compMode = arc->compMode;
     ext.feed = arc->feed;
     ext.z_0 = fromEnd ? arc->z_1 : arc->z_0;
-    ext.z_1 = ext.z_0;    
+    ext.z_1 = ext.z_0;
     ext.p_0 = anchor;
     ext.p_1 = cc_add(anchor, cc_scale(dir, extent));
     ext.startDir = dir;
@@ -1689,7 +1689,7 @@ static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move
     gap = cc_len(cc_sub(b->p_0, a->p_1));
     float gapTol = ctx->gapTol > 0 ? ctx->gapTol : CC_GAP_TOL_MM;
     resolved = cc_solve_junction(ctx, a, b, gap < gapTol, &junction);
-    if(!resolved)
+    if (!resolved)
     {
         if (gap < gapTol)
         {
@@ -1746,7 +1746,7 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
     if (!anyRapid && resolved && junction.jtype == CC_JT_ROLL_AROUND)
     {
         if (!cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
-            cc_report_msg(ctx, cc_status_UnresolvedGap,true);
+            cc_report_msg(ctx, cc_status_UnresolvedGap, true);
         return;
     }
 
@@ -1882,7 +1882,7 @@ bool cc_process(cc_context *ctx)
     if (ctx->stopErr)
         return false;
 
-     while (ctx->inCount > 0)
+    while (ctx->inCount > 0)
     {
         move2d curOff;
         move2d inserts[CC_INSERT_CAP];
@@ -1895,7 +1895,7 @@ bool cc_process(cc_context *ctx)
 
         curOff = cc_pop_in(ctx);
         ctx->lastLineNum = curOff.lineNum;
-        
+
         if (curOff.type == CC_MOT_EMPTY)
             continue;
 
@@ -1909,6 +1909,9 @@ bool cc_process(cc_context *ctx)
             {
                 if (ctx->havePendingZMove)
                 {
+                    // Edge case: if we get multiple Z-only moves in a row, only keep the longest one in the same direction
+                    // Check if the new Z move should replace the pending one
+                    // (e.g. if it's a longer move in the same direction)
                     if (cc_should_replace_pending_z_target(&ctx->pendingZMove, &curOff))
                     {
                         ctx->pendingZMove.z_1 = curOff.z_1;
@@ -1942,7 +1945,6 @@ bool cc_process(cc_context *ctx)
         if (!cc_offset_move(ctx, &curOff))
             return false;
 
-
         if (!ctx->havePrevMove)
         {
             ctx->prevOff = curOff;
@@ -1954,7 +1956,7 @@ bool cc_process(cc_context *ctx)
             continue;
         }
 
-         if (ctx->prevOff.compMode == CC_CM_IN)
+        if (ctx->prevOff.compMode == CC_CM_IN)
         {
             float originalLen = cc_len(cc_sub(ctx->prevOff.p_1, ctx->prevOff.p_0));
             if (originalLen <= ctx->toolR + CC_TOL)
@@ -2002,7 +2004,6 @@ bool cc_process(cc_context *ctx)
             cc_update_vectors(&curOff);
         }
 
- 
         if (curOff.compMode == CC_CM_STEADY)
             cc_apply_logic(ctx, &ctx->prevOff, &curOff, inserts, &insertCount);
 
@@ -2070,7 +2071,6 @@ static inline void cc_core_drain(void)
         g_core_emit_cb(&out);
     }
 }
-
 
 // Usage:
 // Call cc_api_init() whenever you need to reset the compensation core state, such as:

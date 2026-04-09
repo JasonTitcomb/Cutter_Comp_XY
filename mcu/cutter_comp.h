@@ -50,7 +50,7 @@ extern "C" {
 #endif
 
 #ifndef CC_ENABLE_LOOKAHEAD
-#define CC_ENABLE_LOOKAHEAD 1
+#define CC_ENABLE_LOOKAHEAD 0
 #endif
 
 #ifndef CC_LOOKAHEAD_CAP
