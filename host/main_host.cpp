@@ -32,7 +32,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.03f;
+static constexpr float TOOL_RADIUS = 0.06f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
@@ -108,10 +108,10 @@ static cc_status_code_t cc_mc_line_arc_in_via_grblhal(const Move2D &mv, const gc
     plane.axis_1 = 1;
     plane.axis_linear = 2;
     int32_t turns = (mv.arcDir == ARC_CCW) ? 1 : -1;
-    return cc_mc_arc_in(ccState, xyz, &pl_data, position, ijk, mv.radius, plane, turns);
+    return cc_mc_arc_in(ccState, xyz, &pl_data, position, ijk, mv.radius, plane, turns,false);
   }
 
-  return cc_mc_line_in(ccState, xyz, &pl_data);
+  return cc_mc_line_in(ccState, xyz, &pl_data,false);
 }
 
 extern "C"
@@ -668,16 +668,16 @@ static bool run_profile_streaming(const char *inputPath,
 int main(int argc, char *argv[])
 {
   // const char *default_file = "../../data/RapidComp.nc";
-  // const char *default_file = "../../data/G41_1.nc";
+  //const char *default_file = "../../data/G41_1.nc";
   // const char *default_file = "../../data/ThreadMill.nc";
   // const char *default_file = "../../data/G41_2.nc";
   // const char *default_file = "../../data/TortureTestG91.nc";
-  //const char *default_file = "../../data/Sample2.nc";
+  const char *default_file = "../../data/Sample2.nc";
   // const char *default_file = "../../data/Sample2mm.nc";
   //   const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   //  const char *default_file = "../../data/TortureTestLinux.nc";
   //  const char *default_file = "../../data/ArcTooSmall.nc";
   //  const char *default_file = "../../data/TortureTestLines.nc";

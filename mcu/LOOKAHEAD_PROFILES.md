@@ -10,14 +10,14 @@ Approximate look-ahead memory:
 - Temporary trim stack RAM: 16 x CC_LOOKAHEAD_CAP bytes
 - Plus a small amount for counters/locals
 
-## Small RAM profile (tight MCU)
-Good for very limited SRAM while still enabling crossing trim.
+## Small RAM profile (tight MCU, current default)
+Good for very limited SRAM while still enabling crossing trim. This matches the current defaults in `cutter_comp.h`.
 
 ```c
 #define CC_ENABLE_LOOKAHEAD 1
 #define CC_LOOKAHEAD_CAP 8
 #define CC_LOOKAHEAD_STEPS 4
-#define CC_LA_TARGET_BATCH_EMIT 3
+#define CC_LA_TARGET_BATCH_EMIT 1
 #define CC_LA_TRIM_OVERLAP (CC_LOOKAHEAD_STEPS + 2)
 #define CC_LA_EMIT_HOLDBACK CC_LA_TRIM_OVERLAP
 #define CC_LA_MIN_PENDING (CC_LA_EMIT_HOLDBACK + CC_LA_TARGET_BATCH_EMIT)

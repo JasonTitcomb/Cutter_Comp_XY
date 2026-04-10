@@ -7,13 +7,14 @@ namespace CutterCompXY.Port;
 
 public sealed class CcMainRunner
 {
-    public const int MAX_LOOKAHEAD = 20;
-    private const int TARGET_BATCH_EMIT_MOVES = 40;
+    public const int CC_LOOKAHEAD_CAP = 8;
+    public const int CC_LOOKAHEAD_STEPS = 4;
+    private const int CC_LA_TARGET_BATCH_EMIT = 1;
     private const int PROFILE_BURST_MARGIN = 2;
-    private const int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
-    private const int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
-    private const int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
-    private const int MAX_PROFILE_MOVES = MIN_PENDING_BEFORE_BATCH + PROFILE_BURST_MARGIN;
+    private const int CC_LA_TRIM_OVERLAP = CC_LOOKAHEAD_STEPS + 2;
+    private const int CC_LA_EMIT_HOLDBACK = CC_LA_TRIM_OVERLAP;
+    private const int CC_LA_MIN_PENDING = CC_LA_EMIT_HOLDBACK + CC_LA_TARGET_BATCH_EMIT;
+    private const int MAX_PROFILE_MOVES = CC_LA_MIN_PENDING + PROFILE_BURST_MARGIN;
 
     public CcMainOptions options;
     public CcOutputCB outputCB;
@@ -133,7 +134,7 @@ public sealed class CcMainRunner
         if (cc.comp_state != CompSide.COMP_OFF)
         {
             int pendingProfileWindow = profile.Count - emittedProfileCount;
-            if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
+            if (pendingProfileWindow >= CC_LA_MIN_PENDING)
             {
                 if (!TrimAndMergePendingProfile())
                 {
@@ -142,7 +143,7 @@ public sealed class CcMainRunner
                     return false;
                 }
 
-                if (!EmitCompProfile(EMIT_HOLDBACK, false))
+                if (!EmitCompProfile(CC_LA_EMIT_HOLDBACK, false))
                 {
                     ReportError("(emit failed)", CompError.CE_ERROR);
                     runActive = false;
@@ -527,7 +528,7 @@ public sealed class CcMainRunner
         if (options.globalTrimCrossing)
         {
             int srcIdx = trimStart;
-            if (!cc.TrimCrossingElements(moves, ref srcIdx, currentProfileCount, MAX_LOOKAHEAD, out _))
+            if (!cc.TrimCrossingElements(moves, ref srcIdx, currentProfileCount, CC_LOOKAHEAD_STEPS, out _))
                 return false;
         }
 
@@ -547,7 +548,7 @@ public sealed class CcMainRunner
         profile.Clear();
         profile.AddRange(moves);
 
-        int nextTrimStart = currentProfileCount - TRIM_OVERLAP_MOVES;
+        int nextTrimStart = currentProfileCount - CC_LA_TRIM_OVERLAP;
         if (nextTrimStart < emittedProfileCount)
             nextTrimStart = emittedProfileCount;
         if (nextTrimStart < 0)

@@ -18,19 +18,19 @@
 class CcMainRunner
 {
 private:
-    /// These values can be set to 1 to disable lookahead
-    static constexpr int MAX_LOOKAHEAD = 4;
-    static constexpr int TARGET_BATCH_EMIT_MOVES = 3;
+    static constexpr int CC_LOOKAHEAD_CAP = 8;
+    static constexpr int CC_LOOKAHEAD_STEPS = 4;
+    static constexpr int CC_LA_TARGET_BATCH_EMIT = 1;
     static constexpr int PROFILE_BURST_MARGIN = 4;
 
-    static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
-    static constexpr int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
-    static constexpr int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
-    static constexpr int MAX_PROFILE_MOVES = MIN_PENDING_BEFORE_BATCH + PROFILE_BURST_MARGIN;
+    static constexpr int CC_LA_TRIM_OVERLAP = CC_LOOKAHEAD_STEPS + 2;
+    static constexpr int CC_LA_EMIT_HOLDBACK = CC_LA_TRIM_OVERLAP;
+    static constexpr int CC_LA_MIN_PENDING = CC_LA_EMIT_HOLDBACK + CC_LA_TARGET_BATCH_EMIT;
+    static constexpr int MAX_PROFILE_MOVES = CC_LA_MIN_PENDING + PROFILE_BURST_MARGIN;
 
-    static_assert(TARGET_BATCH_EMIT_MOVES > 0, "TARGET_BATCH_EMIT_MOVES must be positive");
-    static_assert(EMIT_HOLDBACK >= TRIM_OVERLAP_MOVES, "EMIT_HOLDBACK must preserve trim overlap across batches");
-    static_assert(MAX_PROFILE_MOVES > MIN_PENDING_BEFORE_BATCH, "MAX_PROFILE_MOVES must exceed batch threshold");
+    static_assert(CC_LA_TARGET_BATCH_EMIT > 0, "CC_LA_TARGET_BATCH_EMIT must be positive");
+    static_assert(CC_LA_EMIT_HOLDBACK >= CC_LA_TRIM_OVERLAP, "CC_LA_EMIT_HOLDBACK must preserve trim overlap across batches");
+    static_assert(MAX_PROFILE_MOVES > CC_LA_MIN_PENDING, "MAX_PROFILE_MOVES must exceed batch threshold");
 
     CcMainOptions options_{};
     CcOutputCB outputCB_ = nullptr;
@@ -150,7 +150,7 @@ public:
         if (cc_.compSide != COMP_OFF)
         {
             const int pendingProfileWindow = profileCount_ - emittedProfileCount_;
-            if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
+            if (pendingProfileWindow >= CC_LA_MIN_PENDING)
             {
                 if (!trim_and_merge_pending_profile())
                 {
@@ -159,7 +159,7 @@ public:
                     return false;
                 }
 
-                if (!emit_comp_profile(EMIT_HOLDBACK, false))
+                if (!emit_comp_profile(CC_LA_EMIT_HOLDBACK, false))
                 {
                     report_error("(emit failed)", CE_ERROR);
                     runActive_ = false;
@@ -573,7 +573,7 @@ private:
         {
             int srcIdx = trimStart;
             int retTargetIdx = -1;
-            if (!cc_.trimCrossingElements(profile_, aabbs, srcIdx, currentProfileCount, MAX_LOOKAHEAD, retTargetIdx))
+            if (!cc_.trimCrossingElements(profile_, aabbs, srcIdx, currentProfileCount, CC_LOOKAHEAD_STEPS, retTargetIdx))
                 return false;
         }
 
@@ -586,7 +586,7 @@ private:
             cc_.merge_all_colinear(profile_ + mergeStart, currentProfileCount - mergeStart);
         }
 
-        int nextTrimStart = currentProfileCount - TRIM_OVERLAP_MOVES;
+        int nextTrimStart = currentProfileCount - CC_LA_TRIM_OVERLAP;
         if (nextTrimStart < emittedProfileCount_)
             nextTrimStart = emittedProfileCount_;
         if (nextTrimStart < 0)

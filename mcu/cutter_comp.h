@@ -15,7 +15,6 @@
 #ifndef CUTTER_COMP_H
 #define CUTTER_COMP_H
 #include "config.h"
-#include <stdbool.h>
 #include <stdint.h>
 
 #if CUTTER_COMP_ENABLE
@@ -50,8 +49,8 @@ extern "C" {
 #endif
 #endif
 
-#ifndef CC_ENABLE_LOOKAHEAD
-#define CC_ENABLE_LOOKAHEAD 0
+#ifndef CC_ENABLE_GOUGE_PREVENTION
+#define CC_ENABLE_GOUGE_PREVENTION CUTTER_COMP_ENABLE
 #endif
 
 #ifndef CC_LOOKAHEAD_CAP
@@ -79,7 +78,7 @@ extern "C" {
 #endif
 
 #ifndef CC_OUT_CAP
-#if CC_ENABLE_LOOKAHEAD
+#if CC_ENABLE_GOUGE_PREVENTION
 #define CC_OUT_CAP (CC_LOOKAHEAD_CAP + 1)
 #else
 #define CC_OUT_CAP (1 + CC_INSERT_CAP)
@@ -224,7 +223,6 @@ typedef struct
     float arcTol;
     float gapTol;
     float minOutputLen;
-    bool lookaheadEnabled;
 
     int inHead;
     int inCount;
@@ -238,7 +236,7 @@ typedef struct
     move2d pendingZMove;
     move2d input_buffer[CC_IN_CAP];
     move2d output_buffer[CC_OUT_CAP];
-#if CC_ENABLE_LOOKAHEAD
+#if CC_ENABLE_GOUGE_PREVENTION
     move2d lookahead_buffer[CC_LOOKAHEAD_CAP];
     int lookahead_count;
 #endif
@@ -251,13 +249,18 @@ void cc_api_init(float radius, cc_units units, emit_move_cb emitCb, cc_msg_cb er
 // Returns CC_OK if the move was processed and emitted successfully, or if flushing completed successfully.
 // Returns an appropriate error code otherwise.
 cc_status_code_t cc_api_process_move(const move2d *move);
+cc_status_code_t cc_api_process_move_nodrain(const move2d *move);
+cc_status_code_t cc_api_drain_ready(void);
+cc_status_code_t cc_api_drain_ready_one(void);
+cc_status_code_t cc_api_tail_step(void);
+bool cc_api_has_ready_output(void);
+bool cc_api_has_pending_work(void);
 
 // comp_side is CC_COMP_OFF=0, CC_COMP_LEFT=1, or CC_COMP_RIGHT=-1
 void cc_api_set_comp(comp_side side);
 comp_side cc_api_get_comp(void);
 comp_mode cc_api_get_mode(void);
-bool cc_api_get_lookahead_enabled(void);
-void cc_api_set_lookahead_enabled(bool enabled);
+cc_corner_treatment_mode cc_api_get_corner_treatment_mode(void);
 
 //Requires CC_ENABLE_CORNER_TREATMENT set to 1
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);

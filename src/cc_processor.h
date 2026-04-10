@@ -211,13 +211,13 @@ private:
     CornerType cornerTreatment = CORNER_ROLL; // cornerTreatment flag
     // Buffers
     static constexpr int IN_CAP = 2;
-    static constexpr int OUT_CAP = 4;
+    static constexpr int CC_OUT_CAP = 9;
 
     // Ring buffers
     Move2D input_buffer[IN_CAP];
     int inHead = 0, inCount = 0;
 
-    Move2D output_buffer[OUT_CAP];
+    Move2D output_buffer[CC_OUT_CAP];
     int outHead = 0, outCount = 0;
 
     // Settings
@@ -504,7 +504,7 @@ public:
         if (outCount == 0)
             return false;
         m = output_buffer[outHead];
-        outHead = (outHead + 1) % OUT_CAP;
+        outHead = (outHead + 1) % CC_OUT_CAP;
         outCount--;
         return true;
     }
@@ -513,7 +513,7 @@ private:
     // ---------- small helpers ----------
     bool outHasSpace(int n)
     {
-        bool ok = (outCount + n) <= OUT_CAP;
+        bool ok = (outCount + n) <= CC_OUT_CAP;
         if (!ok)
             reportCompError(CE_OUTPUT_BUFFER_OVERFLOW);
 
@@ -530,12 +530,12 @@ private:
 
     void pushOut(const Move2D &m)
     {
-        if (outCount >= OUT_CAP)
+        if (outCount >= CC_OUT_CAP)
         {
             reportCompError(CE_OUTPUT_BUFFER_OVERFLOW);
             return;
         }
-        output_buffer[(outHead + outCount) % OUT_CAP] = m;
+        output_buffer[(outHead + outCount) % CC_OUT_CAP] = m;
         outCount++;
     }
 

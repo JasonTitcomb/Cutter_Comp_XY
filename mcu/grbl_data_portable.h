@@ -266,6 +266,7 @@ typedef struct {
     ccomp_mode_t side;
     bool first_move;
     float radius;
+    bool lookahead;
 } gc_ccomp_t;
 
 typedef struct {

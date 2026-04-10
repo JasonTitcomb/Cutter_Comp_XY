@@ -4,7 +4,7 @@
  *
  * Cutter compensation engine intended for grblHAL-style
  * integration.
- *
+ * 
  * code is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
@@ -46,14 +46,13 @@
 static cc_context g_core_ctx;
 static emit_move_cb g_core_emit_cb = (emit_move_cb)0;
 static cc_msg_cb g_core_msg_cb = (cc_msg_cb)0;
-static inline void cc_core_drain(void);
 
 cc_units cc_api_get_units(void)
 {
     return g_core_ctx.units;
 }
 
-#if CC_ENABLE_LOOKAHEAD
+#if CC_ENABLE_GOUGE_PREVENTION
 typedef struct
 {
     float minx;
@@ -69,11 +68,6 @@ typedef struct
     vec2 tip;
     float dist;
 } cc_crossing_hit;
-
-static inline bool cc_lookahead_runtime_enabled(const cc_context *ctx)
-{
-    return ctx->lookaheadEnabled;
-}
 #endif
 
 static inline comp_side cc_effective_comp_side(const cc_context *ctx)
@@ -543,7 +537,7 @@ static inline intersect_type cc_intersect_line_circle(vec2 l1, vec2 l2, vec2 ctr
     return CC_IT_INTERSECT;
 }
 
-static inline void cc_report_msg(cc_context *ctx, cc_status_code_t msg, msg_type_t severity)
+static inline void cc_report_msg(cc_context *ctx, cc_status_code_t msg,msg_type_t severity)
 {
     ctx->stopErr = (severity == CC_MSG_ERROR);
     ctx->status = msg;
@@ -559,8 +553,8 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
     {
         if (cc_len(cc_sub(m->p_1, m->p_0)) < CC_TOL)
         {
-            m->valid = false; // VALIDATE FAIL
-            return false;     // VALIDATE FAIL
+            m->valid = false;//VALIDATE FAIL
+            return false;//VALIDATE FAIL
         }
 
         m->valid = true;
@@ -579,7 +573,7 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
         {
             m->valid = false;
 
-#if CC_ENABLE_LOOKAHEAD
+#if CC_ENABLE_GOUGE_PREVENTION
             return m->valid;
 #else
             cc_report_msg(ctx, cc_status_ArcLtToolRad, CC_MSG_ERROR);
@@ -587,7 +581,7 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
 #endif
         }
 
-#if !CC_ENABLE_LOOKAHEAD
+#if !CC_ENABLE_GOUGE_PREVENTION
         {
             comp_side side = cc_effective_comp_side(ctx);
             bool inner_arc = (side == CC_COMP_LEFT && m->arcDir == CC_ARC_CCW) ||
@@ -870,7 +864,7 @@ static inline bool cc_offset_arc(cc_context *ctx, move2d *m)
     else
         r1 = r0 + (left ? dr : -dr);
 
-#if !CC_ENABLE_LOOKAHEAD
+#if !CC_ENABLE_GOUGE_PREVENTION
     if (r1 <= CC_TOL)
     {
         cc_report_msg(ctx, cc_status_ArcLtToolRad, CC_MSG_ERROR);
@@ -916,7 +910,7 @@ static inline bool cc_trim_to(cc_context *ctx, move2d *a, move2d *b, vec2 tip)
     return a->valid && b->valid;
 }
 
-#if CC_ENABLE_LOOKAHEAD
+#if CC_ENABLE_GOUGE_PREVENTION
 static inline bool cc_angle_on_arc_norm(float a0, float a1, float ap, uint8_t dir)
 {
     if (dir == CC_ARC_CCW)
@@ -1272,14 +1266,6 @@ static inline bool cc_stage_out(cc_context *ctx, const move2d *m)
         return true;
     }
 
-    if (!cc_lookahead_runtime_enabled(ctx))
-    {
-        if (!cc_out_has_space(ctx, 1))
-            return false;
-        cc_push_out(ctx, m);
-        return true;
-    }
-
     /* Keep using lookahead while compensation is active or draining.
        During comp-out, compSide is already OFF but compMode/lookahead still
        carry pending compensated elements that must preserve order. */
@@ -1320,9 +1306,6 @@ static inline bool cc_stage_out(cc_context *ctx, const move2d *m)
 
 static inline bool cc_stage_flush(cc_context *ctx)
 {
-    if (!cc_lookahead_runtime_enabled(ctx))
-        return true;
-
     if (!cc_la_trim(ctx))
         return false;
 
@@ -1391,7 +1374,7 @@ static inline move2d cc_make_roll_arc(const cc_context *ctx, const move2d *a, co
     roll.p_0 = a->p_1;
     roll.p_1 = b->p_0;
     roll.z_0 = b->z_0;
-    roll.z_1 = b->z_0;
+    roll.z_1 = b->z_0;    
     roll.center = cc_roll_center(a->p_1, a->endDir, useLeft, ctx->toolR);
 
     v0 = cc_sub(roll.p_0, roll.center);
@@ -1406,7 +1389,7 @@ static inline move2d cc_make_roll_arc(const cc_context *ctx, const move2d *a, co
         r = r0;
     else if (r1 >= CC_TOL)
         r = r1;
-
+        
     if (r0 >= CC_TOL)
         roll.p_0 = cc_add(roll.center, cc_scale(v0, r / r0));
     if (r1 >= CC_TOL)
@@ -1443,7 +1426,7 @@ static inline move2d cc_make_arc_extension_line_only(const cc_context *ctx, cons
     ext.compMode = arc->compMode;
     ext.feed = arc->feed;
     ext.z_0 = fromEnd ? arc->z_1 : arc->z_0;
-    ext.z_1 = ext.z_0;
+    ext.z_1 = ext.z_0;    
     ext.p_0 = anchor;
     ext.p_1 = cc_add(anchor, cc_scale(dir, extent));
     ext.startDir = dir;
@@ -1706,7 +1689,7 @@ static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move
     gap = cc_len(cc_sub(b->p_0, a->p_1));
     float gapTol = ctx->gapTol > 0 ? ctx->gapTol : CC_GAP_TOL_MM;
     resolved = cc_solve_junction(ctx, a, b, gap < gapTol, &junction);
-    if (!resolved)
+    if(!resolved)
     {
         if (gap < gapTol)
         {
@@ -1728,7 +1711,7 @@ static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move
         return;
     }
 
-#if !CC_ENABLE_LOOKAHEAD
+#if !CC_ENABLE_GOUGE_PREVENTION
     cc_report_msg(ctx, cc_status_InvalidMove, CC_MSG_ERROR);
 #endif
 
@@ -1763,11 +1746,11 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
     if (!anyRapid && resolved && junction.jtype == CC_JT_ROLL_AROUND)
     {
         if (!cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
-            cc_report_msg(ctx, cc_status_UnresolvedGap, true);
+            cc_report_msg(ctx, cc_status_UnresolvedGap,true);
         return;
     }
 
-#if !CC_ENABLE_LOOKAHEAD
+#if !CC_ENABLE_GOUGE_PREVENTION
     cc_report_msg(ctx, cc_status_InvalidMove, CC_MSG_ERROR);
 #endif
 
@@ -1801,7 +1784,7 @@ static inline void cc_reset_state(cc_context *ctx)
 {
     ctx->havePrevMove = false;
     ctx->havePendingZMove = false;
-#if CC_ENABLE_LOOKAHEAD
+#if CC_ENABLE_GOUGE_PREVENTION
     ctx->lookahead_count = 0;
 #endif
 }
@@ -1843,9 +1826,6 @@ static void cc_init_internal(cc_context *ctx, float toolRadius)
     ctx->cornerTreatmentMode = (uint8_t)CC_CORNER_TREATMENT_MODE;
     ctx->toolR = (toolRadius < 0.0f) ? -toolRadius : toolRadius;
     ctx->toolSign = (toolRadius < 0.0f) ? -1 : 1;
-#if CC_ENABLE_LOOKAHEAD
-    ctx->lookaheadEnabled = true;
-#endif
     cc_reset_state(ctx);
 }
 
@@ -1902,20 +1882,20 @@ bool cc_process(cc_context *ctx)
     if (ctx->stopErr)
         return false;
 
-    while (ctx->inCount > 0)
+     while (ctx->inCount > 0)
     {
         move2d curOff;
         move2d inserts[CC_INSERT_CAP];
         int insertCount = 0;
 
-#if !CC_ENABLE_LOOKAHEAD
+#if !CC_ENABLE_GOUGE_PREVENTION
         if (!cc_out_has_space(ctx, 1 + CC_INSERT_CAP))
             return false;
 #endif
 
         curOff = cc_pop_in(ctx);
         ctx->lastLineNum = curOff.lineNum;
-
+        
         if (curOff.type == CC_MOT_EMPTY)
             continue;
 
@@ -1929,9 +1909,6 @@ bool cc_process(cc_context *ctx)
             {
                 if (ctx->havePendingZMove)
                 {
-                    // Edge case: if we get multiple Z-only moves in a row, only keep the longest one in the same direction
-                    // Check if the new Z move should replace the pending one
-                    // (e.g. if it's a longer move in the same direction)
                     if (cc_should_replace_pending_z_target(&ctx->pendingZMove, &curOff))
                     {
                         ctx->pendingZMove.z_1 = curOff.z_1;
@@ -1965,6 +1942,7 @@ bool cc_process(cc_context *ctx)
         if (!cc_offset_move(ctx, &curOff))
             return false;
 
+
         if (!ctx->havePrevMove)
         {
             ctx->prevOff = curOff;
@@ -1976,7 +1954,7 @@ bool cc_process(cc_context *ctx)
             continue;
         }
 
-        if (ctx->prevOff.compMode == CC_CM_IN)
+         if (ctx->prevOff.compMode == CC_CM_IN)
         {
             float originalLen = cc_len(cc_sub(ctx->prevOff.p_1, ctx->prevOff.p_0));
             if (originalLen <= ctx->toolR + CC_TOL)
@@ -2024,6 +2002,7 @@ bool cc_process(cc_context *ctx)
             cc_update_vectors(&curOff);
         }
 
+ 
         if (curOff.compMode == CC_CM_STEADY)
             cc_apply_logic(ctx, &ctx->prevOff, &curOff, inserts, &insertCount);
 
@@ -2079,6 +2058,24 @@ bool cc_pop_out(cc_context *ctx, move2d *m)
     return true;
 }
 
+static inline bool cc_has_pending_work(const cc_context *ctx)
+{
+    return ctx->inCount != 0 ||
+           ctx->outCount != 0 ||
+           ctx->havePrevMove ||
+           ctx->havePendingZMove ||
+           ctx->compMode != CC_CM_NONE
+#if CC_ENABLE_GOUGE_PREVENTION
+           || ctx->lookahead_count != 0
+#endif
+           ;
+}
+
+static inline bool cc_has_ready_output(const cc_context *ctx)
+{
+    return ctx->outCount != 0;
+}
+
 static inline void cc_core_drain(void)
 {
     move2d out;
@@ -2091,6 +2088,59 @@ static inline void cc_core_drain(void)
         g_core_emit_cb(&out);
     }
 }
+
+static inline bool cc_core_drain_one(void)
+{
+    move2d out;
+
+    if (!g_core_emit_cb)
+        return false;
+
+    while (cc_pop_out(&g_core_ctx, &out))
+    {
+        if (!out.valid)
+            continue;
+        g_core_emit_cb(&out);
+        return true;
+    }
+
+    return false;
+}
+
+static inline bool cc_tail_stage_one(cc_context *ctx)
+{
+    if (ctx->outCount > 0)
+        return true;
+
+    if (ctx->inCount > 0 && !cc_process(ctx))
+        return false;
+
+    if (ctx->outCount > 0)
+        return true;
+
+    if (ctx->havePrevMove)
+    {
+        if (!cc_stage_out(ctx, &ctx->prevOff))
+            return false;
+        if (!cc_emit_pending_z_move_at(ctx, &ctx->prevOff))
+            return false;
+        ctx->havePrevMove = false;
+        return ctx->outCount > 0;
+    }
+
+#if CC_ENABLE_GOUGE_PREVENTION
+    if (ctx->lookahead_count > 0)
+    {
+        if (!cc_la_trim(ctx))
+            return false;
+        if (!cc_la_emit_oldest(ctx))
+            return false;
+    }
+#endif
+
+    return ctx->outCount > 0;
+}
+
 
 // Usage:
 // Call cc_api_init() whenever you need to reset the compensation core state, such as:
@@ -2131,37 +2181,71 @@ comp_mode cc_api_get_mode(void)
     return g_core_ctx.compMode;
 }
 
-bool cc_api_get_lookahead_enabled(void)
+cc_corner_treatment_mode cc_api_get_corner_treatment_mode(void)
 {
-#if CC_ENABLE_LOOKAHEAD
-    return g_core_ctx.lookaheadEnabled;
-#else
-    return false;
-#endif
-}
-
-void cc_api_set_lookahead_enabled(bool enabled)
-{
-#if CC_ENABLE_LOOKAHEAD
-    if (g_core_ctx.lookaheadEnabled == enabled)
-        return;
-
-    if (!enabled && g_core_ctx.lookahead_count > 0)
-    {
-        if (!cc_stage_flush(&g_core_ctx))
-            return;
-        cc_core_drain();
-    }
-
-    g_core_ctx.lookaheadEnabled = enabled;
-#else
-    (void)enabled;
-#endif
+    return (cc_corner_treatment_mode)g_core_ctx.cornerTreatmentMode;
 }
 
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode)
 {
     g_core_ctx.cornerTreatmentMode = (uint8_t)mode;
+}
+
+cc_status_code_t cc_api_process_move_nodrain(const move2d *move)
+{
+    if (!move)
+        return cc_status_InvalidMove;
+
+    if (!cc_push_in(&g_core_ctx, move))
+        return cc_status_InputBufferOverflow;
+
+    if (!cc_process(&g_core_ctx))
+        return g_core_ctx.status;
+
+    return cc_status_OK;
+}
+
+cc_status_code_t cc_api_drain_ready(void)
+{
+    if (g_core_ctx.stopErr)
+        return g_core_ctx.status;
+
+    cc_core_drain();
+
+    return cc_status_OK;
+}
+
+cc_status_code_t cc_api_drain_ready_one(void)
+{
+    if (g_core_ctx.stopErr)
+        return g_core_ctx.status;
+
+    (void)cc_core_drain_one();
+
+    return cc_status_OK;
+}
+
+cc_status_code_t cc_api_tail_step(void)
+{
+    if (g_core_ctx.stopErr)
+        return g_core_ctx.status;
+
+    if (!cc_tail_stage_one(&g_core_ctx))
+        return g_core_ctx.stopErr ? g_core_ctx.status : cc_status_OK;
+
+    (void)cc_core_drain_one();
+
+    return g_core_ctx.stopErr ? g_core_ctx.status : cc_status_OK;
+}
+
+bool cc_api_has_pending_work(void)
+{
+    return cc_has_pending_work(&g_core_ctx);
+}
+
+bool cc_api_has_ready_output(void)
+{
+    return cc_has_ready_output(&g_core_ctx);
 }
 
 cc_status_code_t cc_api_process_move(const move2d *move)
@@ -2175,13 +2259,9 @@ cc_status_code_t cc_api_process_move(const move2d *move)
         return cc_status_OK;
     }
 
-    if (!cc_push_in(&g_core_ctx, move))
-        return cc_status_InputBufferOverflow;
-
-    if (!cc_process(&g_core_ctx))
+    if ((g_core_ctx.status = cc_api_process_move_nodrain(move)) != cc_status_OK)
         return g_core_ctx.status;
 
-    cc_core_drain();
-    return cc_status_OK;
+    return cc_api_drain_ready();
 }
 #endif

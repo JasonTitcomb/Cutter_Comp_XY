@@ -51,10 +51,10 @@ public sealed class CutterComp2D
     public CornerType cornerTreatment = CornerType.CORNER_ROLL;
     public bool performTrim = true;
     public const int IN_CAP = 2;
-    public const int OUT_CAP = 4;
+    public const int CC_OUT_CAP = 9;
     public readonly Move2D[] input_buffer = new Move2D[IN_CAP];
     public int inHead = 0, inCount = 0;
-    public readonly Move2D[] output_buffer = new Move2D[OUT_CAP];
+    public readonly Move2D[] output_buffer = new Move2D[CC_OUT_CAP];
     public int outHead = 0, outCount = 0;
     public float toolR = 0.0f;
     public sbyte toolSign = 0;
@@ -444,14 +444,14 @@ public sealed class CutterComp2D
         }
 
         m = output_buffer[outHead];
-        outHead = (outHead + 1) % OUT_CAP;
+        outHead = (outHead + 1) % CC_OUT_CAP;
         outCount--;
         return true;
     }
 
     private bool OutHasSpace(int n)
     {
-        bool ok = (outCount + n) <= OUT_CAP;
+        bool ok = (outCount + n) <= CC_OUT_CAP;
         if (!ok)
             ReportCompError(CompError.CE_OUTPUT_BUFFER_OVERFLOW);
 
@@ -468,13 +468,13 @@ public sealed class CutterComp2D
 
     private void PushOut(in Move2D m)
     {
-        if (outCount >= OUT_CAP)
+        if (outCount >= CC_OUT_CAP)
         {
             ReportCompError(CompError.CE_OUTPUT_BUFFER_OVERFLOW);
             return;
         }
 
-        output_buffer[(outHead + outCount) % OUT_CAP] = m;
+        output_buffer[(outHead + outCount) % CC_OUT_CAP] = m;
         outCount++;
     }
 

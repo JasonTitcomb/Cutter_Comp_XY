@@ -35,6 +35,8 @@ extern "C"
     static plan_line_data_t cc_mc_active_plan_data = {0};
     static bool cc_mc_have_plan_data = false;
     static float cc_mc_input_pos[N_AXIS] = {0};
+    static bool cc_mc_single_step_active = false;
+    static bool cc_mc_tail_active = false;
 
 #ifndef DEBUG
 #define DEBUG 0  // Set to 0 to disable debug tracing
@@ -56,23 +58,69 @@ extern "C"
             cc_mc_input_pos[i] = pos[i];
     }
 
-    static inline bool cc_mc_single_block_active(void)
+    static inline bool cc_mc_tail_pending(void)
     {
-#if defined(SINGLE_BLOCK_ENABLE) && SINGLE_BLOCK_ENABLE
-        return sys.flags.single_block;
-#else
-        return false;
-#endif
+        return cc_mc_tail_active && cc_api_has_pending_work();
     }
 
-    static inline void cc_mc_update_lookahead_mode(void)
+    static inline bool cc_mc_single_step_pending(void)
     {
-#if CC_ENABLE_LOOKAHEAD
-        bool enabled = !cc_mc_single_block_active();
+        return cc_mc_single_step_active && cc_api_has_ready_output();
+    }
 
-        if (cc_api_get_lookahead_enabled() != enabled)
-            cc_api_set_lookahead_enabled(enabled);
-#endif
+    static inline void cc_mc_single_step_arm(void)
+    {
+        cc_mc_single_step_active = cc_api_has_ready_output();
+    }
+
+    static inline void cc_mc_tail_arm(void)
+    {
+        cc_mc_tail_active = cc_api_has_pending_work();
+    }
+
+    static inline cc_status_code_t cc_mc_single_step_execute(void)
+    {
+        cc_status_code_t st;
+
+        if (!cc_mc_single_step_pending())
+            return cc_status_OK;
+
+        st = cc_api_drain_ready_one();
+
+        if (st == cc_status_OK)
+            cc_mc_single_step_active = cc_api_has_ready_output();
+
+        return st;
+    }
+
+    static inline void cc_mc_report_buffering(void)
+    {
+        report_message("CC: buffering geometry", Message_Info);
+    }
+
+    static inline cc_status_code_t cc_mc_tail_step(void)
+    {
+        cc_status_code_t st = cc_api_tail_step();
+
+        if (st == cc_status_OK && !cc_api_has_pending_work())
+            cc_mc_tail_active = false;
+
+        return st;
+    }
+
+    static inline cc_status_code_t cc_mc_flush_tail(void)
+    {
+        cc_status_code_t st = cc_status_OK;
+
+        while (cc_api_has_pending_work())
+        {
+            st = cc_mc_tail_step();
+            if (st != cc_status_OK)
+                return st;
+        }
+
+        cc_mc_tail_active = false;
+        return cc_status_OK;
     }
 
     static void cc_message(cc_status_code_t msgcode, msg_type_t severity, uint32_t lineNum)
@@ -173,13 +221,17 @@ extern "C"
     }
 
     // replaces mc_line when cutter compensation is active. If compensation is not active, passes through to mc_line.
-    cc_status_code_t cc_mc_line_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data)
+    cc_status_code_t cc_mc_line_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data,bool single_block)
     {
         if((cc_mc_have_plan_data = pl_data != NULL))
             cc_mc_active_plan_data = *pl_data;
 
         if (cc.side == CComp_Off && cc_api_get_comp() == CC_COMP_OFF)
         {
+            cc_status_code_t st = cc_mc_flush_tail();
+            if (st != cc_status_OK)
+                return st;
+
             cc_mc_input_pos[0] = xyz[0];
             cc_mc_input_pos[1] = xyz[1];
             cc_mc_input_pos[2] = xyz[2];
@@ -197,8 +249,6 @@ extern "C"
         comp_side current_side = cc_api_get_comp();
         bool turning_off = current_side != CC_COMP_OFF && side == CC_COMP_OFF;
 
-        cc_mc_update_lookahead_mode();
-
         if (side != current_side || (side != CC_COMP_OFF && cc_api_get_mode() == CC_CM_NONE))
             cc_api_set_comp(side);
 
@@ -208,21 +258,34 @@ extern "C"
         {
             bool inch = cc_api_get_units() == CC_UNITS_INCH;
             float r = inch ? cc.radius / 25.4f : cc.radius;
-            char msg[64];
-            snprintf(msg, sizeof(msg), "CC_On R=%.4f %s", r, inch ? "in" : "mm");
+            const char *corner_mode = cc_api_get_corner_treatment_mode() == CC_CTM_CHAMFER ? "Chamfer" : "Roll";
+            char msg[96];
+            snprintf(msg, sizeof(msg), "CC_On R=%.4f %s Corner=%s", r, inch ? "in" : "mm", corner_mode);
             report_message(msg, Message_Info);
         }
 
-        cc_status_code_t st = cc_api_process_move(&mv);
+        cc_status_code_t st = cc_api_process_move_nodrain(&mv);
+        if (st != cc_status_OK)
+            return st;
+
+        if (single_block) {
+            st = cc_api_drain_ready_one();
+            if (st == cc_status_OK) {
+                cc_mc_single_step_arm();
+                if (!cc_mc_single_step_pending() && side != CC_COMP_OFF && cc_api_has_pending_work())
+                    cc_mc_report_buffering();
+            }
+        } else {
+            st = cc_api_drain_ready();
+            cc_mc_single_step_active = false;
+        }
+
         if (st != cc_status_OK)
             return st;
 
         if (turning_off)
         {
-            st = cc_api_process_move(0);
-            if (st != cc_status_OK)
-                return st;
-
+            cc_mc_tail_arm();
             report_message("CC_Off", Message_Info);
         }
 
@@ -230,13 +293,17 @@ extern "C"
     }
 
     // replaces mc_arc when cutter compensation is active. If compensation is not active, passes through to mc_arc.
-    cc_status_code_t cc_mc_arc_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns)
+    cc_status_code_t cc_mc_arc_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns,bool single_block)
     {
         if((cc_mc_have_plan_data = pl_data != NULL))
             cc_mc_active_plan_data = *pl_data;
 
         if (cc.side == CComp_Off && cc_api_get_comp() == CC_COMP_OFF)
         {
+            cc_status_code_t st = cc_mc_flush_tail();
+            if (st != cc_status_OK)
+                return st;
+
             cc_mc_input_pos[0] = xyz[0];
             cc_mc_input_pos[1] = xyz[1];
             cc_mc_input_pos[2] = xyz[2];
@@ -248,23 +315,32 @@ extern "C"
         comp_side current_side = cc_api_get_comp();
         bool turning_off = current_side != CC_COMP_OFF && side == CC_COMP_OFF;
 
-        cc_mc_update_lookahead_mode();
-
         if (side != current_side || (side != CC_COMP_OFF && cc_api_get_mode() == CC_CM_NONE))
             cc_api_set_comp(side);
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, position, ijk, radius, turns, true);
 
-        cc_status_code_t st = cc_api_process_move(&mv);
+        cc_status_code_t st = cc_api_process_move_nodrain(&mv);
+        if (st != cc_status_OK)
+            return st;
+
+        if (single_block) {
+            st = cc_api_drain_ready_one();
+            if (st == cc_status_OK) {
+                cc_mc_single_step_arm();
+                if (!cc_mc_single_step_pending() && side != CC_COMP_OFF && cc_api_has_pending_work())
+                    cc_mc_report_buffering();
+            }
+        } else {
+            st = cc_api_drain_ready();
+            cc_mc_single_step_active = false;
+        }
+
         if (st != cc_status_OK)
             return st;
 
         if (turning_off)
-        {
-            st = cc_api_process_move(0);
-            if (st != cc_status_OK)
-                return st;
-        }
+            cc_mc_tail_arm();
 
         return cc_status_OK;
     }
