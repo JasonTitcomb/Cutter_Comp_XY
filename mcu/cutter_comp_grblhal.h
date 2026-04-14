@@ -24,7 +24,7 @@ extern "C"
 #include <stdio.h>
 
 #include "../mcu/cutter_comp.h"
-#include "../mcu/grbl_data_portable.h"
+#include "grbl_data_portable.h"
 
     // forward declarations
     // these are implemented in grblhal's motion_control.c, but declared here so they can be called from the cc_emit_via_mc callback.
@@ -34,11 +34,9 @@ extern "C"
     void debug_printf(const char *fmt, ...);
     static plan_line_data_t cc_mc_active_plan_data = {0};
     static bool cc_mc_have_plan_data = false;
+    static bool cc_mc_active = false;
+    static bool cc_mc_pause_after_next_motion = false;
     static float cc_mc_input_pos[N_AXIS] = {0};
-
-#ifndef DEBUG
-#define DEBUG 0  // Set to 0 to disable debug tracing
-#endif
 
     // in cutter_comp_grblhal.h
     static inline void cc_report_version(void)
@@ -56,23 +54,22 @@ extern "C"
             cc_mc_input_pos[i] = pos[i];
     }
 
-    static inline bool cc_mc_single_block_active(void)
+     static bool cc_mc_is_active(void)
     {
-#if defined(SINGLE_BLOCK_ENABLE) && SINGLE_BLOCK_ENABLE
-        return sys.flags.single_block;
-#else
-        return false;
-#endif
+        return cc_mc_active;
     }
 
-    static inline void cc_mc_update_lookahead_mode(void)
+    static inline cc_status_code_t cc_mc_enqueue_pause_marker(void)
     {
-#if CC_ENABLE_LOOKAHEAD
-        bool enabled = !cc_mc_single_block_active();
+        if(sys.flags.single_block)
+            return cc_status_OK; // No need to enqueue a marker if we're already in single block mode, the next block will be the one after the pause.
+        
+        move2d marker = {0};
+        marker.type = CC_MOT_EMPTY;
+        marker.pause_after = true;
+        marker.valid = true;
 
-        if (cc_api_get_lookahead_enabled() != enabled)
-            cc_api_set_lookahead_enabled(enabled);
-#endif
+        return cc_api_process_move(&marker);
     }
 
     static void cc_message(cc_status_code_t msgcode, msg_type_t severity, uint32_t lineNum)
@@ -95,23 +92,23 @@ extern "C"
         case cc_status_ArcRadiusInconsistent:
             msg = "Arc radius inconsistent";
             break;
-        case cc_status_CompInCrossing:
-            msg = "Crossing detected on move into compensation";
-            break;
-        case cc_status_CompOutCrossing:
-            msg = "Crossing detected on move out of compensation";
-            break;
         case cc_status_UnresolvedGap:
             msg = "Unresolved gap between moves";
             break;
         case cc_status_InputBufferOverflow:
-            msg = "Cutter compensation input buffer overflow";
+            msg = "Input buffer overflow";
             break;
         case cc_status_OutputBufferOverflow:
-            msg = "Cutter compensation output buffer overflow";
+            msg = "Output buffer overflow";
+            break;
+        case cc_status_CompInCrossing:
+            msg = "Crossing error: move in cutting area";
+            break;
+        case cc_status_CompOutCrossing:
+            msg = "Crossing error: move out of cutting area";
             break;
         case cc_status_GlobalSelfIntersection:
-            msg = "Self-intersection avoided by trimming move";
+            msg = "Global self intersection detected";
             break;
         }   
 
@@ -163,7 +160,7 @@ extern "C"
         }
         else
         {
-            mv.type = (uint8_t)((pl_data && pl_data->condition.rapid_motion) ? CC_MOT_RAPID : CC_MOT_LINE);
+            mv.type = ((pl_data && pl_data->condition.rapid_motion) ? CC_MOT_RAPID : CC_MOT_LINE);
         }
 
         cc_mc_input_pos[0] = xyz[0];
@@ -180,25 +177,19 @@ extern "C"
 
         if (cc.side == CComp_Off && cc_api_get_comp() == CC_COMP_OFF)
         {
+            cc_mc_active = false;
             cc_mc_input_pos[0] = xyz[0];
             cc_mc_input_pos[1] = xyz[1];
             cc_mc_input_pos[2] = xyz[2];
             mc_line(xyz, pl_data);
             return cc_status_OK;
         }
-#if DEBUG
-        {
-            debug_printf("CC_IN side=%d inp=(%.3f,%.3f,%.3f) tgt=(%.3f,%.3f,%.3f)",
-                     cc.side, cc_mc_input_pos[0], cc_mc_input_pos[1], cc_mc_input_pos[2],
-                     xyz[0], xyz[1], xyz[2]);         
-        }
-#endif
+        cc_mc_active = true;    
+
         comp_side side = cc.side == CComp_Left ? CC_COMP_LEFT : (cc.side == CComp_Right ? CC_COMP_RIGHT : CC_COMP_OFF);
         comp_side current_side = cc_api_get_comp();
         bool turning_off = current_side != CC_COMP_OFF && side == CC_COMP_OFF;
-
-        cc_mc_update_lookahead_mode();
-
+ 
         if (side != current_side || (side != CC_COMP_OFF && cc_api_get_mode() == CC_CM_NONE))
             cc_api_set_comp(side);
 
@@ -208,8 +199,9 @@ extern "C"
         {
             bool inch = cc_api_get_units() == CC_UNITS_INCH;
             float r = inch ? cc.radius / 25.4f : cc.radius;
-            char msg[64];
-            snprintf(msg, sizeof(msg), "CC_On R=%.4f %s", r, inch ? "in" : "mm");
+            const char *corner_mode = cc_api_get_corner_treatment_mode() == CC_CTM_CHAMFER ? "Chamfer" : "Roll";
+            char msg[96];
+            snprintf(msg, sizeof(msg), "CC_On R=%.4f %s Corner=%s", r, inch ? "in" : "mm", corner_mode);
             report_message(msg, Message_Info);
         }
 
@@ -217,14 +209,15 @@ extern "C"
         if (st != cc_status_OK)
             return st;
 
+
         if (turning_off)
         {
             st = cc_api_process_move(0);
             if (st != cc_status_OK)
                 return st;
-
             report_message("CC_Off", Message_Info);
         }
+
 
         return cc_status_OK;
     }
@@ -237,25 +230,25 @@ extern "C"
 
         if (cc.side == CComp_Off && cc_api_get_comp() == CC_COMP_OFF)
         {
+            cc_mc_active = false;
             cc_mc_input_pos[0] = xyz[0];
             cc_mc_input_pos[1] = xyz[1];
             cc_mc_input_pos[2] = xyz[2];
             mc_arc(xyz, pl_data, position, ijk, radius, plane, turns);
             return cc_status_OK;
         }
-
+        cc_mc_active = true;
         comp_side side = cc.side == CComp_Left ? CC_COMP_LEFT : (cc.side == CComp_Right ? CC_COMP_RIGHT : CC_COMP_OFF);
         comp_side current_side = cc_api_get_comp();
         bool turning_off = current_side != CC_COMP_OFF && side == CC_COMP_OFF;
-
-        cc_mc_update_lookahead_mode();
+    
 
         if (side != current_side || (side != CC_COMP_OFF && cc_api_get_mode() == CC_CM_NONE))
             cc_api_set_comp(side);
 
         move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, position, ijk, radius, turns, true);
-
         cc_status_code_t st = cc_api_process_move(&mv);
+
         if (st != cc_status_OK)
             return st;
 
@@ -264,18 +257,27 @@ extern "C"
             st = cc_api_process_move(0);
             if (st != cc_status_OK)
                 return st;
-        }
-
+         }
         return cc_status_OK;
     }
 
     static inline void cc_emit_via_mc(const move2d *mv)
     {
+        //report_message("CC: cc_emit_via_mc", Message_Info);
         plan_line_data_t local_pl_data = {0};
         plan_line_data_t *pl_data = &local_pl_data;
+        float xyz[N_AXIS] = {0};
+        bool emitted_motion = false;
 
         if (!mv || !mv->valid)
             return;
+
+        if (mv->pause_after)
+        {
+            //synthetic move to indicate a M00 pause. Set the flag to pause after the next motion, and return without emitting a move.
+            cc_mc_pause_after_next_motion = true;
+            return;
+        }
 
         if (cc_mc_have_plan_data)
             local_pl_data = cc_mc_active_plan_data;
@@ -283,25 +285,16 @@ extern "C"
         local_pl_data.feed_rate = mv->feed;
         local_pl_data.condition.rapid_motion = (mv->type == CC_MOT_RAPID) ? 1 : 0;
 
-
-#if DEBUG
-        {
-            debug_printf("CC_EMIT type=%d cm=%d p0=(%.3f,%.3f) p1=(%.3f,%.3f) z0=%.3f z1=%.3f",
-                     mv->type, mv->compMode, mv->p_0.x, mv->p_0.y, mv->p_1.x, mv->p_1.y, mv->z_0, mv->z_1);
-        }
-#endif
-
         if (mv->type == CC_MOT_LINE || mv->type == CC_MOT_RAPID)
         {
-            float xyz[N_AXIS] = {0};
             xyz[0] = mv->p_1.x;
             xyz[1] = mv->p_1.y;
             xyz[2] = mv->z_1;
             mc_line(xyz, pl_data);
+            emitted_motion = true;
         }
         else if (mv->type == CC_MOT_ARC)
         {
-            float xyz[N_AXIS] = {0};
             xyz[0] = mv->p_1.x;
             xyz[1] = mv->p_1.y;
             xyz[2] = mv->z_1;
@@ -323,8 +316,18 @@ extern "C"
 
             int32_t turns = (mv->arcDir == CC_ARC_CCW) ? 1 : -1;
             mc_arc(xyz, pl_data, position, ijk, mv->radius, plane, turns);
+            emitted_motion = true;
         }
-    }
+
+        // Pause only after emitting a real motion.
+        if((sys.flags.single_block || cc_mc_pause_after_next_motion) && emitted_motion) {
+            //report_message("CC: Pausing after move", Message_Info);
+            cc_mc_pause_after_next_motion = false;
+            protocol_buffer_synchronize();
+            system_set_exec_state_flag(EXEC_FEED_HOLD);
+            protocol_execute_realtime();
+        }
+     }
 #endif
 #ifdef __cplusplus
 }

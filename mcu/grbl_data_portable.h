@@ -14,6 +14,10 @@
  * - src/grbl/coolant_control.h
  * - src/grbl/spindle_control.h
  */
+#define EXEC_FEED_HOLD (1 << 0) 
+void protocol_buffer_synchronize(void){};
+void system_set_exec_state_flag(uint8_t flag){(void)flag;};
+void protocol_execute_realtime(void){};
 
 
 #ifndef ENABLE_JERK_ACCELERATION
@@ -372,6 +376,17 @@ typedef enum {
     Message_Error,
     Message_Debug
 } message_type_t;
+
+
+typedef struct {
+    bool single_block;
+} sys_flags_t;
+
+typedef struct {
+    sys_flags_t flags;
+} system_t;
+
+static system_t sys = {0};
 
 // Converts an uint32 variable to string.
 char buf[40];

@@ -34,7 +34,7 @@
 
 static constexpr float TOOL_RADIUS = 0.03f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
+static constexpr bool GLOBAL_TRIM_CROSSING = false;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
 static constexpr bool GLOBAL_MERGE = false;
 static constexpr bool OUTPUT_SVG = true;

@@ -178,18 +178,6 @@ private:
             return false;
         }
 
-        if (!options.globalTrimCrossing)
-        {
-            CompSide side = effectiveCompSide();
-            bool innerArc = (side == COMP_LEFT && m.arcDir == ARC_CCW) || (side == COMP_RIGHT && m.arcDir == ARC_CW);
-            if (innerArc && fabsf(m.radius) < toolR)
-            {
-                m.valid = false;
-                reportCompError(CE_ARC_LT_TOOL_RAD);
-                return false;
-            }
-        }
-
         bool consistent = is_radius_consistent(m);
 
         if (!consistent)
@@ -850,8 +838,19 @@ private:
             m.valid = false;
             return false;
         }
-
         m.radius = r1;
+
+        if (!options.globalTrimCrossing)
+        {
+            if (m.radius < TOL)
+            {
+                m.valid = false;
+                reportCompError(CE_ARC_LT_TOOL_RAD);
+                return false;
+            }
+        }
+
+
         m.p_0 = m.center + v0 * (r1 / lv0);
         m.p_1 = m.center + v1 * (r1 / lv1);
         return true;

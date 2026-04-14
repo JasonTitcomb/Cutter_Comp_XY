@@ -19,8 +19,8 @@ class CcMainRunner
 {
 private:
     /// These values can be set to 1 to disable lookahead
-    static constexpr int MAX_LOOKAHEAD = 4;
-    static constexpr int TARGET_BATCH_EMIT_MOVES = 3;
+    static constexpr int MAX_LOOKAHEAD = 8;
+    static constexpr int TARGET_BATCH_EMIT_MOVES = 4;
     static constexpr int PROFILE_BURST_MARGIN = 4;
 
     static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;

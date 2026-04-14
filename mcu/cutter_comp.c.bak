@@ -220,10 +220,10 @@ static inline int cc_get_winding_dir(vec2 a, vec2 b)
     return 0;
 }
 
-static inline bool cc_is_near(vec2 a, vec2 b,float tol)
+static inline bool cc_is_near(vec2 a, vec2 b)
 {
     vec2 d = cc_sub(a, b);
-    return cc_len(d) <= tol;
+    return cc_dot(d, d) <= CC_TOL * CC_TOL;
 }
 
 static inline bool cc_is_line_like(const move2d *m)
@@ -587,19 +587,19 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
 #endif
         }
 
-// #if !CC_ENABLE_LOOKAHEAD
-//         {
-//             comp_side side = cc_effective_comp_side(ctx);
-//             bool inner_arc = (side == CC_COMP_LEFT && m->arcDir == CC_ARC_CCW) ||
-//                              (side == CC_COMP_RIGHT && m->arcDir == CC_ARC_CW);
-//             if (inner_arc && fabsf(m->radius) < ctx->toolR)
-//             {
-//                 m->valid = false;
-//                 cc_report_msg(ctx, cc_status_ArcLtToolRad, CC_MSG_ERROR);
-//                 return m->valid;
-//             }
-//         }
-// #endif
+#if !CC_ENABLE_LOOKAHEAD
+        {
+            comp_side side = cc_effective_comp_side(ctx);
+            bool inner_arc = (side == CC_COMP_LEFT && m->arcDir == CC_ARC_CCW) ||
+                             (side == CC_COMP_RIGHT && m->arcDir == CC_ARC_CW);
+            if (inner_arc && fabsf(m->radius) < ctx->toolR)
+            {
+                m->valid = false;
+                cc_report_msg(ctx, cc_status_ArcLtToolRad, CC_MSG_ERROR);
+                return m->valid;
+            }
+        }
+#endif
 
         bool consistent = cc_is_radius_consistent(m);
         if (!consistent)
@@ -643,7 +643,7 @@ static inline int cc_intersect_carrier(const move2d *a, const move2d *b, vec2 pt
     {
         int count = 0;
         intersect_type it;
-        if (cc_is_near(a->center, b->center, CC_TOL))
+        if (cc_is_near(a->center, b->center))
             return 0;
         it = cc_intersect_circle_circle(a, b, &pts[0], &pts[1], &count);
         if (it == CC_IT_NONE)
@@ -674,7 +674,7 @@ static inline int cc_finite_intersection_points(const move2d *a, const move2d *b
         vec2 p = carrierPts[i];
         if (!cc_point_on_finite_elem(a, p) || !cc_point_on_finite_elem(b, p))
             continue;
-        if (finiteCount > 0 && cc_is_near(pts[0], p, CC_TOL))
+        if (finiteCount > 0 && cc_is_near(pts[0], p))
             continue;
         pts[finiteCount++] = p;
     }
@@ -726,7 +726,7 @@ static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, con
         vec2 p = carrierPts[i];
         if (!cc_point_on_finite_elem(a, p) || !cc_point_on_finite_elem(b, p))
             continue;
-        if (trimCount > 0 && cc_is_near(trimPts[0], p, CC_TOL))
+        if (trimCount > 0 && cc_is_near(trimPts[0], p))
             continue;
         trimPts[trimCount++] = p;
     }
@@ -972,8 +972,7 @@ static inline void cc_invalidate_range(move2d *moves, int i, int j)
 {
     int k;
     for (k = i + 1; k < j; ++k)
-        if (!moves[k].pause_after)
-            moves[k].valid = false;
+        moves[k].valid = false;
 }
 
 static inline cc_aabb2 cc_aabb_of(const move2d *m)
@@ -1645,7 +1644,7 @@ static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, mo
 {
     junction junction;
     float gap = cc_dist(b->p_0, a->p_1);
-    float gapTol = ctx->gapTol;
+    float gapTol = ctx->gapTol > 0 ? ctx->gapTol : CC_GAP_TOL_MM;
     bool anyRapid = cc_has_rapid_move(a, b);
     bool allowExtend = anyRapid || (gap < gapTol);
     bool resolved = cc_solve_junction(ctx, a, b, allowExtend, &junction);
@@ -1701,21 +1700,15 @@ static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move
     float gap;
     bool resolved;
 
-    if (cc_is_near(a->center, b->center,ctx->gapTol))
-        return;//concentric.
+    if (cc_is_near(a->p_1, b->p_0) || cc_is_near(a->center, b->center))
+        return;
 
     gap = cc_len(cc_sub(b->p_0, a->p_1));
-    if(gap < ctx->gapTol)
-    {
-        a->p_1 = b->p_0;
-        cc_update_vectors(a);
-        return;
-    }
-
-    resolved = cc_solve_junction(ctx, a, b, gap < ctx->gapTol, &junction);
+    float gapTol = ctx->gapTol > 0 ? ctx->gapTol : CC_GAP_TOL_MM;
+    resolved = cc_solve_junction(ctx, a, b, gap < gapTol, &junction);
     if (!resolved)
     {
-        if (gap < ctx->gapTol)
+        if (gap < gapTol)
         {
             a->p_1 = b->p_0;
             cc_update_vectors(a);
@@ -1748,18 +1741,18 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
     float gap;
     bool resolved;
 
-    gap = cc_len(cc_sub(b->p_0, a->p_1));
-    if(gap < ctx->gapTol)
+    if (cc_is_near(a->p_1, b->p_0))
     {
-        a->p_1 = b->p_0;
-        cc_update_vectors(a);
-        cc_validate(ctx, a);
+        b->p_0 = a->p_1;
+        cc_update_vectors(b);
+        cc_validate(ctx, b);
         return;
     }
 
-
+    gap = cc_len(cc_sub(b->p_0, a->p_1));
+    float gapTol = ctx->gapTol > 0 ? ctx->gapTol : CC_GAP_TOL_MM;
     bool anyRapid = cc_has_rapid_move(a, b);
-    resolved = cc_solve_junction(ctx, a, b, anyRapid || (gap < ctx->gapTol), &junction);
+    resolved = cc_solve_junction(ctx, a, b, anyRapid || (gap < gapTol), &junction);
 
     if (junction.jtype == CC_JT_TRIM_TO_INTERSECTION && cc_trim_to(ctx, a, b, junction.p))
         return;
@@ -1922,13 +1915,6 @@ bool cc_process(cc_context *ctx)
 
         curOff = cc_pop_in(ctx);
         ctx->lastLineNum = curOff.lineNum;
-
-        if (curOff.pause_after)
-        {
-            if (!cc_stage_out(ctx, &curOff))
-                return false;
-            continue;
-        }
 
         if (curOff.type == CC_MOT_EMPTY)
             continue;

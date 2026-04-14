@@ -63,7 +63,7 @@ extern "C" {
 #endif
 
 #ifndef CC_LA_TARGET_BATCH_EMIT
-#define CC_LA_TARGET_BATCH_EMIT 3
+#define CC_LA_TARGET_BATCH_EMIT 1
 #endif
 
 #ifndef CC_LA_TRIM_OVERLAP
@@ -176,11 +176,12 @@ typedef struct
     float z_0;
     float z_1;
     uint32_t lineNum;
-    uint8_t type;
+    motion_type type;
     uint8_t arcDir;
     uint8_t compMode;
     bool hasXY;
     bool hasZ;
+    bool pause_after;
     bool valid;
 } move2d;
 
@@ -261,6 +262,7 @@ void cc_api_set_lookahead_enabled(bool enabled);
 
 //Requires CC_ENABLE_CORNER_TREATMENT set to 1
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);
+cc_corner_treatment_mode cc_api_get_corner_treatment_mode(void);
 
 
 #ifdef __cplusplus
