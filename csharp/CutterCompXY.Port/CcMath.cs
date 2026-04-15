@@ -545,7 +545,7 @@ public static class CcMath
     public static bool PointOnArcCached(in Move2D a, in Vec2 p, in ArcAngles aa)
     {
         float rp = Len(p - a.center);
-        if (MathF.Abs(rp - a.radius) > CcConst.TOL)
+        if (MathF.Abs(rp - MathF.Abs(a.radius)) > CcConst.TOL)
             return false;
 
         float ap = MathF.Atan2(p.y - a.center.y, p.x - a.center.x);

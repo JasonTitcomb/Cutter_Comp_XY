@@ -689,6 +689,65 @@ static inline bool cc_is_forward_extension_point(const move2d *a, const move2d *
     return fipDir1 > 0.0f && fipDir2 < 0.0f;
 }
 
+static inline bool cc_is_usable_degenerate_arc(const move2d *m)
+{
+    return m->type == CC_MOT_ARC && fabsf(m->radius) < CC_TOL && m->hasXY;
+}
+
+static inline bool cc_try_get_best_trim_point(const move2d *a, const move2d *b, vec2 *bestPoint)
+{
+    vec2 pts[2];
+    int count = cc_finite_intersection_points(a, b, pts);
+    float bestScore;
+    int i;
+
+    if (count <= 0)
+        return false;
+
+    *bestPoint = pts[0];
+    bestScore = cc_dist_from_start_along(a, pts[0]) + cc_dist_from_start_along(b, pts[0]);
+
+    for (i = 1; i < count; ++i)
+    {
+        float score = cc_dist_from_start_along(a, pts[i]) + cc_dist_from_start_along(b, pts[i]);
+        if (score < bestScore)
+        {
+            bestScore = score;
+            *bestPoint = pts[i];
+        }
+    }
+
+    return true;
+}
+
+static inline bool cc_try_get_best_extend_point(const move2d *a, const move2d *b, vec2 *bestPoint)
+{
+    vec2 pts[2];
+    int count = cc_intersect_carrier(a, b, pts);
+    bool found = false;
+    float bestScore = 0.0f;
+    int i;
+
+    for (i = 0; i < count; ++i)
+    {
+        vec2 p = pts[i];
+        if (!cc_is_forward_extension_point(a, b, p))
+            continue;
+
+        {
+            float score = cc_dist(a->p_1, p) + cc_dist(b->p_0, p);
+            if (!found || score < bestScore)
+            {
+                bestScore = score;
+                *bestPoint = p;
+                found = true;
+            }
+        }
+    }
+
+    return found;
+}
+
 static inline bool cc_convex_from_winding(const cc_context *ctx, int winding)
 {
     bool isLeft;
@@ -704,74 +763,6 @@ static inline bool cc_is_convex(const cc_context *ctx, const move2d *a, const mo
 {
     int winding = cc_get_winding_dir(a->endDir, b->startDir);
     return cc_convex_from_winding(ctx, winding);
-}
-
-static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, const move2d *b, bool allowExtend, junction *outjunc)
-{
-    vec2 trimPts[2];
-    vec2 carrierPts[2];
-    int carrierCount = cc_intersect_carrier(a, b, carrierPts);
-    int trimCount = 0;
-    float bestTrimScore = 0.0f;
-    float bestExtendScore = 0.0f;
-    bool foundTrim = false;
-    bool foundExtend = false;
-    int i;
-
-    outjunc->jtype = CC_JT_NONE;
-    outjunc->p = cc_v2(0.0f, 0.0f);
-
-    for (i = 0; i < carrierCount; ++i)
-    {
-        vec2 p = carrierPts[i];
-        if (!cc_point_on_finite_elem(a, p) || !cc_point_on_finite_elem(b, p))
-            continue;
-        if (trimCount > 0 && cc_is_near(trimPts[0], p, CC_TOL))
-            continue;
-        trimPts[trimCount++] = p;
-    }
-
-    for (i = 0; i < trimCount; ++i)
-    {
-        vec2 p = trimPts[i];
-        float score = cc_dist_from_start_along(a, p) + cc_dist_from_start_along(b, p);
-        if (!foundTrim || score < bestTrimScore)
-        {
-            outjunc->jtype = CC_JT_TRIM_TO_INTERSECTION;
-            outjunc->p = p;
-            bestTrimScore = score;
-            foundTrim = true;
-        }
-    }
-
-    for (i = 0; i < carrierCount; ++i)
-    {
-        vec2 p = carrierPts[i];
-        if (allowExtend && cc_is_forward_extension_point(a, b, p))
-        {
-            float score = cc_dist(a->p_1, p) + cc_dist(b->p_0, p);
-            if (!foundExtend || score < bestExtendScore)
-            {
-                outjunc->jtype = CC_JT_EXTEND_TO_INTERSECTION;
-                outjunc->p = p;
-                bestExtendScore = score;
-                foundExtend = true;
-            }
-        }
-    }
-
-    if (foundTrim)
-        return true;
-    if (foundExtend)
-        return true;
-    if (cc_is_convex(ctx, a, b))
-    {
-        outjunc->jtype = CC_JT_ROLL_AROUND;
-        return true;
-    }
-
-    outjunc->jtype = CC_JT_NONE;
-    return false;
 }
 
 static inline bool cc_out_has_space(cc_context *ctx, int n)
@@ -1028,7 +1019,7 @@ static inline int cc_common_tip_any(const move2d *a, const move2d *b, vec2 *tip1
 
     if (a->type == CC_MOT_ARC && b->type == CC_MOT_ARC)
     {
-        if (cc_is_near(a->p_1, b->p_0) || cc_is_near(a->center, b->center))
+        if (cc_is_near(a->p_1, b->p_0, CC_TOL) || cc_is_near(a->center, b->center, CC_TOL))
             return 0;
     }
 
@@ -1204,6 +1195,10 @@ static inline bool cc_trim_crossing_elements(cc_context *ctx, move2d *moves, int
         if (!shouldTrim)
         {
             (void)cc_trim_to(ctx, &moves[srcIdx], &moves[crossing.j], crossing.tip);
+            if (moves[srcIdx].type == CC_MOT_ARC && fabsf(moves[srcIdx].radius) < CC_TOL)
+                moves[srcIdx].valid = false;
+            if (moves[crossing.j].type == CC_MOT_ARC && fabsf(moves[crossing.j].radius) < CC_TOL)
+                moves[crossing.j].valid = false;
             cc_invalidate_range(moves, srcIdx, crossing.j);
             cc_report_msg(ctx, cc_status_GlobalSelfIntersection, CC_MSG_INFO);
         }
@@ -1643,31 +1638,10 @@ static inline bool cc_insert_roll_or_corner(cc_context *ctx, move2d *a, move2d *
 
 static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, move2d inserts[CC_INSERT_CAP], int *insertCount)
 {
-    junction junction;
     float gap = cc_dist(b->p_0, a->p_1);
     float gapTol = ctx->gapTol;
     bool anyRapid = cc_has_rapid_move(a, b);
     bool allowExtend = anyRapid || (gap < gapTol);
-    bool resolved = cc_solve_junction(ctx, a, b, allowExtend, &junction);
-
-    if (junction.jtype == CC_JT_TRIM_TO_INTERSECTION)
-    {
-        cc_trim_to(ctx, a, b, junction.p);
-        if (!a->valid)
-        {
-            b->p_0 = a->p_1;
-            return;
-        }
-        if (!b->valid)
-        {
-            a->p_1 = b->p_0;
-            return;
-        }
-        return;
-    }
-
-    if (junction.jtype == CC_JT_EXTEND_TO_INTERSECTION && cc_extend_to(ctx, a, b, junction.p))
-        return;
 
     if (a->compMode == CC_CM_IN)
     {
@@ -1677,7 +1651,7 @@ static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, mo
         return;
     }
 
-    if (b->compMode == CC_CM_OUT)
+    if (gap <= gapTol)
     {
         b->p_0 = a->p_1;
         cc_update_vectors(b);
@@ -1685,68 +1659,85 @@ static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, mo
         return;
     }
 
-    if (!anyRapid && resolved && junction.jtype == CC_JT_ROLL_AROUND)
+    vec2 ip = cc_v2(0.0f, 0.0f);
+    bool tip = false;
+    intersect_type it = cc_intersect_line_line(a, b, &ip, &tip);
+
+    if (it != CC_IT_NONE)
+    {
+        float projA = cc_dot(cc_sub(ip, a->p_1), a->endDir);
+        float projB = cc_dot(cc_sub(ip, b->p_0), b->startDir);
+
+        if (projA <= gapTol && projB >= -gapTol)
+        {
+            cc_trim_to(ctx, a, b, ip);
+            if (!a->valid)
+            {
+                b->p_0 = a->p_1;
+                return;
+            }
+            if (!b->valid)
+            {
+                a->p_1 = b->p_0;
+                return;
+            }
+            return;
+        }
+
+        if (allowExtend && projA > 0.0f && projB < 0.0f)
+        {
+            if (cc_extend_to(ctx, a, b, ip))
+                return;
+        }
+    }
+
+    if (!anyRapid && cc_is_convex(ctx, a, b))
     {
         if (!cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
             cc_report_msg(ctx, cc_status_UnresolvedGap, CC_MSG_ERROR);
         return;
     }
-
-    inserts[(*insertCount)++] = cc_make_bevel(a, b);
+    cc_report_msg(ctx, cc_status_InvalidMove, CC_MSG_ERROR);
+    //inserts[(*insertCount)++] = cc_make_bevel(a, b);
 }
 
 static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move2d inserts[CC_INSERT_CAP], int *insertCount)
 {
-    junction junction;
     float gap;
-    bool resolved;
+    vec2 junctionPoint = cc_v2(0.0f, 0.0f);
 
     if (cc_is_near(a->center, b->center,ctx->gapTol))
         return;//concentric.
 
     gap = cc_len(cc_sub(b->p_0, a->p_1));
-    if(gap < ctx->gapTol)
-    {
-        a->p_1 = b->p_0;
-        cc_update_vectors(a);
-        return;
-    }
 
-    resolved = cc_solve_junction(ctx, a, b, gap < ctx->gapTol, &junction);
-    if (!resolved)
+    if (cc_is_usable_degenerate_arc(a) || cc_is_usable_degenerate_arc(b))
+        return;
+
+    if (cc_try_get_best_trim_point(a, b, &junctionPoint) && cc_trim_to(ctx, a, b, junctionPoint))
+        return;
+
+    if (gap < ctx->gapTol)
     {
-        if (gap < ctx->gapTol)
-        {
-            a->p_1 = b->p_0;
-            cc_update_vectors(a);
-            cc_validate(ctx, a);
+        if (cc_try_get_best_extend_point(a, b, &junctionPoint) && cc_extend_to(ctx, a, b, junctionPoint))
             return;
-        }
     }
-
-    if (junction.jtype == CC_JT_TRIM_TO_INTERSECTION && cc_trim_to(ctx, a, b, junction.p))
-        return;
-
-    if (junction.jtype == CC_JT_EXTEND_TO_INTERSECTION && cc_extend_to(ctx, a, b, junction.p))
-        return;
 
     if (cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
     {
         return;
     }
 
-#if !CC_ENABLE_LOOKAHEAD
-    cc_report_msg(ctx, cc_status_InvalidMove, CC_MSG_ERROR);
-#endif
 
-    inserts[(*insertCount)++] = cc_make_bevel(a, b);
+    cc_report_msg(ctx, cc_status_InvalidMove, CC_MSG_ERROR);
+    //inserts[(*insertCount)++] = cc_make_bevel(a, b);
 }
 
 static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, move2d inserts[CC_INSERT_CAP], int *insertCount)
 {
-    junction junction;
     float gap;
-    bool resolved;
+    bool anyRapid;
+    vec2 junctionPoint = cc_v2(0.0f, 0.0f);
 
     gap = cc_len(cc_sub(b->p_0, a->p_1));
     if(gap < ctx->gapTol)
@@ -1757,28 +1748,26 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
         return;
     }
 
+    anyRapid = cc_has_rapid_move(a, b);
 
-    bool anyRapid = cc_has_rapid_move(a, b);
-    resolved = cc_solve_junction(ctx, a, b, anyRapid || (gap < ctx->gapTol), &junction);
-
-    if (junction.jtype == CC_JT_TRIM_TO_INTERSECTION && cc_trim_to(ctx, a, b, junction.p))
+    if (cc_is_usable_degenerate_arc(a) || cc_is_usable_degenerate_arc(b))
         return;
 
-    if (junction.jtype == CC_JT_EXTEND_TO_INTERSECTION && cc_extend_to(ctx, a, b, junction.p))
+    if (cc_try_get_best_trim_point(a, b, &junctionPoint) && cc_trim_to(ctx, a, b, junctionPoint))
         return;
 
-    if (!anyRapid && resolved && junction.jtype == CC_JT_ROLL_AROUND)
+    if ((anyRapid || (gap < ctx->gapTol)) && cc_try_get_best_extend_point(a, b, &junctionPoint) && cc_extend_to(ctx, a, b, junctionPoint))
+        return;
+
+    if (!anyRapid && cc_is_convex(ctx, a, b))
     {
         if (!cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
             cc_report_msg(ctx, cc_status_UnresolvedGap, true);
         return;
     }
 
-#if !CC_ENABLE_LOOKAHEAD
     cc_report_msg(ctx, cc_status_InvalidMove, CC_MSG_ERROR);
-#endif
-
-    inserts[(*insertCount)++] = cc_make_bevel(a, b);
+    //inserts[(*insertCount)++] = cc_make_bevel(a, b);
 }
 
 static inline void cc_apply_logic(cc_context *ctx, move2d *a, move2d *b, move2d inserts[CC_INSERT_CAP], int *insertCount)
@@ -1975,7 +1964,30 @@ bool cc_process(cc_context *ctx)
         }
 
         if (!cc_validate(ctx, &curOff))
+        {
+#if CC_ENABLE_LOOKAHEAD
+            if (cc_lookahead_runtime_enabled(ctx))
+            {
+                if (ctx->havePrevMove && ctx->prevOff.valid)
+                {
+                    if (!cc_stage_out(ctx, &ctx->prevOff))
+                        return false;
+                    if (!cc_emit_pending_z_move_at(ctx, &ctx->prevOff))
+                        return false;
+                }
+
+                ctx->prevOff = curOff;
+                ctx->havePrevMove = true;
+
+                if (curOff.compMode == CC_CM_IN)
+                    ctx->compMode = CC_CM_STEADY;
+                else if (curOff.compMode == CC_CM_OUT)
+                    ctx->compMode = CC_CM_NONE;
+                continue;
+            }
+#endif
             return false;
+        }
         if (!cc_offset_move(ctx, &curOff))
             return false;
 

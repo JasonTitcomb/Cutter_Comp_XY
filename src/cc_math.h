@@ -431,7 +431,7 @@ static bool pointOnArcCached(const Move2D &a, Vec2 p, const ArcAngles &aa)
 {
   /* Radius check — cheapest rejection test, no trig needed */
   float rp = len(p - a.center);
-  if (fabsf(rp - a.radius) > TOL)
+  if (fabsf(rp - fabsf(a.radius)) > TOL)
     return false;
 
   /* Angle of the test point relative to arc center (the only atan2f) */

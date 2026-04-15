@@ -37,20 +37,6 @@ struct CcMainOptions
     bool emitStatusComments = true;
 };
 
-enum JunctionType : uint8_t
-{
-    JT_NONE = 0,
-    JT_TRIM_TO_INTERSECTION,
-    JT_EXTEND_TO_INTERSECTION,
-    JT_ROLL_AROUND,
-};
-
-struct Junction
-{
-    JunctionType type = JT_NONE;
-    Vec2 p{0, 0};
-};
-
 class CutterComp2D
 {
 private:
@@ -384,7 +370,26 @@ public:
             }
 
             if (!validate(curOff))
-                return false;
+            {
+                if (!options.globalTrimCrossing)
+                    return false;
+
+                if (havePrevMove2D && prevOff.valid)
+                {
+                    pushOut(prevOff);
+                    if (!emitPendingZMoveAt(prevOff))
+                        return false;
+                }
+
+                prevOff = curOff;
+                havePrevMove2D = true;
+
+                if (curOff.compMode == CM_IN)
+                    compMode = CM_STEADY;
+                else if (curOff.compMode == CM_OUT)
+                    compMode = CM_NONE;
+                continue;
+            }
             if (!offsetMove(curOff))
                 return false;
 
@@ -639,73 +644,57 @@ private:
         return fipDir1 > 0 && fipDir2 < 0;
     }
 
-    bool solveJunction(const Move2D &a, const Move2D &b, bool allowExtend, Junction &outjunc)
+    static bool isUsableDegenerateArc(const Move2D &m)
     {
-        Vec2 carrierPts[2]{};
-        int carrierCount = intersectCarrier(a, b, carrierPts);
-        Vec2 trimPts[2]{};
-        int trimCount = 0;
+        return m.type == MOT_ARC && fabsf(m.radius) < TOL && m.hasXY;
+    }
 
-        float bestTrimScore = 0.0f;
-        float bestExtendScore = 0.0f;
-        bool foundTrim = false;
-        bool foundExtend = false;
+    bool bestTrimPoint(const Move2D &a, const Move2D &b, Vec2 &bestPoint)
+    {
+        Vec2 pts[2]{};
+        int count = finiteIntersectionPoints(a, b, pts);
+        if (count <= 0)
+            return false;
 
-        for (int i = 0; i < carrierCount; ++i)
+        bestPoint = pts[0];
+        float bestScore = distFromStart_along(a, pts[0]) + distFromStart_along(b, pts[0]);
+
+        for (int i = 1; i < count; ++i)
         {
-            Vec2 p = carrierPts[i];
-            if (!pointOnFiniteElem(a, p) || !pointOnFiniteElem(b, p))
-                continue;
-
-            if (trimCount > 0 && is_near(trimPts[0], p))
-                continue;
-
-            trimPts[trimCount++] = p;
-        }
-
-        for (int i = 0; i < trimCount; ++i)
-        {
-            Vec2 p = trimPts[i];
-            float score = distFromStart_along(a, p) + distFromStart_along(b, p);
-            if (!foundTrim || score < bestTrimScore)
+            float score = distFromStart_along(a, pts[i]) + distFromStart_along(b, pts[i]);
+            if (score < bestScore)
             {
-                outjunc.type = JT_TRIM_TO_INTERSECTION;
-                outjunc.p = p;
-                bestTrimScore = score;
-                foundTrim = true;
+                bestScore = score;
+                bestPoint = pts[i];
             }
         }
 
-        for (int i = 0; i < carrierCount; ++i)
+        return true;
+    }
+
+    bool bestExtendPoint(const Move2D &a, const Move2D &b, Vec2 &bestPoint)
+    {
+        Vec2 pts[2]{};
+        int count = intersectCarrier(a, b, pts);
+        bool found = false;
+        float bestScore = 0.0f;
+
+        for (int i = 0; i < count; ++i)
         {
-            Vec2 p = carrierPts[i];
-            if (allowExtend && isForwardExtensionPoint(a, b, p))
+            Vec2 p = pts[i];
+            if (!isForwardExtensionPoint(a, b, p))
+                continue;
+
+            float score = dist(a.p_1, p) + dist(b.p_0, p);
+            if (!found || score < bestScore)
             {
-                float score = dist(a.p_1, p) + dist(b.p_0, p);
-                if (!foundExtend || score < bestExtendScore)
-                {
-                    outjunc.type = JT_EXTEND_TO_INTERSECTION;
-                    outjunc.p = p;
-                    bestExtendScore = score;
-                    foundExtend = true;
-                }
+                bestScore = score;
+                bestPoint = p;
+                found = true;
             }
         }
 
-        if (foundTrim)
-            return true;
-
-        if (foundExtend)
-            return true;
-
-        if (is_convex(a, b))
-        {
-            outjunc.type = JT_ROLL_AROUND;
-            return true;
-        }
-
-        outjunc.type = JT_NONE;
-        return false;
+        return found;
     }
 
     int next_valid_index(const Move2D *moves, int count, int i)
@@ -1172,36 +1161,9 @@ private:
 
     void handleLineLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
-        Junction junction;
         float gap = dist(b.p_0, a.p_1);
         bool anyRapid = hasRapidMove(a, b);
-        bool allowExtend = anyRapid || (gap < gapTol); // rapid corners should resolve by trim/extend instead of inserting a roll.
-        bool resolved = solveJunction(a, b, allowExtend, junction);
-
-        if (junction.type == JT_TRIM_TO_INTERSECTION)
-        {
-            trimTo(a, b, junction.p);
-            // when trimming we can get small segments that are invalid after trimming,
-            if (!a.valid)
-            {
-                b.p_0 = a.p_1;
-                return;
-            }
-            if (!b.valid)
-            {
-                a.p_1 = b.p_0;
-                return;
-            }
-            return;
-        }
-
-        if (junction.type == JT_EXTEND_TO_INTERSECTION)
-        {
-            if (extendTo(a, b, junction.p))
-            {
-                return;
-            }
-        }
+        bool shouldExtend = anyRapid || (gap < gapTol); // rapid corners should resolve by trim/extend instead of inserting a roll.
 
         if (a.compMode == CM_IN)
         {
@@ -1211,7 +1173,7 @@ private:
             return;
         }
 
-        if (b.compMode == CM_OUT)
+        if (gap <= gapTol)
         {
             b.p_0 = a.p_1;
             update_vectors(b);
@@ -1219,16 +1181,51 @@ private:
             return;
         }
 
-        if (!anyRapid && resolved && junction.type == JT_ROLL_AROUND)
+        Vec2 ip{0, 0};
+        bool tip = false;
+        IntersectType it = intersectLineLine(a, b, ip, tip);
+
+        if (it != IT_NONE)
+        {
+            float projA = dot(ip - a.p_1, a.endDir);
+            float projB = dot(ip - b.p_0, b.startDir);
+
+            if (projA <= gapTol && projB >= -gapTol)
+            {
+                trimTo(a, b, ip);
+                // when trimming we can get small segments that are invalid after trimming,
+                if (!a.valid)
+                {
+                    b.p_0 = a.p_1;
+                    return;
+                }
+                if (!b.valid)
+                {
+                    a.p_1 = b.p_0;
+                    return;
+                }
+                return;
+            }
+
+            if (shouldExtend && projA > 0.0f && projB < 0.0f)
+            {
+                if (extendTo(a, b, ip))
+                {
+                    return;
+                }
+            }
+        }
+
+        if (!anyRapid && is_convex(a, b))
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP);
             return;
         }
 
-        // If we get here: concave or no-good FIP -> just bevel.
-        // It's better to have a small bevel than an unresolved gap or weird logic issues later.
-        inserts[insertCount++] = makeBevel(a, b);
+        //throw error here.
+        reportCompError(CE_UNRESOLVED_GAP);
+        //inserts[insertCount++] = makeBevel(a, b);
     }
 
     void handleArcArc(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
@@ -1238,19 +1235,21 @@ private:
             return; // connected arc or concentric
         }
 
-        Junction junction;
-        float gap = len(b.p_0 - a.p_1);
-        solveJunction(a, b, gap < gapTol, junction);
+        if (isUsableDegenerateArc(a) || isUsableDegenerateArc(b))
+            return;
 
-        if (junction.type == JT_TRIM_TO_INTERSECTION)
+        Vec2 junctionP{0, 0};
+        float gap = len(b.p_0 - a.p_1);
+
+        if (bestTrimPoint(a, b, junctionP))
         {
-            if (trimTo(a, b, junction.p))
+            if (trimTo(a, b, junctionP))
                 return;
         }
 
-        if (junction.type == JT_EXTEND_TO_INTERSECTION)
+        if (gap < gapTol && bestExtendPoint(a, b, junctionP))
         {
-            if (extendTo(a, b, junction.p))
+            if (extendTo(a, b, junctionP))
                 return;
         }
 
@@ -1277,23 +1276,25 @@ private:
         }
 
         float gap = len(b.p_0 - a.p_1);
-        Junction junction;
         bool anyRapid = hasRapidMove(a, b);
-        bool resolved = solveJunction(a, b, anyRapid || (gap < gapTol), junction);
+        Vec2 junctionP{0, 0};
 
-        if (junction.type == JT_TRIM_TO_INTERSECTION)
+        if (isUsableDegenerateArc(a) || isUsableDegenerateArc(b))
+            return;
+
+        if (bestTrimPoint(a, b, junctionP))
         {
-            if (trimTo(a, b, junction.p))
+            if (trimTo(a, b, junctionP))
                 return;
         }
 
-        if (junction.type == JT_EXTEND_TO_INTERSECTION)
+        if ((anyRapid || (gap < gapTol)) && bestExtendPoint(a, b, junctionP))
         {
-            if (extendTo(a, b, junction.p))
+            if (extendTo(a, b, junctionP))
                 return;
         }
 
-        if (!anyRapid && resolved && junction.type == JT_ROLL_AROUND)
+        if (!anyRapid && is_convex(a, b))
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP);
@@ -1301,10 +1302,9 @@ private:
         }
 
         // if we are going to do a global trim then we can ignore
-        if (!options.globalTrimCrossing)
-            reportCompError(CE_UNRESOLVED_GAP);
-
-        inserts[insertCount++] = makeBevel(a, b);
+        //if (!options.globalTrimCrossing)
+        reportCompError(CE_UNRESOLVED_GAP);
+        //inserts[insertCount++] = makeBevel(a, b);
     }
 
     // Returns 0..2 TIPs that lie on BOTH finite elements
@@ -1545,6 +1545,10 @@ public:
             if (!shouldTrim)
             {
                 (void)trimTo(moves[srcIdx], moves[hitTargetIdx], crossing.tip);
+                if (moves[srcIdx].type == MOT_ARC && fabsf(moves[srcIdx].radius) < TOL)
+                    moves[srcIdx].valid = false;
+                if (moves[hitTargetIdx].type == MOT_ARC && fabsf(moves[hitTargetIdx].radius) < TOL)
+                    moves[hitTargetIdx].valid = false;
                 CutterComp2D::invalidateRange(moves, srcIdx, hitTargetIdx);
             }
             // trimmedTo becomes new srcElement

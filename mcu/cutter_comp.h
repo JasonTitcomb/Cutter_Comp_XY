@@ -51,7 +51,7 @@ extern "C" {
 #endif
 
 #ifndef CC_ENABLE_LOOKAHEAD
-#define CC_ENABLE_LOOKAHEAD 0
+#define CC_ENABLE_LOOKAHEAD 1
 #endif
 
 #ifndef CC_LOOKAHEAD_CAP
@@ -189,20 +189,6 @@ vec2 cc_v2(float x, float y);
 
 typedef void (*cc_msg_cb)( cc_status_code_t msg, msg_type_t severity, uint32_t lineNum);
 typedef void (*emit_move_cb)(const move2d *move);
-
-typedef enum
-{
-    CC_JT_NONE = 0,
-    CC_JT_TRIM_TO_INTERSECTION,
-    CC_JT_EXTEND_TO_INTERSECTION,
-    CC_JT_ROLL_AROUND,
- } junction_type;
-
-typedef struct
-{
-    junction_type jtype;
-    vec2 p;
-} junction;
 
 typedef struct
 {

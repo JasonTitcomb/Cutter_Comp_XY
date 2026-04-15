@@ -1,0 +1,18 @@
+cc_xy comparison report
+full profile count: 82
+simple profile count: 80
+invalid full count: 0
+invalid simple count: 3
+shared count: 80
+
+count mismatch: full=82 simple=80
+
+summary
+  first mismatch index: -1
+  mismatch count: 0
+  type mismatch count: 0
+  validity mismatch count: 0
+  max p0 delta: 0.000307
+  max p1 delta: 0.000307
+  max center delta: 0.000283
+  max radius delta: 0.000045

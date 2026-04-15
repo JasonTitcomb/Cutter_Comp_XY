@@ -34,20 +34,6 @@ public struct CcMainOptions
 }
 public sealed class CutterComp2D
 {
-    private enum JunctionType : byte
-    {
-        JT_NONE = 0,
-        JT_TRIM_TO_INTERSECTION,
-        JT_EXTEND_TO_INTERSECTION,
-        JT_ROLL_AROUND,
-    }
-
-    private struct Junction
-    {
-        public JunctionType type;
-        public Vec2 p;
-    }
-
     public CornerType cornerTreatment = CornerType.CORNER_ROLL;
     public bool performTrim = true;
     public const int IN_CAP = 2;
@@ -335,7 +321,26 @@ public sealed class CutterComp2D
             }
 
             if (!Validate(ref curOff))
-                return false;
+            {
+                if (!options.globalTrimCrossing)
+                    return false;
+
+                if (havePrevMove2D && prevOff.valid)
+                {
+                    PushOut(prevOff);
+                    if (!EmitPendingZMoveAt(prevOff))
+                        return false;
+                }
+
+                prevOff = curOff;
+                havePrevMove2D = true;
+
+                if (curOff.compMode == CompMode.CM_IN)
+                    compMode = CompMode.CM_STEADY;
+                else if (curOff.compMode == CompMode.CM_OUT)
+                    compMode = CompMode.CM_NONE;
+                continue;
+            }
             if (!OffsetMove(curOff, out curOff))
                 return false;
 
@@ -598,75 +603,55 @@ public sealed class CutterComp2D
         return fipDir1 > 0 && fipDir2 < 0;
     }
 
-    private bool SolveJunction(in Move2D a, in Move2D b, bool allowExtend, out Junction outJunction)
+    private static bool IsUsableDegenerateArc(in Move2D m)
     {
-        outJunction = new Junction { type = JunctionType.JT_NONE, p = new Vec2(0, 0) };
-        int carrierCount = IntersectCarrier(a, b, out Vec2 c0, out Vec2 c1);
-        Vec2[] carrierPts = { c0, c1 };
+        return m.type == MotionType.MOT_ARC && MathF.Abs(m.radius) < CcConst.TOL && m.hasXY;
+    }
 
-        Vec2[] trimPts = new Vec2[2];
-        int trimCount = 0;
+    private bool TryGetBestTrimPoint(in Move2D a, in Move2D b, out Vec2 bestPoint)
+    {
+        bestPoint = new Vec2(0, 0);
+        int count = FiniteIntersectionPoints(a, b, out Vec2 p1, out Vec2 p2);
+        if (count <= 0)
+            return false;
 
-        float bestTrimScore = 0.0f;
-        float bestExtendScore = 0.0f;
-        bool foundTrim = false;
-        bool foundExtend = false;
+        bestPoint = p1;
+        float bestScore = CcMath.DistFromStartAlong(a, p1) + CcMath.DistFromStartAlong(b, p1);
 
-        for (int i = 0; i < carrierCount; i++)
+        if (count > 1)
         {
-            Vec2 p = carrierPts[i];
-            if (!PointOnFiniteElem(a, p) || !PointOnFiniteElem(b, p))
-                continue;
-
-            if (trimCount > 0 && CcMath.IsNear(trimPts[0], p))
-                continue;
-
-            trimPts[trimCount++] = p;
+            float score = CcMath.DistFromStartAlong(a, p2) + CcMath.DistFromStartAlong(b, p2);
+            if (score < bestScore)
+                bestPoint = p2;
         }
 
-        for (int i = 0; i < trimCount; i++)
+        return true;
+    }
+
+    private bool TryGetBestExtendPoint(in Move2D a, in Move2D b, out Vec2 bestPoint)
+    {
+        bestPoint = new Vec2(0, 0);
+        int count = IntersectCarrier(a, b, out Vec2 p1, out Vec2 p2);
+        Vec2[] carrierPts = { p1, p2 };
+        bool found = false;
+        float bestScore = 0.0f;
+
+        for (int i = 0; i < count; i++)
         {
-            Vec2 p = trimPts[i];
-            float score = CcMath.DistFromStartAlong(a, p) + CcMath.DistFromStartAlong(b, p);
-            if (!foundTrim || score < bestTrimScore)
+            Vec2 p = carrierPts[i];
+            if (!IsForwardExtensionPoint(a, b, p))
+                continue;
+
+            float score = CcMath.Len(a.p_1 - p) + CcMath.Len(b.p_0 - p);
+            if (!found || score < bestScore)
             {
-                outJunction.type = JunctionType.JT_TRIM_TO_INTERSECTION;
-                outJunction.p = p;
-                bestTrimScore = score;
-                foundTrim = true;
+                bestScore = score;
+                bestPoint = p;
+                found = true;
             }
         }
 
-        for (int i = 0; i < carrierCount; i++)
-        {
-            Vec2 p = carrierPts[i];
-            if (allowExtend && IsForwardExtensionPoint(a, b, p))
-            {
-                float score = CcMath.Len(a.p_1 - p) + CcMath.Len(b.p_0 - p);
-                if (!foundExtend || score < bestExtendScore)
-                {
-                    outJunction.type = JunctionType.JT_EXTEND_TO_INTERSECTION;
-                    outJunction.p = p;
-                    bestExtendScore = score;
-                    foundExtend = true;
-                }
-            }
-        }
-
-        if (foundTrim)
-            return true;
-
-        if (foundExtend)
-            return true;
-
-        if (IsConvex(a, b))
-        {
-            outJunction.type = JunctionType.JT_ROLL_AROUND;
-            return true;
-        }
-
-        outJunction.type = JunctionType.JT_NONE;
-        return false;
+        return found;
     }
 
     private bool OffsetMove(in Move2D src, out Move2D dst)
@@ -1045,29 +1030,6 @@ public sealed class CutterComp2D
         float gap = CcMath.Len(b.p_0 - a.p_1);
         bool anyRapid = HasRapidMove(a, b);
         bool allowExtend = anyRapid || (gap < gapTol) || comping;
-        bool resolved = SolveJunction(a, b, allowExtend, out Junction junction);
-
-        if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
-        {
-            TrimToTIP(ref a, ref b, junction.p);
-            if (!a.valid)
-            {
-                b.p_0 = a.p_1;
-                return;
-            }
-            if (!b.valid)
-            {
-                a.p_1 = b.p_0;
-                return;
-            }
-            return;
-        }
-
-        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
-        {
-            if (ExtendToFIP(ref a, ref b, junction.p))
-                return;
-        }
 
         if (a.compMode == CompMode.CM_IN)
         {
@@ -1075,13 +1037,44 @@ public sealed class CutterComp2D
             return;
         }
 
-        if (b.compMode == CompMode.CM_OUT)
+        if (gap <= gapTol)
         {
             b.p_0 = a.p_1;
+            CcMath.UpdateVectors(ref b);
+            Validate(ref b);
             return;
         }
 
-        if (!anyRapid && resolved && junction.type == JunctionType.JT_ROLL_AROUND)
+        IntersectType it = CcMath.IntersectLineLine(a, b, out Vec2 ip, out _);
+        if (it != IntersectType.IT_NONE)
+        {
+            float projA = CcMath.Dot(ip - a.p_1, a.endDir);
+            float projB = CcMath.Dot(ip - b.p_0, b.startDir);
+
+            if (projA <= gapTol && projB >= -gapTol)
+            {
+                TrimToTIP(ref a, ref b, ip);
+                if (!a.valid)
+                {
+                    b.p_0 = a.p_1;
+                    return;
+                }
+                if (!b.valid)
+                {
+                    a.p_1 = b.p_0;
+                    return;
+                }
+                return;
+            }
+
+            if (allowExtend && projA > 0.0f && projB < 0.0f)
+            {
+                if (ExtendToFIP(ref a, ref b, ip))
+                    return;
+            }
+        }
+
+        if (!anyRapid && IsConvex(a, b))
         {
             if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
                 CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
@@ -1097,17 +1090,19 @@ public sealed class CutterComp2D
             return;
 
         float gap = CcMath.Len(b.p_0 - a.p_1);
-        SolveJunction(a, b, gap < gapTol, out Junction junction);
 
-        if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
+        if (IsUsableDegenerateArc(a) || IsUsableDegenerateArc(b))
+            return;
+
+        if (TryGetBestTrimPoint(a, b, out Vec2 junctionPoint))
         {
-            if (TrimToTIP(ref a, ref b, junction.p))
+            if (TrimToTIP(ref a, ref b, junctionPoint))
                 return;
         }
 
-        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+        if (gap < gapTol && TryGetBestExtendPoint(a, b, out junctionPoint))
         {
-            if (ExtendToFIP(ref a, ref b, junction.p))
+            if (ExtendToFIP(ref a, ref b, junctionPoint))
                 return;
         }
 
@@ -1132,21 +1127,23 @@ public sealed class CutterComp2D
 
         float gap = CcMath.Len(b.p_0 - a.p_1);
         bool anyRapid = HasRapidMove(a, b);
-        bool resolved = SolveJunction(a, b, anyRapid || (gap < gapTol), out Junction junction);
 
-        if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
+        if (IsUsableDegenerateArc(a) || IsUsableDegenerateArc(b))
+            return;
+
+        if (TryGetBestTrimPoint(a, b, out Vec2 junctionPoint))
         {
-            if (TrimToTIP(ref a, ref b, junction.p))
+            if (TrimToTIP(ref a, ref b, junctionPoint))
                 return;
         }
 
-        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+        if ((anyRapid || (gap < gapTol)) && TryGetBestExtendPoint(a, b, out junctionPoint))
         {
-            if (ExtendToFIP(ref a, ref b, junction.p))
+            if (ExtendToFIP(ref a, ref b, junctionPoint))
                 return;
         }
 
-        if (!anyRapid && resolved && junction.type == JunctionType.JT_ROLL_AROUND)
+        if (!anyRapid && IsConvex(a, b))
         {
             if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
                 CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
