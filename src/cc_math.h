@@ -10,7 +10,7 @@
 
 #define TOL 0.0001f
 #define ARC_TOL_IN 0.0005f    // tolerance for arc fitting and intersection calculations; also used as the minimum gap size for corner treatment
-#define GAP_TOL_IN 0.001f     // if the gap between two moves is smaller than this, we will just make a bevel instead of trying to roll (generally helps with small gaps that can cause issues for the roll logic, but setting this too high can cause visible facets in compensation results)
+#define GAP_TOL_IN 0.0001f     // if the gap between two moves is smaller than this, we will just make a bevel instead of trying to roll (generally helps with small gaps that can cause issues for the roll logic, but setting this too high can cause visible facets in compensation results)
 #define EPS 1e-7f             // general small value for float comparisons
 #define PARALLEL_TOL 1e-3f    // tolerance for considering two lines as parallel
 #define BEVEL_VEC_TOL 1.0e-1f // if the turn is very slight (cosine of angle is close to 1) then just do a bevel instead of a roll, to avoid creating very large roll arcs that are visually indistinguishable from a bevel but more likely to cause issues for downstream processing and for CNC execution.
@@ -144,6 +144,38 @@ struct Move2D
 
 static void update_vectors(Move2D &m)
 {
+  if (m.type == MOT_ARC)
+  {
+    Vec2 rsVec = m.p_0 - m.center;
+    Vec2 reVec = m.p_1 - m.center;
+    float rsLen = len(rsVec);
+    float reLen = len(reVec);
+
+    m.hasXY = !is_equal(m.p_1, m.p_0) || rsLen >= TOL || reLen >= TOL;
+
+    if (rsLen < TOL && reLen < TOL)
+    {
+      m.startDir = {0, 0};
+      m.endDir = {0, 0};
+      return;
+    }
+
+    Vec2 rs = (rsLen >= TOL) ? (rsVec * (1.0f / rsLen)) : normalize(reVec);
+    Vec2 re = (reLen >= TOL) ? (reVec * (1.0f / reLen)) : rs;
+
+    if (m.arcDir == ARC_CCW)
+    {
+      m.startDir = leftNormal(rs);
+      m.endDir = leftNormal(re);
+    }
+    else
+    {
+      m.startDir = rightNormal(rs);
+      m.endDir = rightNormal(re);
+    }
+    return;
+  }
+
   m.hasXY = !is_equal(m.p_1, m.p_0);
 
   if (!m.hasXY)
@@ -164,22 +196,7 @@ static void update_vectors(Move2D &m)
     m.endDir = u;
     return;
   }
-  if (m.type == MOT_ARC)
-  {
-    Vec2 rs = normalize(m.p_0 - m.center);
-    Vec2 re = normalize(m.p_1 - m.center);
-    if (m.arcDir == ARC_CCW)
-    {
-      m.startDir = leftNormal(rs);
-      m.endDir = leftNormal(re);
-    }
-    else
-    {
-      m.startDir = rightNormal(rs);
-      m.endDir = rightNormal(re);
-    }
-    return;
-  }
+
   m.startDir = {0, 0};
   m.endDir = {0, 0};
 }
