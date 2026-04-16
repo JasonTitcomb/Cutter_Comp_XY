@@ -32,9 +32,9 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.0609f;
+static constexpr float TOOL_RADIUS = 0.061f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool GLOBAL_TRIM_CROSSING = false;          // if true, will trim crossing elements down to the intersection point.
+static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
 static constexpr bool GLOBAL_MERGE = false;
 static constexpr bool OUTPUT_SVG = true;
@@ -668,7 +668,7 @@ static bool run_profile_streaming(const char *inputPath,
 int main(int argc, char *argv[])
 {
   // const char *default_file = "../../data/RapidComp.nc";
-  //const char *default_file = "../../data/G41_1.nc";
+  const char *default_file = "../../data/G41_1.nc";
   //const char *default_file = "../../data/ThreadMill.nc";
   //const char *default_file = "../../data/G41_2.nc";
   // const char *default_file = "../../data/TortureTestG91.nc";
@@ -677,7 +677,7 @@ int main(int argc, char *argv[])
   //   const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
   //  const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   //  const char *default_file = "../../data/TortureTestLinux.nc";
   //  const char *default_file = "../../data/ArcTooSmall.nc";
   //  const char *default_file = "../../data/TortureTestLines.nc";

@@ -81,9 +81,6 @@ private:
             case CE_ARC_LT_TOOL_RAD:
                 errorCB_("Arc smaller than tool radius", err, lastLineNum);
                 break;
-            case CE_FLIPPED_ARC:
-                errorCB_("Flipped arc", err, lastLineNum);
-                break;
             case CE_COMP_IN_CROSSING:
                 errorCB_("Comp-in crossing", err, lastLineNum);
                 break;
@@ -649,7 +646,7 @@ private:
         Vec2 carrierPts[2]{};
         int carrierCount = intersectCarrier(a, b, carrierPts);
         Vec2 trimPts[2]{};
-        int trimCount = 0;
+        int trimCount = finiteIntersectionPoints(a, b, trimPts);
 
         float bestTrimScore = 0.0f;
         float bestOneSidedScore = 0.0f;
@@ -657,19 +654,6 @@ private:
         bool foundTrim = false;
         bool foundOneSided = false;
         bool foundExtend = false;
-
-        for (int i = 0; i < carrierCount; ++i)
-        {
-            Vec2 p = carrierPts[i];
-
-            if (!pointOnFiniteElem(a, p) || !pointOnFiniteElem(b, p))
-                continue;
-
-            if (trimCount > 0 && is_near(trimPts[0], p))
-                continue;
-
-            trimPts[trimCount++] = p;
-        }
 
         for (int i = 0; i < trimCount; ++i)
         {
@@ -1399,14 +1383,21 @@ private:
         return b;
     }
 
-    // Compute bounding boxes for an array of moves, storing results in a parallel AABB2 array.
-    static void init_all_aabb(const Move2D *moves, AABB2 *bounds, int start, int count)
+    static void refresh_aabb(const Move2D *moves, AABB2 *bounds, int idx)
     {
-        for (int i = start; i < count; ++i)
+        if (!bounds || idx < 0)
+            return;
+
+        if (isMotionValid(moves[idx]))
         {
-            if (isMotionValid(moves[i]))
-                bounds[i] = aabb_of(moves[i]);
+            bounds[idx] = aabb_of(moves[idx]);
+            return;
         }
+
+        bounds[idx].minx = 0.0f;
+        bounds[idx].miny = 0.0f;
+        bounds[idx].maxx = 0.0f;
+        bounds[idx].maxy = 0.0f;
     }
 
     static bool aabb_intersects(const AABB2 &a, const AABB2 &b)
@@ -1430,6 +1421,7 @@ private:
             return best;
 
         Move2D &src = moves[srcIdx];
+        refresh_aabb(moves, bounds, srcIdx);
 
         int j = startTargetIdx + 1; // start looking from the element after the immediate neighbor
         for (int r = 0; r <= maxLookahead && j < maxIdx && j < numMoves; ++r, ++j)
@@ -1437,6 +1429,8 @@ private:
             Move2D &target = moves[j];
             if (!isMotionValid(target))
                 continue;
+
+            refresh_aabb(moves, bounds, j);
 
             // Closed-loop seam case: do not trim when comparing first cutting move vs last cutting move.
             if (srcIdx == firstCutIdx && j == lastCutIdx)
@@ -1491,8 +1485,6 @@ public:
     {
         int compInIdx = -1;
         int compOutIdx = -1;
-        // calculate AABBs for all elements once upfront to speed up intersection testing in the lookahead loop.
-        init_all_aabb(moves, bounds, srcIdx, maxIdx);
 
         // find the moves adjacent to the comp in and comp out.
         // we want to skip these in the crossing logic since they are allowed to "cross" in the sense that they share geometry but should not be trimmed since they are intentionally connected that way as part of the comp.

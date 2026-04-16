@@ -81,7 +81,6 @@ public enum CompError : byte
     CE_INVALID_MOVE,
     CE_COMP_MOVE_TOO_SHORT,
     CE_ARC_LT_TOOL_RAD,
-    CE_FLIPPED_ARC,
     CE_COMP_IN_CROSSING,
     CE_COMP_OUT_CROSSING,
     CE_UNRESOLVED_GAP,
@@ -355,6 +354,20 @@ public static class CcMath
                 moves[i].bounds = AabbOf(moves[i]);
             }
         }
+    }
+
+    public static void RefreshAabb(Move2D[] moves, int idx)
+    {
+        if (idx < 0)
+            return;
+
+        if (IsMotionValid(moves[idx]))
+        {
+            moves[idx].bounds = AabbOf(moves[idx]);
+            return;
+        }
+
+        moves[idx].bounds = new AABB2();
     }
 
     public static bool AabbIntersects(in AABB2 a, in AABB2 b)

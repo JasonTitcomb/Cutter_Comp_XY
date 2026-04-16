@@ -1183,6 +1183,7 @@ public sealed class CutterComp2D
         if (!CcMath.IsMotionValid(moves[srcIdx]))
             return best;
 
+        CcMath.RefreshAabb(moves, srcIdx);
         Move2D src = moves[srcIdx];
 
         int j = startTargetIdx + 1;
@@ -1191,6 +1192,9 @@ public sealed class CutterComp2D
             Move2D target = moves[j];
             if (!CcMath.IsMotionValid(target))
                 continue;
+
+            CcMath.RefreshAabb(moves, j);
+            target = moves[j];
 
             if (srcIdx == firstCutIdx && j == lastCutIdx)
                 break;
@@ -1244,7 +1248,6 @@ public sealed class CutterComp2D
 
         int compInIdx = -1;
         int compOutIdx = -1;
-        CcMath.InitAllAabb(moves, srcIdx, maxIdx);
 
         int firstCutIdx = CcMath.FirstCompMove(moves, maxIdx);
         int lastCutIdx = -1;

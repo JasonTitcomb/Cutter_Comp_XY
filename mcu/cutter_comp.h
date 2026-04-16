@@ -54,6 +54,10 @@ extern "C" {
 #define CC_ENABLE_LOOKAHEAD 1
 #endif
 
+#ifndef CC_STOP_ON_WARNING
+#define CC_STOP_ON_WARNING 1 // For testing purposes.
+#endif
+
 #ifndef CC_LOOKAHEAD_CAP
 #define CC_LOOKAHEAD_CAP 8
 #endif
