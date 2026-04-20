@@ -50,7 +50,7 @@ private:
     bool runActive_ = false;
     bool globalTrim_ = false;
     bool emitComments_ = true;
-    bool inchMode_ = true;
+    bool inchMode_ = false;
 
 public:
     void incrementLineNumber(void)
@@ -73,9 +73,9 @@ public:
         modalState_.pos = v2(0, 0);
         modalState_.T_Register = 0;
         modalState_.D_Register = 0;
-        modalState_.inchMode = true;
+        modalState_.inchMode = false;
         modalState_.lineNumber = 0;
-        inchMode_ = true;
+        inchMode_ = false;
 
         cc_.setOptions(options_);
         sync_units_from_modal();

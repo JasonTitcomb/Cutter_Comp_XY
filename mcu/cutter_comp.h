@@ -22,6 +22,17 @@
 
 #define CUTTER_COMP_VERSION "0.1"
 
+/* CUTTER_COMP_ENABLE modes:
+ * 0 = disabled
+ * 1 = enabled
+ * 2 = enabled with lookahead
+ */
+#if CUTTER_COMP_ENABLE == 2
+#define CC_ENABLE_LOOKAHEAD 1
+#else
+#define CC_ENABLE_LOOKAHEAD 0
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -30,12 +41,12 @@ extern "C" {
 
 /*
  * Corner style selection:
- * CC_ENABLE_CORNER_TREATMENT 0 -> roll path (CC_CORNER_TREATMENT_MODE is ignored).
- * CC_ENABLE_CORNER_TREATMENT 1 and CC_CORNER_TREATMENT_MODE 0 -> roll.
- * CC_ENABLE_CORNER_TREATMENT 1 and CC_CORNER_TREATMENT_MODE != 0 -> chamfer-style treatment.
+ * CC_ENABLE_FACET_CORNER 0 -> roll path (CC_CORNER_TREATMENT_MODE is ignored).
+ * CC_ENABLE_FACET_CORNER 1 and CC_CORNER_TREATMENT_MODE 0 -> roll.
+ * CC_ENABLE_FACET_CORNER 1 and CC_CORNER_TREATMENT_MODE != 0 -> chamfer-style treatment.
  */
-#ifndef CC_ENABLE_CORNER_TREATMENT
-#define CC_ENABLE_CORNER_TREATMENT 1
+#ifndef CC_ENABLE_FACET_CORNER
+#define CC_ENABLE_FACET_CORNER 1
 #endif
 
 #ifndef CC_CORNER_TREATMENT_MODE
@@ -43,19 +54,15 @@ extern "C" {
 #endif
 
 #ifndef CC_INSERT_CAP
-#if CC_ENABLE_CORNER_TREATMENT
+#if CC_ENABLE_FACET_CORNER
 #define CC_INSERT_CAP 3
 #else
 #define CC_INSERT_CAP 1
 #endif
 #endif
 
-#ifndef CC_ENABLE_LOOKAHEAD
-#define CC_ENABLE_LOOKAHEAD 1
-#endif
-
-#ifndef CC_STOP_ON_WARNING
-#define CC_STOP_ON_WARNING 1 // For testing purposes.
+#ifndef CC_STOP_ON_GAP
+#define CC_STOP_ON_GAP 1
 #endif
 
 #ifndef CC_LOOKAHEAD_CAP
@@ -185,7 +192,7 @@ typedef struct
     uint8_t compMode;
     bool hasXY;
     bool hasZ;
-    bool pause_after;
+    float pause_after; // if -1 then feed hold. if > 0 then dwell for that many seconds. If 0 then no pause.
     bool valid;
 } move2d;
 
@@ -231,8 +238,8 @@ typedef struct
     move2d output_buffer[CC_OUT_CAP];
 #if CC_ENABLE_LOOKAHEAD
     move2d lookahead_buffer[CC_LOOKAHEAD_CAP];
-    int lookahead_count;
 #endif
+    int lookahead_count;
 } cc_context;
 cc_units cc_api_get_units(void);
 
@@ -247,10 +254,12 @@ cc_status_code_t cc_api_process_move(const move2d *move);
 void cc_api_set_comp(comp_side side);
 comp_side cc_api_get_comp(void);
 comp_mode cc_api_get_mode(void);
+
 bool cc_api_get_lookahead_enabled(void);
 void cc_api_set_lookahead_enabled(bool enabled);
 
-//Requires CC_ENABLE_CORNER_TREATMENT set to 1
+
+//Requires CC_ENABLE_FACET_CORNER set to 1
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode);
 cc_corner_treatment_mode cc_api_get_corner_treatment_mode(void);
 

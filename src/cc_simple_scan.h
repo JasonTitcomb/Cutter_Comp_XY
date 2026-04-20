@@ -68,7 +68,7 @@ struct ModalState
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
     float z = 0.0f;
     // Units: true = inch, false = mm (default)
-    bool inchMode = true;
+    bool inchMode = false;
     uint32_t lineNumber = 0; // input file line number
 };
 

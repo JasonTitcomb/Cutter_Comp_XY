@@ -1,1 +1,1 @@
-#define CUTTER_COMP_ENABLE 1
+#define CUTTER_COMP_ENABLE 2 // 0=off, 1=on, 2=on with lookahead

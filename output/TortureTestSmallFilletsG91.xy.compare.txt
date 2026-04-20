@@ -1,11 +1,11 @@
 cc_xy comparison report
-full profile count: 9
-simple profile count: 90
+full profile count: 112
+simple profile count: 2
 invalid full count: 0
 invalid simple count: 0
-shared count: 9
+shared count: 2
 
-count mismatch: full=9 simple=90
+count mismatch: full=112 simple=2
 
 summary
   first mismatch index: -1

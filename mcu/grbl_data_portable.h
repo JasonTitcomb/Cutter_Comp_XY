@@ -406,4 +406,8 @@ char *uitoa (uint32_t n)
 
     return bptr;
 }
+
+void mc_dwell(float seconds){(void)seconds;};
+
+
 #endif /* PLAN_LINE_DATA_PORTABLE_H */

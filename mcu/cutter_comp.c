@@ -41,7 +41,6 @@
 #define CC_TWO_PI 6.2831853071795864769f
 #define CC_MAX_SWEEP_DEG 359.9f
 #define CC_MIN_ARC_LEN 0.001f
-#define CC_MIN_OUTPUT_LEN_MM 0.001f
 
 static cc_context g_core_ctx;
 static emit_move_cb g_core_emit_cb = (emit_move_cb)0;
@@ -69,22 +68,7 @@ typedef struct
     vec2 tip;
     float dist;
 } cc_crossing_hit;
-
-static inline bool cc_lookahead_runtime_enabled(const cc_context *ctx)
-{
-    return ctx->lookaheadEnabled;
-}
 #endif
-
-static inline bool cc_global_trim_crossing_enabled(const cc_context *ctx)
-{
-#if CC_ENABLE_LOOKAHEAD
-    return cc_lookahead_runtime_enabled(ctx);
-#else
-    (void)ctx;
-    return false;
-#endif
-}
 
 typedef enum
 {
@@ -245,7 +229,7 @@ static inline int cc_get_winding_dir(vec2 a, vec2 b)
     return 0;
 }
 
-static inline bool cc_is_near(vec2 a, vec2 b,float tol)
+static inline bool cc_is_near(vec2 a, vec2 b, float tol)
 {
     vec2 d = cc_sub(a, b);
     return cc_len(d) <= tol;
@@ -580,7 +564,7 @@ static inline void cc_report_msg(cc_context *ctx, cc_status_code_t msg, msg_type
 
 static inline msg_type_t cc_gap_severity(void)
 {
-#if CC_STOP_ON_WARNING
+#if CC_STOP_ON_GAP
     return CC_MSG_ERROR;
 #else
     return CC_MSG_WARNING;
@@ -591,11 +575,28 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
 {
     if (cc_is_line_like(m))
     {
-        if (cc_len(cc_sub(m->p_1, m->p_0)) < CC_TOL)
+        float lineLen = cc_len(cc_sub(m->p_1, m->p_0));
+        if (lineLen < CC_TOL)
         {
             m->hasXY = false;
             m->valid = false;
             return false;
+        }
+
+        // check for vector flipping.
+        if (lineLen >= CC_TOL)
+        {
+            // if the vector is almost exactly opposite the it flipped. This can cause issues with some corner treatments and is likely not intentional, so we reject it.
+            vec2 dir = cc_normalize(cc_sub(m->p_1, m->p_0));
+            if (cc_dot(dir, m->startDir) < -0.999f)
+            {
+                if (ctx->lookaheadEnabled)
+                    return true;
+
+                m->valid = false;
+                cc_report_msg(ctx, cc_status_InvalidMove, cc_gap_severity());
+                return false;
+            }
         }
 
         m->valid = true;
@@ -615,7 +616,7 @@ static inline bool cc_validate(cc_context *ctx, move2d *m)
         if ((degenerate || !sweep_ok) && !keepTinyArc)
         {
             m->valid = false;
-            if (cc_global_trim_crossing_enabled(ctx))
+            if (ctx->lookaheadEnabled)
                 return m->valid;
 
             cc_report_msg(ctx, cc_status_ArcLtToolRad, cc_gap_severity());
@@ -790,19 +791,55 @@ static inline bool cc_is_convex(const cc_context *ctx, const move2d *a, const mo
     return cc_convex_from_winding(ctx, winding);
 }
 
-static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, const move2d *b, bool allowExtend, junction *outjunc)
+static inline bool cc_roll_fits_line_line(const cc_context *ctx, vec2 p0, vec2 extensionPoint, vec2 p1)
+{
+    vec2 vin;
+    vec2 vout;
+    float lenA;
+    float lenB;
+    float cosAlpha;
+    float alpha;
+    float need;
+
+    lenA = cc_dist(p0, extensionPoint);
+    lenB = cc_dist(extensionPoint, p1);
+    if (lenA <= CC_TOL || lenB <= CC_TOL || ctx->toolR <= CC_TOL)
+        return false;
+
+    vin = cc_normalize(cc_sub(extensionPoint, p0));
+    vout = cc_normalize(cc_sub(p1, extensionPoint));
+    if (cc_len(vin) <= CC_TOL || cc_len(vout) <= CC_TOL)
+        return false;
+
+    cosAlpha = cc_clamp(cc_dot(vin, vout), -1.0f, 1.0f);
+    alpha = acosf(cosAlpha);
+
+    if (alpha <= CC_TOL || fabsf(CC_PI - alpha) <= CC_TOL)
+        return false;
+
+    need = ctx->toolR * tanf(0.5f * alpha);
+    return lenA >= need && lenB >= need;
+}
+
+static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, const move2d *b, bool preferExtend, junction *outjunc)
 {
     vec2 carrierPts[2];
     vec2 trimPts[2];
-    int carrierCount = cc_intersect_carrier(a, b, carrierPts);
-    int trimCount = cc_finite_intersection_points(a, b, trimPts);
+    vec2 bestTrimPoint = cc_v2(0.0f, 0.0f);
+    vec2 bestOneSidedPoint = cc_v2(0.0f, 0.0f);
+    vec2 bestExtendPoint = cc_v2(0.0f, 0.0f);
     float bestTrimScore = 0.0f;
     float bestOneSidedScore = 0.0f;
     float bestExtendScore = 0.0f;
     bool foundTrim = false;
     bool foundOneSided = false;
     bool foundExtend = false;
+    bool canRoll = false;
     int i;
+
+    bool isLineLine = cc_is_line_like(a) && cc_is_line_like(b);
+    int carrierCount = cc_intersect_carrier(a, b, carrierPts);
+    int trimCount = cc_finite_intersection_points(a, b, trimPts);
 
     outjunc->jtype = CC_JT_NONE;
     outjunc->p = cc_v2(0.0f, 0.0f);
@@ -813,14 +850,13 @@ static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, con
         float score = cc_dist_from_start_along(a, p) + cc_dist_from_start_along(b, p);
         if (!foundTrim || score < bestTrimScore)
         {
-            outjunc->jtype = CC_JT_TRIM_TO_INTERSECTION;
-            outjunc->p = p;
+            bestTrimPoint = p;
             bestTrimScore = score;
             foundTrim = true;
         }
     }
 
-    if (!foundTrim && cc_is_line_like(a) && cc_is_line_like(b))
+    if (!foundTrim && isLineLine)
     {
         for (i = 0; i < carrierCount; ++i)
         {
@@ -837,8 +873,7 @@ static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, con
             score = cc_dist_from_start_along(a, p) + cc_dist_from_start_along(b, p);
             if (!foundOneSided || score < bestOneSidedScore)
             {
-                outjunc->jtype = CC_JT_TRIM_ONE_SIDED;
-                outjunc->p = p;
+                bestOneSidedPoint = p;
                 bestOneSidedScore = score;
                 foundOneSided = true;
             }
@@ -848,32 +883,62 @@ static inline bool cc_solve_junction(const cc_context *ctx, const move2d *a, con
     for (i = 0; i < carrierCount; ++i)
     {
         vec2 p = carrierPts[i];
-        if (allowExtend && cc_is_forward_extension_point(a, b, p))
+        if (cc_is_forward_extension_point(a, b, p))
         {
             float score = cc_dist(a->p_1, p) + cc_dist(b->p_0, p);
             if (!foundExtend || score < bestExtendScore)
             {
-                outjunc->jtype = CC_JT_EXTEND_TO_INTERSECTION;
-                outjunc->p = p;
+                bestExtendPoint = p;
                 bestExtendScore = score;
                 foundExtend = true;
             }
         }
     }
 
-    if (foundTrim)
-        return true;
-    if (foundOneSided)
-        return true;
-    if (foundExtend)
-        return true;
     if (cc_is_convex(ctx, a, b))
+    {
+        if (isLineLine)
+            canRoll = foundExtend && cc_roll_fits_line_line(ctx, a->p_0, bestExtendPoint, b->p_1);
+        else
+            canRoll = true;
+    }
+
+    if (foundTrim)
+    {
+        outjunc->jtype = CC_JT_TRIM_TO_INTERSECTION;
+        outjunc->p = bestTrimPoint;
+        return true;
+    }
+
+    if (canRoll && preferExtend)
+    {
+        outjunc->jtype = CC_JT_EXTEND_TO_INTERSECTION;
+        outjunc->p = bestExtendPoint;
+        return true;
+    }
+
+    if (canRoll)
     {
         outjunc->jtype = CC_JT_ROLL_AROUND;
         return true;
     }
 
+    if (foundExtend)
+    {
+        outjunc->jtype = CC_JT_EXTEND_TO_INTERSECTION;
+        outjunc->p = bestExtendPoint;
+        return true;
+    }
+
+    if (foundOneSided)
+    {
+        outjunc->jtype = CC_JT_TRIM_ONE_SIDED;
+        outjunc->p = bestOneSidedPoint;
+        return true;
+    }
+
     outjunc->jtype = CC_JT_NONE;
+    outjunc->p = cc_v2(0.0f, 0.0f);
     return false;
 }
 
@@ -978,7 +1043,7 @@ static inline bool cc_offset_arc(cc_context *ctx, move2d *m)
     {
         cc_report_msg(ctx, cc_status_ArcLtToolRad, cc_gap_severity());
         m->valid = false;
-        //return false;
+        return false;
     }
 #endif
 
@@ -1012,8 +1077,8 @@ static inline bool cc_trim_to(cc_context *ctx, move2d *a, move2d *b, vec2 tip)
 {
     a->p_1 = tip;
     b->p_0 = tip;
-    cc_update_vectors(a);
-    cc_update_vectors(b);
+    // cc_update_vectors(a);
+    // cc_update_vectors(b);
     cc_validate(ctx, a);
     cc_validate(ctx, b);
     return a->valid && b->valid;
@@ -1389,7 +1454,7 @@ static inline bool cc_stage_out(cc_context *ctx, const move2d *m)
         return true;
     }
 
-    if (!cc_lookahead_runtime_enabled(ctx))
+    if (!ctx->lookaheadEnabled)
     {
         if (!cc_out_has_space(ctx, 1))
             return false;
@@ -1437,7 +1502,7 @@ static inline bool cc_stage_out(cc_context *ctx, const move2d *m)
 
 static inline bool cc_stage_flush(cc_context *ctx)
 {
-    if (!cc_lookahead_runtime_enabled(ctx))
+    if (!ctx->lookaheadEnabled)
         return true;
 
     if (!cc_la_trim(ctx))
@@ -1482,8 +1547,8 @@ static inline bool cc_extend_to(cc_context *ctx, move2d *a, move2d *b, vec2 fip)
     {
         a->p_1 = fip;
         b->p_0 = fip;
-        cc_update_vectors(a);
-        cc_update_vectors(b);
+        // cc_update_vectors(a);
+        // cc_update_vectors(b);
         cc_validate(ctx, a);
         cc_validate(ctx, b);
     }
@@ -1538,7 +1603,7 @@ static inline move2d cc_make_roll_arc(const cc_context *ctx, const move2d *a, co
     return roll;
 }
 
-#if CC_ENABLE_CORNER_TREATMENT
+#if CC_ENABLE_FACET_CORNER
 static inline move2d cc_make_arc_extension_line_only(const cc_context *ctx, const move2d *arc, bool fromEnd)
 {
     move2d ext = {0};
@@ -1722,7 +1787,7 @@ static inline bool cc_insert_roll_or_corner(cc_context *ctx, move2d *a, move2d *
     float gap = cc_len(cc_sub(b->p_0, a->p_1));
     int startCount = *insertCount;
 
-#if !CC_ENABLE_CORNER_TREATMENT
+#if !CC_ENABLE_FACET_CORNER
     (void)startCount;
 #endif
 
@@ -1732,7 +1797,7 @@ static inline bool cc_insert_roll_or_corner(cc_context *ctx, move2d *a, move2d *
         return true;
     }
 
-#if CC_ENABLE_CORNER_TREATMENT
+#if CC_ENABLE_FACET_CORNER
     if ((cc_corner_treatment_mode)ctx->cornerTreatmentMode == CC_CTM_CHAMFER)
     {
         move2d cornerSegs[3];
@@ -1763,8 +1828,8 @@ static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, mo
     float gap = cc_dist(b->p_0, a->p_1);
     float gapTol = ctx->gapTol > 0 ? ctx->gapTol : CC_GAP_TOL_MM;
     bool anyRapid = cc_has_rapid_move(a, b);
-    bool allowExtend = anyRapid || (gap < gapTol);
-    bool resolved = cc_solve_junction(ctx, a, b, allowExtend, &junction);
+    bool preferExtend = anyRapid || (gap < gapTol);
+    bool resolved = cc_solve_junction(ctx, a, b, preferExtend, &junction);
 
     if (junction.jtype == CC_JT_TRIM_TO_INTERSECTION || junction.jtype == CC_JT_TRIM_ONE_SIDED)
     {
@@ -1811,6 +1876,9 @@ static inline void cc_handle_line_line(cc_context *ctx, move2d *a, move2d *b, mo
         return;
     }
 
+    if (!ctx->lookaheadEnabled)
+        cc_report_msg(ctx, cc_status_UnresolvedGap, cc_gap_severity());
+
     inserts[(*insertCount)++] = cc_make_bevel(a, b);
 }
 
@@ -1820,7 +1888,8 @@ static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move
     float gap;
     float gapTol = ctx->gapTol > 0 ? ctx->gapTol : CC_GAP_TOL_MM;
 
-    if (cc_is_near(a->p_1, b->p_0, CC_TOL) || cc_is_near(a->center, b->center, CC_TOL))
+    // adjacent line/arc pairs that share a common endpoint or center are not considered gaps
+    if (cc_is_near(a->p_1, b->p_0, gapTol) || cc_is_near(a->center, b->center, gapTol))
         return;
 
     gap = cc_len(cc_sub(b->p_0, a->p_1));
@@ -1835,13 +1904,17 @@ static inline void cc_handle_arc_arc(cc_context *ctx, move2d *a, move2d *b, move
     if (junction.jtype == CC_JT_EXTEND_TO_INTERSECTION)
     {
         if (cc_extend_to(ctx, a, b, junction.p))
+        {
+            cc_update_vectors(a);
+            cc_update_vectors(b);
             return;
+        }
     }
 
     if (cc_insert_roll_or_corner(ctx, a, b, inserts, insertCount))
         return;
 
-    if (!cc_global_trim_crossing_enabled(ctx))
+    if (!ctx->lookaheadEnabled)
         cc_report_msg(ctx, cc_status_UnresolvedGap, cc_gap_severity());
 
     inserts[(*insertCount)++] = cc_make_bevel(a, b);
@@ -1855,7 +1928,7 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
     bool anyRapid;
     bool resolved;
 
-    if (cc_is_near(a->p_1, b->p_0, CC_TOL))
+    if (cc_is_near(a->p_1, b->p_0, gapTol))
     {
         b->p_0 = a->p_1;
         cc_update_vectors(b);
@@ -1876,7 +1949,11 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
     if (junction.jtype == CC_JT_EXTEND_TO_INTERSECTION)
     {
         if (cc_extend_to(ctx, a, b, junction.p))
+        {
+            cc_update_vectors(a);
+            cc_update_vectors(b);
             return;
+        }
     }
 
     if (!anyRapid && resolved && junction.jtype == CC_JT_ROLL_AROUND)
@@ -1886,7 +1963,7 @@ static inline void cc_handle_arc_line(cc_context *ctx, move2d *a, move2d *b, mov
         return;
     }
 
-    if (!cc_global_trim_crossing_enabled(ctx))
+    if (!ctx->lookaheadEnabled)
         cc_report_msg(ctx, cc_status_UnresolvedGap, cc_gap_severity());
 
     inserts[(*insertCount)++] = cc_make_bevel(a, b);
@@ -1961,9 +2038,7 @@ static void cc_init_internal(cc_context *ctx, float toolRadius)
     ctx->cornerTreatmentMode = (uint8_t)CC_CORNER_TREATMENT_MODE;
     ctx->toolR = (toolRadius < 0.0f) ? -toolRadius : toolRadius;
     ctx->toolSign = (toolRadius < 0.0f) ? -1 : 1;
-#if CC_ENABLE_LOOKAHEAD
-    ctx->lookaheadEnabled = true;
-#endif
+    ctx->lookaheadEnabled = false;
     cc_reset_state(ctx);
 }
 
@@ -2088,7 +2163,7 @@ bool cc_process(cc_context *ctx)
         if (!cc_validate(ctx, &curOff))
         {
 #if CC_ENABLE_LOOKAHEAD
-            if (cc_lookahead_runtime_enabled(ctx))
+            if (ctx && ctx->lookaheadEnabled)
             {
                 if (ctx->havePrevMove && ctx->prevOff.valid)
                 {
@@ -2249,7 +2324,11 @@ static inline void cc_core_drain(void)
 //     cc_api_init(tool_radius, CC_UNITS_MM, emit_callback, error_callback);
 void cc_api_init(float toolRadius, cc_units units, emit_move_cb emitCb, cc_msg_cb errCb)
 {
-    cc_init_internal(&g_core_ctx, toolRadius);
+    // we expect the units of the tool table to match the units of the job.
+    // if the tool table radius is in inches, convert to mm for cutter comp calculations.
+    // If the tool table is in mm, then no conversion is necessary.
+    float units_factor = units == CC_UNITS_INCH ? 25.4f : 1.0f;
+    cc_init_internal(&g_core_ctx, toolRadius * units_factor);
     g_core_ctx.units = units;
 
     // force to mm for grblhal.
@@ -2281,16 +2360,17 @@ comp_mode cc_api_get_mode(void)
 
 bool cc_api_get_lookahead_enabled(void)
 {
-#if CC_ENABLE_LOOKAHEAD
-    return g_core_ctx.lookaheadEnabled;
-#else
+#if !CC_ENABLE_LOOKAHEAD
     return false;
-#endif
+#endif    
+    return g_core_ctx.lookaheadEnabled;
 }
 
 void cc_api_set_lookahead_enabled(bool enabled)
 {
-#if CC_ENABLE_LOOKAHEAD
+#if !CC_ENABLE_LOOKAHEAD
+    enabled = false;
+#endif        
     if (g_core_ctx.lookaheadEnabled == enabled)
         return;
 
@@ -2302,9 +2382,6 @@ void cc_api_set_lookahead_enabled(bool enabled)
     }
 
     g_core_ctx.lookaheadEnabled = enabled;
-#else
-    (void)enabled;
-#endif
 }
 
 void cc_api_set_corner_treatment_mode(cc_corner_treatment_mode mode)

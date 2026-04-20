@@ -151,8 +151,25 @@ private:
             if (lineLen < TOL)
             {
                 m.hasXY = false;
-                m.valid = false; // VALIDATE FAIL
-                return false;    // VALIDATE FAIL
+                m.valid = false;
+                return false;
+            }
+
+            // check for vector flipping.
+            if (lineLen >= TOL)
+            {
+                Vec2 u = (m.p_1 - m.p_0) * (1.0f / lineLen);
+                // if the vector is almost exactly opposite then it flipped.
+                if (dot(u, m.startDir) < -0.999f)
+                {
+                    //m.valid = false;
+                    if (options.globalTrimCrossing)
+                        return true;
+
+                    //m.valid = false;  //it's flipped but should it be valid?
+                    reportCompError(CE_INVALID_MOVE);
+                    return false;
+                }
             }
 
             m.valid = true;
@@ -569,6 +586,28 @@ private:
         return convex_from_winding(cw);
     }
 
+    bool roll_fits_line_line(Vec2 p0, Vec2 extensionPoint, Vec2 p1) const
+    {
+        float lenA = dist(p0, extensionPoint);
+        float lenB = dist(extensionPoint, p1);
+        if (lenA <= TOL || lenB <= TOL || toolR <= TOL)
+            return false;
+
+        Vec2 vin = normalize(extensionPoint - p0);
+        Vec2 vout = normalize(p1 - extensionPoint);
+        if (len(vin) <= TOL || len(vout) <= TOL)
+            return false;
+
+        float cosAlpha = c2d_clamp(dot(vin, vout), -1.0f, 1.0f);
+        float alpha = std::acos(cosAlpha);
+
+        if (alpha <= TOL || std::fabs(PI - alpha) <= TOL)
+            return false;
+
+        float need = toolR * std::tan(0.5f * alpha);
+        return lenA >= need && lenB >= need;
+    }
+
     static bool pointOnFiniteElem(const Move2D &m, Vec2 p)
     {
         if (isLineLike(m))
@@ -644,9 +683,10 @@ private:
     bool solveJunction(const Move2D &a, const Move2D &b, bool allowExtend, Junction &outjunc)
     {
         Vec2 carrierPts[2]{};
-        int carrierCount = intersectCarrier(a, b, carrierPts);
         Vec2 trimPts[2]{};
-        int trimCount = finiteIntersectionPoints(a, b, trimPts);
+        Vec2 bestTrimPoint{};
+        Vec2 bestOneSidedPoint{};
+        Vec2 bestExtendPoint{};
 
         float bestTrimScore = 0.0f;
         float bestOneSidedScore = 0.0f;
@@ -654,6 +694,11 @@ private:
         bool foundTrim = false;
         bool foundOneSided = false;
         bool foundExtend = false;
+        bool canRoll = false;
+
+        int carrierCount = intersectCarrier(a, b, carrierPts);
+        int trimCount = finiteIntersectionPoints(a, b, trimPts);
+        bool isLineLine = isLineLike(a) && isLineLike(b);
 
         for (int i = 0; i < trimCount; ++i)
         {
@@ -661,14 +706,13 @@ private:
             float score = distFromStart_along(a, p) + distFromStart_along(b, p);
             if (!foundTrim || score < bestTrimScore)
             {
-                outjunc.type = JT_TRIM_TO_INTERSECTION;
-                outjunc.p = p;
+                bestTrimPoint = p;
                 bestTrimScore = score;
                 foundTrim = true;
             }
         }
 
-        if (!foundTrim && isLineLike(a) && isLineLike(b))
+        if (!foundTrim && isLineLine)
         {
             for (int i = 0; i < carrierCount; ++i)
             {
@@ -684,8 +728,7 @@ private:
                 float score = distFromStart_along(a, p) + distFromStart_along(b, p);
                 if (!foundOneSided || score < bestOneSidedScore)
                 {
-                    outjunc.type = JT_TRIM_ONE_SIDED;
-                    outjunc.p = p;
+                    bestOneSidedPoint = p;
                     bestOneSidedScore = score;
                     foundOneSided = true;
                 }
@@ -695,35 +738,62 @@ private:
         for (int i = 0; i < carrierCount; ++i)
         {
             Vec2 p = carrierPts[i];
-            if (allowExtend && isForwardExtensionPoint(a, b, p))
+            if (isForwardExtensionPoint(a, b, p))
             {
                 float score = dist(a.p_1, p) + dist(b.p_0, p);
                 if (!foundExtend || score < bestExtendScore)
                 {
-                    outjunc.type = JT_EXTEND_TO_INTERSECTION;
-                    outjunc.p = p;
+                    bestExtendPoint = p;
                     bestExtendScore = score;
                     foundExtend = true;
                 }
             }
         }
 
-        if (foundTrim)
-            return true;
-
-        if (foundOneSided)
-            return true;
-
-        if (foundExtend)
-            return true;
-
         if (is_convex(a, b))
+        {
+            if (isLineLine)
+                canRoll = foundExtend && roll_fits_line_line(a.p_0, bestExtendPoint, b.p_1);
+            else
+                canRoll = true;
+        }
+
+        if (foundTrim)
+        {
+            outjunc.type = JT_TRIM_TO_INTERSECTION;
+            outjunc.p = bestTrimPoint;
+            return true;
+        }
+
+        if (canRoll && allowExtend)
+        {
+            outjunc.type = JT_EXTEND_TO_INTERSECTION;
+            outjunc.p = bestExtendPoint;
+            return true;
+        }
+
+        if (canRoll)
         {
             outjunc.type = JT_ROLL_AROUND;
             return true;
         }
 
+        if (foundExtend)
+        {
+            outjunc.type = JT_EXTEND_TO_INTERSECTION;
+            outjunc.p = bestExtendPoint;
+            return true;
+        }
+
+        if (foundOneSided)
+        {
+            outjunc.type = JT_TRIM_ONE_SIDED;
+            outjunc.p = bestOneSidedPoint;
+            return true;
+        }
+
         outjunc.type = JT_NONE;
+        outjunc.p = Vec2{};
         return false;
     }
 
@@ -863,7 +933,7 @@ private:
         {
             if (m.radius < TOL)
             {
-                //TODO: what should i do here?
+                // TODO: what should i do here?
                 bool hasArcDirs = len(m.startDir) >= TOL || len(m.endDir) >= TOL;
                 if (!hasArcDirs)
                 {
@@ -872,7 +942,6 @@ private:
                 }
             }
         }
-
 
         m.p_0 = m.center + v0 * (r1 / lv0);
         m.p_1 = m.center + v1 * (r1 / lv1);
@@ -885,8 +954,8 @@ private:
         a.p_1 = tip;
         b.p_0 = tip;
 
-        update_vectors(a);
-        update_vectors(b);
+        // update_vectors(a);
+        // update_vectors(b);
 
         validate(a);
         validate(b);
@@ -904,8 +973,8 @@ private:
             a.p_1 = fip;
             b.p_0 = fip;
 
-            update_vectors(a);
-            update_vectors(b);
+            // update_vectors(a);
+            // update_vectors(b);
 
             validate(a);
             validate(b);
@@ -1178,7 +1247,7 @@ private:
         insertCount = 0;
         if (!a.hasXY || !b.hasXY)
             return;
-            
+
         if (isLineLike(a) && isLineLike(b))
         {
             handleLineLine(a, b, inserts, insertCount);
@@ -1268,13 +1337,21 @@ private:
         if (junction.type == JT_TRIM_TO_INTERSECTION)
         {
             if (trimTo(a, b, junction.p))
+            {
+                update_vectors(a);
+                update_vectors(b);
                 return;
+            }
         }
 
         if (junction.type == JT_EXTEND_TO_INTERSECTION)
         {
             if (extendTo(a, b, junction.p))
+            {
+                update_vectors(a);
+                update_vectors(b);
                 return;
+            }
         }
 
         if (insertRollOrCorner(a, b, inserts, insertCount))
@@ -1307,13 +1384,21 @@ private:
         if (junction.type == JT_TRIM_TO_INTERSECTION)
         {
             if (trimTo(a, b, junction.p))
+            {
+                update_vectors(a);
+                update_vectors(b);
                 return;
+            }
         }
 
         if (junction.type == JT_EXTEND_TO_INTERSECTION)
         {
             if (extendTo(a, b, junction.p))
+            {
+                update_vectors(a);
+                update_vectors(b);
                 return;
+            }
         }
 
         if (!anyRapid && resolved && junction.type == JT_ROLL_AROUND)

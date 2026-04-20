@@ -32,9 +32,9 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.061f;
+static constexpr float TOOL_RADIUS = 0.05f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
+static constexpr bool GLOBAL_TRIM_CROSSING = false;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
 static constexpr bool GLOBAL_MERGE = false;
 static constexpr bool OUTPUT_SVG = true;
@@ -74,7 +74,7 @@ static void host_xy_error_cb(cc_status_code_t err, msg_type_t severity, uint32_t
 static std::vector<Move2D> *g_simpleProfileOut = nullptr;
 static float g_mc_host_pos[N_AXIS] = {};
 
-static gc_ccomp_t host_make_cc_state_for_side(CompSide side, bool enteringComp)
+static gc_ccomp_t host_make_cc_state_for_side(CompSide side, bool enteringComp, float toolRadius)
 {
   gc_ccomp_t ccState = {};
 
@@ -86,7 +86,7 @@ static gc_ccomp_t host_make_cc_state_for_side(CompSide side, bool enteringComp)
     ccState.side = CComp_Off;
 
   ccState.first_move = enteringComp;
-  ccState.radius = 0.0f;
+  ccState.radius = toolRadius;
   return ccState;
 }
 
@@ -249,18 +249,16 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
   modal.feed = 0;
   modal.pos = v2(0, 0);
   modal.z = 0.0f;
+  modal.inchMode = false;
   modal.lineNumber = 0;
 
   g_mc_host_pos[0] = 0.0f;
   g_mc_host_pos[1] = 0.0f;
   g_mc_host_pos[2] = 0.0f;
 
-  // Initialize the cc_xy adapter with the provided tool radius,
-  // and set up callbacks for move emission and error reporting.
-  cc_api_init(toolRadius, modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM, cc_emit_via_mc, host_xy_error_cb);
+   g_simpleProfileOut = &profileOut;
 
-  g_simpleProfileOut = &profileOut;
-
+  
   // Start reading the program line by line.
   size_t input_line_number = 0;
   for (const auto &line : program)
@@ -280,7 +278,8 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     if (enteringComp)
     {
-      cc_api_init(toolRadius, modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM, cc_emit_via_mc, host_xy_error_cb);
+      cc_api_init(toolRadius, CC_UNITS_MM, cc_emit_via_mc, host_xy_error_cb);
+      cc_api_set_lookahead_enabled(GLOBAL_TRIM_CROSSING);
     }
 
     if (mv.type == MOT_EMPTY)
@@ -297,7 +296,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
       continue;
     }
 
-    gc_ccomp_t ccState = host_make_cc_state_for_side(modal.comp, enteringComp);
+    gc_ccomp_t ccState = host_make_cc_state_for_side(modal.comp, enteringComp, toolRadius);
 
     if (cc_mc_line_arc_in_via_grblhal(mv, ccState) != cc_status_OK)
     {
@@ -668,7 +667,7 @@ static bool run_profile_streaming(const char *inputPath,
 int main(int argc, char *argv[])
 {
   // const char *default_file = "../../data/RapidComp.nc";
-  const char *default_file = "../../data/G41_1.nc";
+  //const char *default_file = "../../data/G41_1.nc";
   //const char *default_file = "../../data/ThreadMill.nc";
   //const char *default_file = "../../data/G41_2.nc";
   // const char *default_file = "../../data/TortureTestG91.nc";
@@ -676,13 +675,13 @@ int main(int argc, char *argv[])
   // const char *default_file = "../../data/Sample2mm.nc";
   //   const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
-  //  const char *default_file = "../../data/simple1.nc";
-  //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  // const char *default_file = "../../data/simple1.nc";
+  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   //  const char *default_file = "../../data/TortureTestLinux.nc";
   //  const char *default_file = "../../data/ArcTooSmall.nc";
   //  const char *default_file = "../../data/TortureTestLines.nc";
   //  const char *default_file = "../../data/AI_Torture.nc";
-  //  const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //  const char *default_file = "../../data/SimpleSquarePocket.nc";
   //  const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   //  const char *default_file = "../../data/CompErrorTest.nc";
