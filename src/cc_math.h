@@ -131,7 +131,7 @@ struct Move2D
   float feed = 0.0f;
   float z_0 = 0.0f;
   float z_1 = 0.0f;
-  uint32_t lnNum = 0; // for debugging
+  uint32_t lineNum = 0; // for debugging
 
   MotionType type = MOT_EMPTY;
   ArcDir arcDir = ARC_CW;
@@ -154,8 +154,8 @@ static void update_vectors(Move2D &m)
 
     if (rsLen < TOL && reLen < TOL)
     {
-      m.startDir = {0, 0};
-      m.endDir = {0, 0};
+      //m.startDir = {0, 0};
+      //m.endDir = {0, 0};
       return;
     }
 

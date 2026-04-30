@@ -68,7 +68,7 @@ Input examples are provided under `data/` (`G41_1.nc`, `G42_1.nc`, `TortureTestG
 	- `emitStatusComments`
 - Callback signatures:
 	- `CcOutputCB(const char *text, size_t len)`
-	- `CcErrorCB(const char *message, CompError err, uint32_t seqNum)`
+	- `CcErrorCB(const char *message, CompError err, uint32_t lineNum)`
 - `CcMainOptions::CcMainCallbacks` currently contains `output` and `error` callbacks only (no `userData`).
 
 ## Notes and Scope

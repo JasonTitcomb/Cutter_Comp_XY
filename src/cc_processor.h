@@ -143,6 +143,24 @@ private:
         return true;
     }
 
+    void validateLineInversion(Move2D &m)
+    {
+        if (!m.valid || !isLineLike(m))
+            return;
+
+        const float lineLen = len(m.p_1 - m.p_0);
+        if (lineLen < TOL)
+            return;
+
+        Vec2 u = (m.p_1 - m.p_0) * (1.0f / lineLen);
+        if (dot(u, m.startDir) < -0.999f)
+        {
+            m.valid = true;
+            if (!options.globalTrimCrossing)
+                reportCompError(CE_INVALID_MOVE);
+        }
+    }
+
     bool validate(Move2D &m)
     {
         if (isLineLike(m))
@@ -155,23 +173,6 @@ private:
                 return false;
             }
 
-            // check for vector flipping.
-            if (lineLen >= TOL)
-            {
-                Vec2 u = (m.p_1 - m.p_0) * (1.0f / lineLen);
-                // if the vector is almost exactly opposite then it flipped.
-                if (dot(u, m.startDir) < -0.999f)
-                {
-                    //m.valid = false;
-                    if (options.globalTrimCrossing)
-                        return true;
-
-                    //m.valid = false;  //it's flipped but should it be valid?
-                    reportCompError(CE_INVALID_MOVE);
-                    return false;
-                }
-            }
-
             m.valid = true;
             return true;
         }
@@ -179,10 +180,10 @@ private:
         if (m.type != MOT_ARC)
             return m.valid;
 
-        const bool hasArcDirs = len(m.startDir) >= TOL || len(m.endDir) >= TOL;
+        // const bool hasArcDirs = len(m.startDir) >= TOL || len(m.endDir) >= TOL;
         bool degenerate = fabsf(m.radius) < TOL;
         float sw = arcSweepDeg(m);
-        bool keepTinyArc = hasArcDirs && (degenerate || sw < MIN_ARC_LEN);
+        bool keepTinyArc = (degenerate || sw < MIN_ARC_LEN);
         bool sweepOk = sw <= MAX_SWEEP_DEG && (sw >= MIN_ARC_LEN || keepTinyArc);
 
         if ((degenerate || !sweepOk) && !keepTinyArc)
@@ -355,7 +356,7 @@ public:
             // Capture mode per move before offsetting so CM_IN/CM_OUT only affect
             // the intended entry/exit element.
             curOff.compMode = compMode;
-            lastLineNum = curOff.lnNum;
+            lastLineNum = curOff.lineNum;
 
             if (curOff.type == MOT_EMPTY)
                 continue;
@@ -376,7 +377,7 @@ public:
                         if (shouldReplacePendingZTarget(pendingZMove, curOff))
                         {
                             pendingZMove.z_1 = curOff.z_1;
-                            pendingZMove.lnNum = curOff.lnNum;
+                            pendingZMove.lineNum = curOff.lineNum;
                             pendingZMove.feed = curOff.feed;
                             pendingZMove.type = curOff.type;
                             pendingZMove.hasZ = !is_equal(pendingZMove.z_1, pendingZMove.z_0);
@@ -402,8 +403,9 @@ public:
                 continue;
             }
 
-            if (!validate(curOff))
+            if (!validate(curOff)) // validate before offsetting so that we don't waste time processing invalid moves, and also so that the comp mode is captured correctly for error reporting.
                 return false;
+
             if (!offsetMove(curOff))
                 return false;
 
@@ -469,8 +471,8 @@ public:
             if (curOff.compMode == CM_STEADY)
                 applyLogic(prevOff, curOff, inserts, insertCount);
 
-            validate(curOff); // Invalidate the final move after logic in case the logic produced something invalid.
-
+            validateLineInversion(prevOff);    
+            
             // Emit previous + inserts; hold curOff as new prev
             if (prevOff.valid)
             {
@@ -555,7 +557,7 @@ private:
     Move2D makeBevel(const Move2D &a, const Move2D &b)
     {
         Move2D m;
-        m.lnNum = a.lnNum;
+        m.lineNum = a.lineNum;
         m.hasXY = true;
         m.type = MOT_LINE;
         m.feed = (a.feed > 0) ? a.feed : b.feed;
@@ -680,25 +682,21 @@ private:
         return fipDir1 > 0 && fipDir2 < 0;
     }
 
-    bool solveJunction(const Move2D &a, const Move2D &b, bool allowExtend, Junction &outjunc)
+    bool solveJunction(const Move2D &a, const Move2D &b, Junction &outjunc)
     {
         Vec2 carrierPts[2]{};
         Vec2 trimPts[2]{};
         Vec2 bestTrimPoint{};
-        Vec2 bestOneSidedPoint{};
         Vec2 bestExtendPoint{};
 
         float bestTrimScore = 0.0f;
-        float bestOneSidedScore = 0.0f;
         float bestExtendScore = 0.0f;
         bool foundTrim = false;
-        bool foundOneSided = false;
         bool foundExtend = false;
-        bool canRoll = false;
+
 
         int carrierCount = intersectCarrier(a, b, carrierPts);
         int trimCount = finiteIntersectionPoints(a, b, trimPts);
-        bool isLineLine = isLineLike(a) && isLineLike(b);
 
         for (int i = 0; i < trimCount; ++i)
         {
@@ -709,29 +707,6 @@ private:
                 bestTrimPoint = p;
                 bestTrimScore = score;
                 foundTrim = true;
-            }
-        }
-
-        if (!foundTrim && isLineLine)
-        {
-            for (int i = 0; i < carrierCount; ++i)
-            {
-                Vec2 p = carrierPts[i];
-                float ta = line_t(a, p);
-                float tb = line_t(b, p);
-                bool onA = (ta >= -TOL && ta <= 1.0f + TOL);
-                bool onB = (tb >= -TOL && tb <= 1.0f + TOL);
-
-                if (onA == onB)
-                    continue;
-
-                float score = distFromStart_along(a, p) + distFromStart_along(b, p);
-                if (!foundOneSided || score < bestOneSidedScore)
-                {
-                    bestOneSidedPoint = p;
-                    bestOneSidedScore = score;
-                    foundOneSided = true;
-                }
             }
         }
 
@@ -750,14 +725,6 @@ private:
             }
         }
 
-        if (is_convex(a, b))
-        {
-            if (isLineLine)
-                canRoll = foundExtend && roll_fits_line_line(a.p_0, bestExtendPoint, b.p_1);
-            else
-                canRoll = true;
-        }
-
         if (foundTrim)
         {
             outjunc.type = JT_TRIM_TO_INTERSECTION;
@@ -765,30 +732,10 @@ private:
             return true;
         }
 
-        if (canRoll && allowExtend)
-        {
-            outjunc.type = JT_EXTEND_TO_INTERSECTION;
-            outjunc.p = bestExtendPoint;
-            return true;
-        }
-
-        if (canRoll)
-        {
-            outjunc.type = JT_ROLL_AROUND;
-            return true;
-        }
-
         if (foundExtend)
         {
             outjunc.type = JT_EXTEND_TO_INTERSECTION;
             outjunc.p = bestExtendPoint;
-            return true;
-        }
-
-        if (foundOneSided)
-        {
-            outjunc.type = JT_TRIM_ONE_SIDED;
-            outjunc.p = bestOneSidedPoint;
             return true;
         }
 
@@ -828,7 +775,7 @@ private:
     }
 
     // Find the first move after a CM_IN move
-    int first_comp_move(const Move2D *moves, int count)
+    int first_steady_move(const Move2D *moves, int count)
     {
         for (int i = 0; i < count; ++i)
         {
@@ -842,7 +789,7 @@ private:
     }
 
     // Find the last move before a CM_OUT move
-    int last_comp_move(const Move2D *moves, int count, int startAt)
+    int last_steady_move(const Move2D *moves, int count, int startAt)
     {
         for (int i = startAt; i < count; ++i)
         {
@@ -933,13 +880,9 @@ private:
         {
             if (m.radius < TOL)
             {
-                // TODO: what should i do here?
-                bool hasArcDirs = len(m.startDir) >= TOL || len(m.endDir) >= TOL;
-                if (!hasArcDirs)
-                {
-                    m.valid = false;
-                    reportCompError(CE_ARC_LT_TOOL_RAD);
-                }
+                //m.valid = false;
+                //If i invalidate this arc there is a contition where I can't create a following roll arc.
+                reportCompError(CE_ARC_LT_TOOL_RAD);
             }
         }
 
@@ -954,7 +897,7 @@ private:
         a.p_1 = tip;
         b.p_0 = tip;
 
-        // update_vectors(a);
+        // update_vectors(a); Deliberately defer updating the vectors until we process the next move, 
         // update_vectors(b);
 
         validate(a);
@@ -972,7 +915,7 @@ private:
         {
             a.p_1 = fip;
             b.p_0 = fip;
-
+            // defer updating the vectors until we process the next move.
             // update_vectors(a);
             // update_vectors(b);
 
@@ -985,7 +928,7 @@ private:
     Move2D makeRollArc(const Move2D &a, const Move2D &b)
     {
         Move2D roll;
-        roll.lnNum = a.lnNum;
+        roll.lineNum = a.lineNum;
         roll.type = MOT_ARC;
         roll.compMode = CM_STEADY;
         roll.feed = (a.feed > 0) ? a.feed : b.feed;
@@ -1092,7 +1035,7 @@ private:
 
         Vec2 offsetCap = partCorner + bisector * (-toolR);
         Move2D cap;
-        cap.lnNum = a.lnNum;
+        cap.lineNum = a.lineNum;
         cap.type = MOT_LINE;
         cap.compMode = CM_STEADY;
         cap.feed = (a.feed > 0) ? a.feed : b.feed;
@@ -1189,7 +1132,7 @@ private:
         // dir = normalize(dir);
 
         extLnOut.type = MOT_LINE;
-        extLnOut.lnNum = arc.lnNum;
+        extLnOut.lineNum = arc.lineNum;
         extLnOut.compMode = arc.compMode;
         extLnOut.feed = arc.feed;
         extLnOut.z_0 = fromEnd ? arc.z_1 : arc.z_0;
@@ -1265,34 +1208,32 @@ private:
     void handleLineLine(Move2D &a, Move2D &b, Move2D inserts[3], int &insertCount)
     {
         Junction junction;
+
+        // trivial check for chained elements
+        // chained line implies colinear if created from offsetting
+        if (is_near(a.p_1, b.p_0))
+        {
+            return; // already connected, no need to roll or trim.
+        }
+
         float gap = dist(b.p_0, a.p_1);
         bool anyRapid = hasRapidMove(a, b);
-        bool allowExtend = anyRapid || (gap < gapTol); // rapid corners should resolve by trim/extend instead of inserting a roll.
-        bool resolved = solveJunction(a, b, allowExtend, junction);
+        bool avoidRoll = anyRapid || (gap < gapTol); // rapid corners should resolve by trim/extend instead of inserting a roll.
+        bool convex = is_convex(a, b);
 
-        if (junction.type == JT_TRIM_TO_INTERSECTION || junction.type == JT_TRIM_ONE_SIDED)
+        solveJunction(a, b, junction);
+
+        if (junction.type == JT_TRIM_TO_INTERSECTION)
         {
             trimTo(a, b, junction.p);
-            // when trimming we can get small segments that are invalid after trimming,
-            if (!a.valid)
-            {
-                b.p_0 = a.p_1;
-                return;
-            }
-            if (!b.valid)
-            {
-                a.p_1 = b.p_0;
-                return;
-            }
             return;
         }
 
-        if (junction.type == JT_EXTEND_TO_INTERSECTION)
+        // Convex near-gap/rapid: prefer extending to FIP over rolling
+        if (convex && avoidRoll && junction.type == JT_EXTEND_TO_INTERSECTION)
         {
             if (extendTo(a, b, junction.p))
-            {
                 return;
-            }
         }
 
         if (a.compMode == CM_IN)
@@ -1311,11 +1252,46 @@ private:
             return;
         }
 
-        if (!anyRapid && resolved && junction.type == JT_ROLL_AROUND)
+        // Convex: try roll, with line-line fit check; fall back to extend if no fit
+        if (!anyRapid && convex)
         {
-            if (!insertRollOrCorner(a, b, inserts, insertCount))
-                reportCompError(CE_UNRESOLVED_GAP);
-            return;
+            if (junction.type == JT_EXTEND_TO_INTERSECTION)
+            {
+                if (roll_fits_line_line(a.p_0, junction.p, b.p_1))
+                {
+                    if (!insertRollOrCorner(a, b, inserts, insertCount))
+                        reportCompError(CE_UNRESOLVED_GAP);
+                    return;
+                }
+                if (extendTo(a, b, junction.p))
+                    return;
+            }
+        }
+
+        // Concave: extend to FIP if available
+        if (!convex && junction.type == JT_EXTEND_TO_INTERSECTION)
+        {
+            if (extendTo(a, b, junction.p))
+                return;
+        }
+
+
+        // Line-line specific: one-sided trim fallback
+        if (!options.globalTrimCrossing){
+            Vec2 carrierPts[2]{};
+            int cnt = intersectCarrier(a, b, carrierPts);
+            for (int i = 0; i < cnt; ++i)
+            {
+                float ta = line_t(a, carrierPts[i]);
+                float tb = line_t(b, carrierPts[i]);
+                bool onA = (ta >= -TOL && ta <= 1.0f + TOL);
+                bool onB = (tb >= -TOL && tb <= 1.0f + TOL);
+                if (onA != onB)
+                {
+                    trimTo(a, b, carrierPts[i]);
+                    return;
+                }
+            }
         }
 
         // If we get here: concave or no-good FIP -> just bevel.
@@ -1332,7 +1308,9 @@ private:
 
         Junction junction;
         float gap = len(b.p_0 - a.p_1);
-        solveJunction(a, b, gap < gapTol, junction);
+        bool convex = is_convex(a, b);
+        bool allowExtend = gap < gapTol;
+        solveJunction(a, b, junction);
 
         if (junction.type == JT_TRIM_TO_INTERSECTION)
         {
@@ -1344,7 +1322,8 @@ private:
             }
         }
 
-        if (junction.type == JT_EXTEND_TO_INTERSECTION)
+        // Extend: convex near-gap or concave
+        if (junction.type == JT_EXTEND_TO_INTERSECTION && (!convex || allowExtend))
         {
             if (extendTo(a, b, junction.p))
             {
@@ -1379,7 +1358,9 @@ private:
         float gap = len(b.p_0 - a.p_1);
         Junction junction;
         bool anyRapid = hasRapidMove(a, b);
-        bool resolved = solveJunction(a, b, anyRapid || (gap < gapTol), junction);
+        bool convex = is_convex(a, b);
+        bool allowExtend = anyRapid || (gap < gapTol);
+        solveJunction(a, b, junction);
 
         if (junction.type == JT_TRIM_TO_INTERSECTION)
         {
@@ -1391,7 +1372,8 @@ private:
             }
         }
 
-        if (junction.type == JT_EXTEND_TO_INTERSECTION)
+        // Extend: convex near-gap/rapid or concave
+        if (junction.type == JT_EXTEND_TO_INTERSECTION && (!convex || allowExtend))
         {
             if (extendTo(a, b, junction.p))
             {
@@ -1401,7 +1383,7 @@ private:
             }
         }
 
-        if (!anyRapid && resolved && junction.type == JT_ROLL_AROUND)
+        if (!anyRapid && convex)
         {
             if (!insertRollOrCorner(a, b, inserts, insertCount))
                 reportCompError(CE_UNRESOLVED_GAP);
@@ -1501,11 +1483,11 @@ private:
         CrossingHit best;
         best.hit = false;
         best.dist = 1e30f; // start with big distance so that any real crossing will be closer.
+        Move2D &src = moves[srcIdx];
 
-        if (!isMotionValid(moves[srcIdx]))
+        if (!isMotionValid(src))
             return best;
 
-        Move2D &src = moves[srcIdx];
         refresh_aabb(moves, bounds, srcIdx);
 
         int j = startTargetIdx + 1; // start looking from the element after the immediate neighbor
@@ -1566,51 +1548,28 @@ private:
 
 public:
     // return false if failed to trim (which can only happen if a comp in move is crossing,
-    bool trimCrossingElements(Move2D *moves, AABB2 *bounds, int &srcIdx, int maxIdx, int lookahead, int &hitTargetIdx)
+    bool trimCrossingElements(Move2D *moves, AABB2 *bounds, int &srcIdx, int maxIdx, int lookahead)
     {
-        int compInIdx = -1;
-        int compOutIdx = -1;
-
-        // find the moves adjacent to the comp in and comp out.
-        // we want to skip these in the crossing logic since they are allowed to "cross" in the sense that they share geometry but should not be trimmed since they are intentionally connected that way as part of the comp.
-        int firstCutIdx = first_comp_move(moves, maxIdx);
-        int lastCutIdx = -1;
-        if (firstCutIdx >= 0)
-            lastCutIdx = last_comp_move(moves, maxIdx, firstCutIdx);
-
-        if (firstCutIdx >= 0)
+        int firstSteadyIdx = first_steady_move(moves, maxIdx);
+        int lastSteadyIdx = last_steady_move(moves, maxIdx, firstSteadyIdx);
+        int hitTargetIdx = -1;
+        // if comp in move is adjacent to flipped arc.
+        if (firstSteadyIdx > -1)
         {
-            compInIdx = firstCutIdx - 1; // comp in is immediately before first cut move
-        }
-
-        if (lastCutIdx >= 0)
-        {
-            compOutIdx = lastCutIdx + 1; // comp out is immediately after last cut move
-        }
-
-        if (moves[srcIdx].compMode == CM_IN)
-        {
-            // if comp in move is adjacent to flipped arc.
-            if (firstCutIdx > -1)
+            if (moves[firstSteadyIdx].type == MOT_ARC && moves[firstSteadyIdx].radius <= 0)
             {
-                if (moves[firstCutIdx].type == MOT_ARC && moves[firstCutIdx].radius <= 0)
-                {
-                    reportCompError(CE_ARC_LT_TOOL_RAD);
-                    return false;
-                }
+                reportCompError(CE_ARC_LT_TOOL_RAD);
+                return false;
             }
         }
 
-        if (moves[srcIdx].compMode == CM_OUT)
+        // if comp out move is adjacent to flipped arc.
+        if (lastSteadyIdx > -1)
         {
-            // if comp out move is adjacent to flipped arc.
-            if (lastCutIdx > -1)
+            if (moves[lastSteadyIdx].type == MOT_ARC && moves[lastSteadyIdx].radius <= 0)
             {
-                if (moves[lastCutIdx].type == MOT_ARC && moves[lastCutIdx].radius <= 0)
-                {
-                    reportCompError(CE_ARC_LT_TOOL_RAD);
-                    return false;
-                }
+                reportCompError(CE_ARC_LT_TOOL_RAD);
+                return false;
             }
         }
 
@@ -1628,7 +1587,7 @@ public:
             if (targetIdx >= maxIdx)
                 break; // if we have no valid targets ahead, we are done.
 
-            CrossingHit crossing = lookAheadForCrossing(moves, bounds, maxIdx, srcIdx, targetIdx, maxIdx, lookahead, firstCutIdx, lastCutIdx);
+            CrossingHit crossing = lookAheadForCrossing(moves, bounds, maxIdx, srcIdx, targetIdx, maxIdx, lookahead, firstSteadyIdx, lastSteadyIdx);
             if (!crossing.hit)
             {
                 srcIdx++;
@@ -1639,9 +1598,9 @@ public:
             // if we are here we have a crossing.
             if (moves[srcIdx].compMode == CM_IN)
             {
-                if (hitTargetIdx < lastCutIdx)
+                if (hitTargetIdx - srcIdx < 3)
                 {
-                    // comp in should never cross.
+                    // comp in should not cross within the first 3 moves.
                     reportCompError(CE_COMP_IN_CROSSING);
                     return false;
                 }
@@ -1652,17 +1611,20 @@ public:
             if (moves[hitTargetIdx].compMode == CM_OUT)
             {
                 // comp out should never cross.
-                reportCompError(CE_COMP_OUT_CROSSING);
-                return false;
+                if(hitTargetIdx - srcIdx < 3){
+                    reportCompError(CE_COMP_OUT_CROSSING);
+                    return false;
+                }
+                srcIdx++;
+                continue; // skip trimming for comp in move.
             }
 
             // only run this if we have a non-lead-in-out crossing and it is not a head-bites-tail.
-            bool shouldTrim = compInIdx != -1 && compOutIdx != -1 && srcIdx == compInIdx && hitTargetIdx == compOutIdx;
-            if (!shouldTrim)
-            {
-                (void)trimTo(moves[srcIdx], moves[hitTargetIdx], crossing.tip);
-                CutterComp2D::invalidateRange(moves, srcIdx, hitTargetIdx);
-            }
+            if(srcIdx == firstSteadyIdx && hitTargetIdx == lastSteadyIdx)
+                continue; // skip trimming for this special case to avoid breaking the closed loop seam.
+            
+            trimTo(moves[srcIdx], moves[hitTargetIdx], crossing.tip);
+            CutterComp2D::invalidateRange(moves, srcIdx, hitTargetIdx);
             // trimmedTo becomes new srcElement
             srcIdx = hitTargetIdx;
         }

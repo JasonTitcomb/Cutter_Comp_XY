@@ -23,7 +23,7 @@ private:
     static constexpr int TARGET_BATCH_EMIT_MOVES = 4;
     static constexpr int PROFILE_BURST_MARGIN = 4;
 
-    static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 2;
+    static constexpr int TRIM_OVERLAP_MOVES = MAX_LOOKAHEAD + 3;
     static constexpr int EMIT_HOLDBACK = TRIM_OVERLAP_MOVES;
     static constexpr int MIN_PENDING_BEFORE_BATCH = EMIT_HOLDBACK + TARGET_BATCH_EMIT_MOVES;
     static constexpr int MAX_PROFILE_MOVES = MIN_PENDING_BEFORE_BATCH + PROFILE_BURST_MARGIN;
@@ -364,9 +364,9 @@ private:
         static float lastFeed = 0.0f;
 
         // Emit sequence number if present
-        if (m.lnNum != 0)
+        if (m.lineNum != 0)
         {
-            n = snprintf(line, sizeof(line), "N%u ", (unsigned)m.lnNum);
+            n = snprintf(line, sizeof(line), "N%u ", (unsigned)m.lineNum);
         }
 
         if (m.type == MOT_LINE || m.type == MOT_RAPID)
@@ -572,8 +572,7 @@ private:
         if (options_.globalTrimCrossing)
         {
             int srcIdx = trimStart;
-            int retTargetIdx = -1;
-            if (!cc_.trimCrossingElements(profile_, aabbs, srcIdx, currentProfileCount, MAX_LOOKAHEAD, retTargetIdx))
+            if (!cc_.trimCrossingElements(profile_, aabbs, srcIdx, currentProfileCount, MAX_LOOKAHEAD))
                 return false;
         }
 

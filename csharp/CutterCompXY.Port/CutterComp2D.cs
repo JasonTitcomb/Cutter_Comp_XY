@@ -35,7 +35,7 @@ public struct CcMainOptions
 public sealed class CutterComp2D
 {
     public CornerType cornerTreatment = CornerType.CORNER_ROLL;
-    public bool performTrim = true;
+    public bool doGlobalTrim = true;
     public const int IN_CAP = 2;
     public const int OUT_CAP = 4;
     public readonly Move2D[] input_buffer = new Move2D[IN_CAP];
@@ -80,7 +80,7 @@ public sealed class CutterComp2D
     }
 
     public void SetCornerTreatment(CornerType ct) => cornerTreatment = ct;
-    public void SetPerformTrim(bool en) => performTrim = en;
+    public void SetDoGlobalTrim(bool en) => doGlobalTrim = en;
     public void SetErrorCallback(CompErrorCB cb) => CcMath.ErrorCallback = cb;
 
     public void SetOptions(CcMainOptions opts)
@@ -89,7 +89,7 @@ public sealed class CutterComp2D
         SetToolRadius(opts.toolRadius);
         ResetState();
         cornerTreatment = opts.cornerTreatment;
-        performTrim = opts.globalTrimCrossing;
+        doGlobalTrim = opts.globalTrimCrossing;
         SetErrorCallback(null);
     }
 
@@ -575,7 +575,7 @@ public sealed class CutterComp2D
         return lenA >= need && lenB >= need;
     }
 
-    private bool SolveJunction(in Move2D a, in Move2D b, bool allowExtend, out Junction outjunc)
+    private bool SolveJunction(in Move2D a, in Move2D b, out Junction outjunc)
     {
         outjunc = new Junction
         {
@@ -586,20 +586,15 @@ public sealed class CutterComp2D
         Vec2[] carrierPts = new Vec2[2];
         Vec2[] trimPts = new Vec2[2];
         Vec2 bestTrimPoint = new Vec2(0, 0);
-        Vec2 bestOneSidedPoint = new Vec2(0, 0);
         Vec2 bestExtendPoint = new Vec2(0, 0);
 
         float bestTrimScore = 0.0f;
-        float bestOneSidedScore = 0.0f;
         float bestExtendScore = 0.0f;
         bool foundTrim = false;
-        bool foundOneSided = false;
         bool foundExtend = false;
-        bool canRoll = false;
 
         int carrierCount = IntersectCarrier(a, b, out carrierPts[0], out carrierPts[1]);
         int trimCount = FiniteIntersectionPoints(a, b, out trimPts[0], out trimPts[1]);
-        bool isLineLine = IsLineLike(a) && IsLineLike(b);
 
         for (int i = 0; i < trimCount; ++i)
         {
@@ -610,29 +605,6 @@ public sealed class CutterComp2D
                 bestTrimPoint = p;
                 bestTrimScore = score;
                 foundTrim = true;
-            }
-        }
-
-        if (!foundTrim && isLineLine)
-        {
-            for (int i = 0; i < carrierCount; ++i)
-            {
-                Vec2 p = carrierPts[i];
-                float ta = CcMath.LineT(a, p);
-                float tb = CcMath.LineT(b, p);
-                bool onA = (ta >= -CcConst.TOL && ta <= 1.0f + CcConst.TOL);
-                bool onB = (tb >= -CcConst.TOL && tb <= 1.0f + CcConst.TOL);
-
-                if (onA == onB)
-                    continue;
-
-                float score = CcMath.DistFromStartAlong(a, p) + CcMath.DistFromStartAlong(b, p);
-                if (!foundOneSided || score < bestOneSidedScore)
-                {
-                    bestOneSidedPoint = p;
-                    bestOneSidedScore = score;
-                    foundOneSided = true;
-                }
             }
         }
 
@@ -651,14 +623,6 @@ public sealed class CutterComp2D
             }
         }
 
-        if (IsConvex(a, b))
-        {
-            if (isLineLine)
-                canRoll = foundExtend && RollFitsLineLine(a.p_1, bestExtendPoint, b.p_0);
-            else
-                canRoll = true;
-        }
-
         if (foundTrim)
         {
             outjunc.type = JunctionType.JT_TRIM_TO_INTERSECTION;
@@ -666,30 +630,10 @@ public sealed class CutterComp2D
             return true;
         }
 
-        if (canRoll && allowExtend)
-        {
-            outjunc.type = JunctionType.JT_EXTEND_TO_INTERSECTION;
-            outjunc.p = bestExtendPoint;
-            return true;
-        }
-
-        if (canRoll)
-        {
-            outjunc.type = JunctionType.JT_ROLL_AROUND;
-            return true;
-        }
-
         if (foundExtend)
         {
             outjunc.type = JunctionType.JT_EXTEND_TO_INTERSECTION;
             outjunc.p = bestExtendPoint;
-            return true;
-        }
-
-        if (foundOneSided)
-        {
-            outjunc.type = JunctionType.JT_TRIM_ONE_SIDED;
-            outjunc.p = bestOneSidedPoint;
             return true;
         }
 
@@ -1191,29 +1135,24 @@ public sealed class CutterComp2D
 
     private void HandleLineLine(ref Move2D a, ref Move2D b, Move2D[] inserts, ref int insertCount)
     {
+        if (CcMath.IsNear(a.p_1, b.p_0))
+            return;
+
         Junction junction;
         float gap = CcMath.Len(b.p_0 - a.p_1);
         bool anyRapid = HasRapidMove(a, b);
-        bool allowExtend = anyRapid || (gap < gapTol);
-        bool resolved = SolveJunction(a, b, allowExtend, out junction);
+        bool avoidRoll = anyRapid || (gap < gapTol);
+        bool convex = IsConvex(a, b);
+        SolveJunction(a, b, out junction);
 
-        if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION || junction.type == JunctionType.JT_TRIM_ONE_SIDED)
+        if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
         {
             TrimToTIP(ref a, ref b, junction.p);
-            if (!a.valid)
-            {
-                b.p_0 = a.p_1;
-                return;
-            }
-            if (!b.valid)
-            {
-                a.p_1 = b.p_0;
-                return;
-            }
             return;
         }
 
-        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+        // Convex near-gap/rapid: prefer extending to FIP over rolling
+        if (convex && avoidRoll && junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
         {
             if (ExtendToFIP(ref a, ref b, junction.p))
                 return;
@@ -1235,11 +1174,46 @@ public sealed class CutterComp2D
             return;
         }
 
-        if (!anyRapid && resolved && junction.type == JunctionType.JT_ROLL_AROUND)
+        // Convex: try roll with fit check; fall back to extend
+        if (!anyRapid && convex)
         {
-            if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
-                CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
-            return;
+            if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+            {
+                if (RollFitsLineLine(a.p_0, junction.p, b.p_1))
+                {
+                    if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
+                        CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
+                    return;
+                }
+                if (ExtendToFIP(ref a, ref b, junction.p))
+                    return;
+            }
+        }
+
+        // Concave: extend to FIP if available
+        if (!convex && junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+        {
+            if (ExtendToFIP(ref a, ref b, junction.p))
+                return;
+        }
+
+        // Line-line one-sided trim fallback
+        if (!doGlobalTrim)
+        {
+            int cnt = IntersectCarrier(a, b, out Vec2 c0, out Vec2 c1);
+            Vec2[] cpts = new Vec2[] { c0, c1 };
+            for (int i = 0; i < cnt; ++i)
+            {
+                float ta = CcMath.LineT(a, cpts[i]);
+                float tb = CcMath.LineT(b, cpts[i]);
+                bool onA = (ta >= -CcConst.TOL && ta <= 1.0f + CcConst.TOL);
+                bool onB = (tb >= -CcConst.TOL && tb <= 1.0f + CcConst.TOL);
+                if (onA != onB)
+                {
+                    TrimToTIP(ref a, ref b, cpts[i]);
+                    return;
+                }
+            }
         }
 
         inserts[insertCount++] = MakeBevel(a, b);
@@ -1248,13 +1222,14 @@ public sealed class CutterComp2D
     private void HandleArcArc(ref Move2D a, ref Move2D b, Move2D[] inserts, ref int insertCount)
     {
         Junction junction;
-        float gap;
 
         if (CcMath.IsNear(a.p_1, b.p_0) || CcMath.IsNear(a.center, b.center))
             return;
 
-        gap = CcMath.Len(b.p_0 - a.p_1);
-        _ = SolveJunction(a, b, gap < gapTol, out junction);
+        float gap = CcMath.Len(b.p_0 - a.p_1);
+        bool convex = IsConvex(a, b);
+        bool allowExtend = gap < gapTol;
+        SolveJunction(a, b, out junction);
 
         if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
         {
@@ -1266,7 +1241,8 @@ public sealed class CutterComp2D
             }
         }
 
-        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+        // Extend: convex near-gap or concave
+        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION && (!convex || allowExtend))
         {
             if (ExtendToFIP(ref a, ref b, junction.p))
             {
@@ -1279,16 +1255,13 @@ public sealed class CutterComp2D
         if (InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
             return;
 
-        if (!performTrim)
+        if (!doGlobalTrim)
             CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
     }
 
     private void HandleArcLine(ref Move2D a, ref Move2D b, Move2D[] inserts, ref int insertCount)
     {
         Junction junction;
-        float gap;
-        bool anyRapid;
-        bool resolved;
 
         if (CcMath.IsNear(a.p_1, b.p_0))
         {
@@ -1298,9 +1271,10 @@ public sealed class CutterComp2D
             return;
         }
 
-        gap = CcMath.Len(b.p_0 - a.p_1);
-        anyRapid = HasRapidMove(a, b);
-        resolved = SolveJunction(a, b, anyRapid || (gap < gapTol), out junction);
+        float gap = CcMath.Len(b.p_0 - a.p_1);
+        bool anyRapid = HasRapidMove(a, b);
+        bool convex = IsConvex(a, b);
+        SolveJunction(a, b, out junction);
 
         if (junction.type == JunctionType.JT_TRIM_TO_INTERSECTION)
         {
@@ -1308,7 +1282,8 @@ public sealed class CutterComp2D
                 return;
         }
 
-        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION)
+        // Extend: convex near-gap/rapid or concave
+        if (junction.type == JunctionType.JT_EXTEND_TO_INTERSECTION && (!convex || anyRapid || gap < gapTol))
         {
             if (ExtendToFIP(ref a, ref b, junction.p))
             {
@@ -1318,14 +1293,14 @@ public sealed class CutterComp2D
             }
         }
 
-        if (!anyRapid && resolved && junction.type == JunctionType.JT_ROLL_AROUND)
+        if (!anyRapid && convex)
         {
             if (!InsertRollOrCorner(ref a, ref b, inserts, ref insertCount))
                 CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
             return;
         }
 
-        if (!performTrim)
+        if (!doGlobalTrim)
             CcMath.ReportCompError(CompError.CE_UNRESOLVED_GAP, a.seqNum);
 
         inserts[insertCount++] = MakeBevel(a, b);

@@ -440,7 +440,7 @@ static Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     }
 
     Move2D out;
-    out.lnNum = modeState.lineNumber;
+    out.lineNum = modeState.lineNumber;
     out.p_0 = p0;
     out.p_1 = p1;
     out.z_0 = z0;

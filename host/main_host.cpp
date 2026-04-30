@@ -32,7 +32,7 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.05f;
+static constexpr float TOOL_RADIUS = 0.03f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = false;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
@@ -95,7 +95,7 @@ static cc_status_code_t cc_mc_line_arc_in_via_grblhal(const Move2D &mv, const gc
   plan_line_data_t pl_data = {};
   pl_data.feed_rate = mv.feed;
   pl_data.condition.rapid_motion = (mv.type == MOT_RAPID) ? 1 : 0;
-  pl_data.line_number = mv.lnNum;
+  pl_data.line_number = mv.lineNum;
 
   float xyz[N_AXIS] = {mv.p_1.x, mv.p_1.y, mv.z_1};
 
@@ -127,7 +127,7 @@ extern "C"
       mv.z_0 = g_mc_host_pos[2];
       mv.z_1 = xyz[2];
       mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
-      mv.lnNum = pl_data ? pl_data->line_number : 0;
+      mv.lineNum = pl_data ? pl_data->line_number : 0;
       mv.type = (pl_data && pl_data->condition.rapid_motion) ? MOT_RAPID : MOT_LINE;
       mv.valid = !(len(mv.p_1 - mv.p_0) < TOL && fabsf(mv.z_1 - mv.z_0) < TOL);
       g_simpleProfileOut->push_back(mv);
@@ -169,7 +169,7 @@ extern "C"
       mv.center = v2(position[0] + ijk[0], position[1] + ijk[1]);
       mv.radius = radius;
       mv.feed = pl_data ? pl_data->feed_rate : 0.0f;
-      mv.lnNum = pl_data ? pl_data->line_number : 0;
+      mv.lineNum = pl_data ? pl_data->line_number : 0;
       mv.type = MOT_ARC;
       mv.arcDir = (turns >= 0) ? ARC_CCW : ARC_CW;
       mv.valid = true;
@@ -410,7 +410,7 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
 
     const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL;
 
-    const std::string gcodeLine = lookup_gcode_line(program, m.lnNum);
+    const std::string gcodeLine = lookup_gcode_line(program, m.lineNum);
     if (gcodeLine.find("G53") != std::string::npos || gcodeLine.find("M30") != std::string::npos)
       continue;
 
@@ -542,8 +542,8 @@ static void write_xy_compare_report(const char *path,
     ++mismatchCount;
     if (mismatchCount <= 20)
     {
-      const std::string fullGcodeLine = lookup_gcode_line(fullProgram, full.lnNum);
-      const std::string simpleGcodeLine = lookup_gcode_line(simpleProgram, simple.lnNum);
+      const std::string fullGcodeLine = lookup_gcode_line(fullProgram, full.lineNum);
+      const std::string simpleGcodeLine = lookup_gcode_line(simpleProgram, simple.lineNum);
       uint32_t fullNWord = 0;
       uint32_t simpleNWord = 0;
       const bool fullHasNWord = try_extract_n_word(fullGcodeLine, fullNWord);
@@ -551,13 +551,13 @@ static void write_xy_compare_report(const char *path,
 
       out << "\nindex " << i << " mismatch\n";
       out << "  full   : type=" << motion_type_name(full.type)
-        << " out_line=" << full.lnNum
+        << " out_line=" << full.lineNum
         << (fullHasNWord ? " n=" + std::to_string(fullNWord) : "")
           << " p0=(" << full.p_0.x << ", " << full.p_0.y << ")"
           << " p1=(" << full.p_1.x << ", " << full.p_1.y << ")"
           << " r=" << full.radius << " valid=" << full.valid << "\n";
       out << "  simple : type=" << motion_type_name(simple.type)
-        << " src_line=" << simple.lnNum
+        << " src_line=" << simple.lineNum
         << (simpleHasNWord ? " n=" + std::to_string(simpleNWord) : "")
           << " p0=(" << simple.p_0.x << ", " << simple.p_0.y << ")"
           << " p1=(" << simple.p_1.x << ", " << simple.p_1.y << ")"
@@ -667,23 +667,24 @@ static bool run_profile_streaming(const char *inputPath,
 int main(int argc, char *argv[])
 {
   // const char *default_file = "../../data/RapidComp.nc";
+  //const char *default_file = "../../data/subcall.nc";
   //const char *default_file = "../../data/G41_1.nc";
   //const char *default_file = "../../data/ThreadMill.nc";
   //const char *default_file = "../../data/G41_2.nc";
-  // const char *default_file = "../../data/TortureTestG91.nc";
+  //const char *default_file = "../../data/TortureTestG91.nc";
   //const char *default_file = "../../data/Sample2.nc";
   // const char *default_file = "../../data/Sample2mm.nc";
   //   const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
   //  const char *default_file = "../../data/TortureTestmm.nc";
   // const char *default_file = "../../data/simple1.nc";
-  const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
+  //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
   //  const char *default_file = "../../data/TortureTestLinux.nc";
   //  const char *default_file = "../../data/ArcTooSmall.nc";
   //  const char *default_file = "../../data/TortureTestLines.nc";
   //  const char *default_file = "../../data/AI_Torture.nc";
-  // const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
+  const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
   //  const char *default_file = "../../data/SimpleSquarePocket.nc";
-  //  const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
+  //const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
   //  const char *default_file = "../../data/CompErrorTest.nc";
   //  const char *default_file = "../../data/Tangent_ArcLine.nc";
 

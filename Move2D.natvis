@@ -10,11 +10,11 @@
   </Type>
 
   <Type Name="Move2D">
-    <DisplayString Condition="type==2">seq={seqNum} LINE p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) feed={feed,g} valid={valid}</DisplayString>
-    <DisplayString Condition="type==3">seq={seqNum} ARC p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) c=({center.x,g},{center.y,g}) r={radius,g} dir={arcDir} valid={valid}</DisplayString>
-    <DisplayString>seq={seqNum} type={type} p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) z0={z_0,g} z1={z_1,g} valid={valid}</DisplayString>
+    <DisplayString Condition="type==2">ln={lineNum} LINE p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) feed={feed,g} valid={valid}</DisplayString>
+    <DisplayString Condition="type==3">ln={lineNum} ARC p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) c=({center.x,g},{center.y,g}) r={radius,g} dir={arcDir} valid={valid}</DisplayString>
+    <DisplayString>ln={lineNum} type={type} p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) z0={z_0,g} z1={z_1,g} valid={valid}</DisplayString>
     <Expand>
-      <Item Name="seqNum">seqNum</Item>
+      <Item Name="lineNum">lineNum</Item>
       <Item Name="type">type</Item>
       <Item Name="compMode">compMode</Item>
       <Item Name="valid">valid</Item>
@@ -25,6 +25,33 @@
       <Item Name="z_1">z_1</Item>
       <Item Name="arcDir">arcDir</Item>
       <Item Name="radius">radius</Item>
+
+      <Item Name="p0">p_0</Item>
+      <Item Name="p1">p_1</Item>
+      <Item Name="center">center</Item>
+      <Item Name="startDir">startDir</Item>
+      <Item Name="endDir">endDir</Item>
+    </Expand>
+  </Type>
+
+  <Type Name="move2d">
+    <DisplayString Condition="type==1">ln={lineNum} RAPID p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) valid={valid}</DisplayString>
+    <DisplayString Condition="type==2">ln={lineNum} LINE p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) feed={feed,g} valid={valid}</DisplayString>
+    <DisplayString Condition="type==3">ln={lineNum} ARC p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) c=({center.x,g},{center.y,g}) r={radius,g} dir={arcDir} valid={valid}</DisplayString>
+    <DisplayString>ln={lineNum} type={type} p0=({p_0.x,g},{p_0.y,g}) p1=({p_1.x,g},{p_1.y,g}) z0={z_0,g} z1={z_1,g} valid={valid}</DisplayString>
+    <Expand>
+      <Item Name="lineNum">lineNum</Item>
+      <Item Name="type">type</Item>
+      <Item Name="compMode">compMode</Item>
+      <Item Name="valid">valid</Item>
+      <Item Name="hasXY">hasXY</Item>
+      <Item Name="hasZ">hasZ</Item>
+      <Item Name="feed">feed</Item>
+      <Item Name="z_0">z_0</Item>
+      <Item Name="z_1">z_1</Item>
+      <Item Name="arcDir">arcDir</Item>
+      <Item Name="radius">radius</Item>
+      <Item Name="pause_after">pause_after</Item>
 
       <Item Name="p0">p_0</Item>
       <Item Name="p1">p_1</Item>

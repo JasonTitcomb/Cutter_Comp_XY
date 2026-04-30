@@ -15,6 +15,7 @@
  * - src/grbl/spindle_control.h
  */
 #define EXEC_FEED_HOLD (1 << 0) 
+#define EXEC_STOP (1 << 1)
 void protocol_buffer_synchronize(void){};
 void system_set_exec_state_flag(uint8_t flag){(void)flag;};
 void protocol_execute_realtime(void){};
