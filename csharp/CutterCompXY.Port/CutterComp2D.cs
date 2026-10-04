@@ -37,7 +37,9 @@ public sealed class CutterComp2D
     public CornerType cornerTreatment = CornerType.CORNER_ROLL;
     public bool doGlobalTrim = true;
     public const int IN_CAP = 2;
-    public const int OUT_CAP = 4;
+    public const int DEFERRED_Z_CAP = 3;
+    public const int INSERT_CAP = 3;
+    public const int OUT_CAP = 1 + DEFERRED_Z_CAP + INSERT_CAP;
     public readonly Move2D[] input_buffer = new Move2D[IN_CAP];
     public int inHead = 0, inCount = 0;
     public readonly Move2D[] output_buffer = new Move2D[OUT_CAP];
@@ -48,8 +50,8 @@ public sealed class CutterComp2D
     public CompMode compMode = CompMode.CM_NONE;
     public bool havePrevMove2D = false;
     public Move2D prevOff = new Move2D();
-    public bool havePendingZMove = false;
-    public Move2D pendingZMove = new Move2D();
+    private readonly Move2D[] deferredZMoves = new Move2D[DEFERRED_Z_CAP];
+    private int deferredZMoveCount = 0;
     private Units units = Units.UNITS_MM;
     public float gapTol = CcConst.GAP_TOL_IN;
     public bool hasCompError = false;
@@ -108,24 +110,6 @@ public sealed class CutterComp2D
         }
     }
 
-    private static int ZMoveDirection(float z0, float z1)
-    {
-        if (MathF.Abs(z1 - z0) <= CcConst.EPS)
-            return 0;
-        return z1 > z0 ? 1 : -1;
-    }
-
-    private static bool ShouldReplacePendingZTarget(in Move2D pending, in Move2D candidate)
-    {
-        int pendingDir = ZMoveDirection(pending.z_0, pending.z_1);
-        int candidateDir = ZMoveDirection(candidate.z_0, candidate.z_1);
-
-        if (pendingDir != 0 && pendingDir == candidateDir)
-            return MathF.Abs(candidate.z_1) > MathF.Abs(pending.z_1);
-
-        return true;
-    }
-
     public void SetToolRadius(float r)
     {
         toolR = r < 0 ? -r : r;
@@ -157,8 +141,9 @@ public sealed class CutterComp2D
     {
         if (IsLineLike(m))
         {
-            float lineLen = CcMath.Len(m.p_1 - m.p_0);
-            if (lineLen < CcConst.TOL)
+            Vec2 delta = m.p_1 - m.p_0;
+            float lineLenSq = CcMath.Dot(delta, delta);
+            if (lineLenSq < CcConst.TOL_SQ)
             {
                 m.hasXY = false;
                 m.valid = false;
@@ -166,9 +151,9 @@ public sealed class CutterComp2D
             }
 
             // check for vector flipping.
-            if (lineLen >= CcConst.TOL)
+            if (lineLenSq >= CcConst.TOL_SQ)
             {
-                Vec2 dir = CcMath.Normalize(m.p_1 - m.p_0);
+                Vec2 dir = CcMath.Normalize(delta);
                 if (CcMath.Dot(dir, m.startDir) < -0.999f)
                 {
                     if (options.globalTrimCrossing)
@@ -224,6 +209,21 @@ public sealed class CutterComp2D
 
         return m.valid;
     }
+
+    private void ValidateTrimmedMove(ref Move2D m)
+    {
+        if ((IsLineLike(m) || m.type == MotionType.MOT_ARC) &&
+            CcMath.Dot(m.p_1 - m.p_0, m.p_1 - m.p_0) < CcConst.TOL_SQ)
+        {
+            m.valid = false;
+            m.hasXY = false;
+            m.junctionOnly = true;
+            return;
+        }
+
+        m.junctionOnly = false;
+        Validate(ref m);
+    }
     public void SetComp(CompSide s)
     {
         CompSide prevSide = comp_state;
@@ -278,30 +278,48 @@ public sealed class CutterComp2D
         return true;
     }
 
-    private bool EmitPendingZMoveAt(in Move2D anchor)
+    private bool EmitDeferredZMovesAt(in Move2D anchor)
     {
-        if (!havePendingZMove)
-            return true;
+        float currentZ = anchor.z_1;
+        for (int i = 0; i < deferredZMoveCount; i++)
+        {
+            Move2D zMove = deferredZMoves[i];
+            zMove.p_0 = anchor.p_1;
+            zMove.p_1 = anchor.p_1;
+            zMove.z_0 = currentZ;
+            zMove.hasXY = false;
+            zMove.hasZ = MathF.Abs(zMove.z_1 - zMove.z_0) > CcConst.EPS;
 
-        Move2D zMove = pendingZMove;
-        zMove.p_0 = anchor.p_1;
-        zMove.p_1 = anchor.p_1;
-        zMove.z_0 = anchor.z_1;
-        zMove.hasXY = false;
-        zMove.hasZ = MathF.Abs(zMove.z_1 - zMove.z_0) > CcConst.EPS;
+            if (zMove.hasZ)
+                PushOut(zMove);
 
-        if (zMove.hasZ)
-            PushOut(zMove);
+            currentZ = zMove.z_1;
+            if (hasCompError)
+                return false;
+        }
 
-        havePendingZMove = false;
+        deferredZMoveCount = 0;
         return !hasCompError;
+    }
+
+    private bool QueueDeferredZMove(in Move2D move)
+    {
+        if (deferredZMoveCount >= DEFERRED_Z_CAP)
+        {
+            lastSeqNum = move.seqNum;
+            ReportCompError(CompError.CE_PENDING_EVENT_OVERFLOW);
+            return false;
+        }
+
+        deferredZMoves[deferredZMoveCount++] = move;
+        return true;
     }
 
     public bool Process()
     {
         while (inCount > 0)
         {
-            if (!OutHasSpace(4))
+            if (!OutHasSpace(1 + deferredZMoveCount + INSERT_CAP))
                 return false;
 
             Move2D curOff = PopIn();
@@ -319,27 +337,8 @@ public sealed class CutterComp2D
             {
                 if (havePrevMove2D)
                 {
-                    if (havePendingZMove)
-                    {
-                        if (ShouldReplacePendingZTarget(pendingZMove, curOff))
-                        {
-                            pendingZMove.z_1 = curOff.z_1;
-                            pendingZMove.seqNum = curOff.seqNum;
-                            pendingZMove.feed = curOff.feed;
-                            pendingZMove.type = curOff.type;
-                            pendingZMove.hasZ = MathF.Abs(pendingZMove.z_1 - pendingZMove.z_0) > CcConst.EPS;
-                        }
-                    }
-                    else
-                    {
-                        pendingZMove = curOff;
-                        pendingZMove.p_0 = prevOff.p_1;
-                        pendingZMove.p_1 = prevOff.p_1;
-                        pendingZMove.z_0 = prevOff.z_1;
-                        pendingZMove.hasXY = false;
-                        pendingZMove.hasZ = MathF.Abs(pendingZMove.z_1 - pendingZMove.z_0) > CcConst.EPS;
-                        havePendingZMove = pendingZMove.hasZ;
-                    }
+                    if (!QueueDeferredZMove(curOff))
+                        return false;
                 }
                 else
                 {
@@ -358,8 +357,13 @@ public sealed class CutterComp2D
                 if (havePrevMove2D && prevOff.valid)
                 {
                     PushOut(prevOff);
-                    if (!EmitPendingZMoveAt(prevOff))
+                    if (!EmitDeferredZMovesAt(prevOff))
                         return false;
+                }
+                else if (deferredZMoveCount > 0)
+                {
+                    ReportCompError(CompError.CE_INVALID_MOVE);
+                    return false;
                 }
 
                 prevOff = curOff;
@@ -437,13 +441,19 @@ public sealed class CutterComp2D
 
             Validate(ref curOff);
 
-            if (prevOff.valid)
+            if (prevOff.valid || prevOff.junctionOnly)
             {
-                PushOut(prevOff);
-                if (!EmitPendingZMoveAt(prevOff))
+                if (prevOff.valid)
+                    PushOut(prevOff);
+                if (!EmitDeferredZMovesAt(prevOff))
                     return false;
                 for (int i = 0; i < insertCount; i++)
                     PushOut(inserts[i]);
+            }
+            else if (deferredZMoveCount > 0)
+            {
+                ReportCompError(CompError.CE_INVALID_MOVE);
+                return false;
             }
 
             if (curOff.compMode == CompMode.CM_IN)
@@ -459,13 +469,25 @@ public sealed class CutterComp2D
     public void Flush()
     {
         Process();
-        if (havePrevMove2D && OutHasSpace(havePendingZMove ? 2 : 1))
+        if (havePrevMove2D)
         {
-            if (prevOff.valid && prevOff.type != MotionType.MOT_EMPTY)
+            bool usableAnchor = prevOff.valid || prevOff.junctionOnly;
+            if (!usableAnchor && deferredZMoveCount > 0)
             {
-                PushOut(prevOff);
-                _ = EmitPendingZMoveAt(prevOff);
+                ReportCompError(CompError.CE_INVALID_MOVE);
+                return;
             }
+
+            int outputCount = (prevOff.valid ? 1 : 0) + (usableAnchor ? deferredZMoveCount : 0);
+            if (!OutHasSpace(outputCount))
+                return;
+
+            if (prevOff.valid && prevOff.type != MotionType.MOT_EMPTY)
+                PushOut(prevOff);
+
+            if (usableAnchor && deferredZMoveCount > 0 && !EmitDeferredZMovesAt(prevOff))
+                return;
+
             havePrevMove2D = false;
         }
     }
@@ -516,7 +538,7 @@ public sealed class CutterComp2D
     private void ResetState()
     {
         havePrevMove2D = false;
-        havePendingZMove = false;
+        deferredZMoveCount = 0;
     }
 
     private Move2D MakeBevel(in Move2D a, in Move2D b)
@@ -562,7 +584,8 @@ public sealed class CutterComp2D
 
         Vec2 vin = CcMath.Normalize(extensionPoint - p0);
         Vec2 vout = CcMath.Normalize(p1 - extensionPoint);
-        if (CcMath.Len(vin) <= CcConst.TOL || CcMath.Len(vout) <= CcConst.TOL)
+        if (CcMath.Dot(vin, vin) <= CcConst.TOL_SQ ||
+            CcMath.Dot(vout, vout) <= CcConst.TOL_SQ)
             return false;
 
         float cosAlpha = CcMath.Clamp(CcMath.Dot(vin, vout), -1.0f, 1.0f);
@@ -594,7 +617,9 @@ public sealed class CutterComp2D
         bool foundExtend = false;
 
         int carrierCount = IntersectCarrier(a, b, out carrierPts[0], out carrierPts[1]);
-        int trimCount = FiniteIntersectionPoints(a, b, out trimPts[0], out trimPts[1]);
+        int trimCount = a.junctionOnly || b.junctionOnly
+            ? 0
+            : FilterFiniteIntersectionPoints(a, b, carrierPts[0], carrierPts[1], carrierCount, out trimPts[0], out trimPts[1]);
 
         for (int i = 0; i < trimCount; ++i)
         {
@@ -640,16 +665,13 @@ public sealed class CutterComp2D
         return false;
     }
 
-    private static bool PointOnFiniteElem(in Move2D m, in Vec2 p)
+    private static bool PointOnFiniteElem(in Move2D m, in Vec2 p, in ArcAngles aa)
     {
         if (IsLineLike(m))
             return CcMath.PointOnSegment(m.p_0, m.p_1, p);
 
         if (m.type == MotionType.MOT_ARC)
-        {
-            ArcAngles aa = CcMath.PrecomputeArcAngles(m);
             return CcMath.PointOnArcCached(m, p, aa);
-        }
 
         return false;
     }
@@ -686,17 +708,28 @@ public sealed class CutterComp2D
 
     private static int FiniteIntersectionPoints(in Move2D a, in Move2D b, out Vec2 p1, out Vec2 p2)
     {
+        int carrierCount = IntersectCarrier(a, b, out Vec2 c0, out Vec2 c1);
+        return FilterFiniteIntersectionPoints(a, b, c0, c1, carrierCount, out p1, out p2);
+    }
+
+    private static int FilterFiniteIntersectionPoints(in Move2D a, in Move2D b, in Vec2 carrier0, in Vec2 carrier1, int carrierCount, out Vec2 p1, out Vec2 p2)
+    {
         p1 = new Vec2(0, 0);
         p2 = new Vec2(0, 0);
 
-        int carrierCount = IntersectCarrier(a, b, out Vec2 c0, out Vec2 c1);
-        Vec2[] carrierPts = { c0, c1 };
+        ArcAngles aAngles = default;
+        ArcAngles bAngles = default;
+        if (carrierCount > 0 && a.type == MotionType.MOT_ARC)
+            aAngles = CcMath.PrecomputeArcAngles(a);
+        if (carrierCount > 0 && b.type == MotionType.MOT_ARC)
+            bAngles = CcMath.PrecomputeArcAngles(b);
+
         int finiteCount = 0;
 
         for (int i = 0; i < carrierCount; ++i)
         {
-            Vec2 p = carrierPts[i];
-            if (!PointOnFiniteElem(a, p) || !PointOnFiniteElem(b, p))
+            Vec2 p = i == 0 ? carrier0 : carrier1;
+            if (!PointOnFiniteElem(a, p, aAngles) || !PointOnFiniteElem(b, p, bAngles))
                 continue;
 
             if (finiteCount > 0 && CcMath.IsNear(p1, p))
@@ -860,21 +893,38 @@ public sealed class CutterComp2D
     {
         a.p_1 = tip;
         b.p_0 = tip;
-        Validate(ref a);
-        Validate(ref b);
-        return a.valid && b.valid;
+        if (a.type == MotionType.MOT_ARC)
+            CcMath.UpdateVectors(ref a);
+        if (b.type == MotionType.MOT_ARC)
+            CcMath.UpdateVectors(ref b);
+        ValidateTrimmedMove(ref a);
+        ValidateTrimmedMove(ref b);
+        return (a.valid || a.junctionOnly) && (b.valid || b.junctionOnly);
     }
 
     private bool ExtendToFIP(ref Move2D a, ref Move2D b, in Vec2 fip)
     {
+        Move2D extendedA = a;
+        Move2D extendedB = b;
         float fipDir1 = CcMath.Dot(fip - a.p_1, a.endDir);
         float fipDir2 = CcMath.Dot(fip - b.p_0, b.startDir);
         if (fipDir1 > 0 && fipDir2 < 0)
         {
-            a.p_1 = fip;
-            b.p_0 = fip;
-            Validate(ref a);
-            Validate(ref b);
+            extendedA.p_1 = fip;
+            extendedB.p_0 = fip;
+            if (extendedA.junctionOnly)
+                CcMath.UpdateVectors(ref extendedA);
+            if (extendedB.junctionOnly)
+                CcMath.UpdateVectors(ref extendedB);
+
+            if (!Validate(ref extendedA) || !Validate(ref extendedB))
+                return false;
+
+            extendedA.junctionOnly = false;
+            extendedB.junctionOnly = false;
+            a = extendedA;
+            b = extendedB;
+            return true;
         }
 
         return a.valid && b.valid;
@@ -972,11 +1022,11 @@ public sealed class CutterComp2D
         Vec2 vIn = CcMath.Normalize(l1.endDir * -1.0f);
         Vec2 vOut = CcMath.Normalize(l2.startDir);
         Vec2 bisector = CcMath.Normalize(vIn + vOut);
-        if (CcMath.Len(bisector) < CcConst.TOL)
+        if (CcMath.Dot(bisector, bisector) < CcConst.TOL_SQ)
             return 0;
 
         Vec2 chamferDir = CcMath.Normalize(CcMath.LeftNormal(bisector));
-        if (CcMath.Len(chamferDir) < CcConst.TOL)
+        if (CcMath.Dot(chamferDir, chamferDir) < CcConst.TOL_SQ)
             return 0;
 
         Vec2 offsetCap = partCorner + bisector * (-toolR);
@@ -1065,7 +1115,7 @@ public sealed class CutterComp2D
         Vec2 anchor = fromEnd ? arc.p_1 : arc.p_0;
         Vec2 dir = fromEnd ? arc.endDir : arc.startDir;
 
-        if (CcMath.Len(dir) < CcConst.TOL)
+        if (CcMath.Dot(dir, dir) < CcConst.TOL_SQ)
             return extLnOut;
 
         extLnOut.type = MotionType.MOT_LINE;
@@ -1122,7 +1172,7 @@ public sealed class CutterComp2D
     {
         insertCount = 0;
 
-        if (!a.hasXY || !b.hasXY)
+        if ((!a.hasXY && !a.junctionOnly) || (!b.hasXY && !b.junctionOnly))
             return;
 
         if (IsLineLike(a) && IsLineLike(b))
@@ -1135,7 +1185,7 @@ public sealed class CutterComp2D
 
     private void HandleLineLine(ref Move2D a, ref Move2D b, Move2D[] inserts, ref int insertCount)
     {
-        if (CcMath.IsNear(a.p_1, b.p_0))
+        if (CcMath.IsNear(a.p_1, b.p_0) && !a.junctionOnly)
             return;
 
         Junction junction;
@@ -1223,7 +1273,8 @@ public sealed class CutterComp2D
     {
         Junction junction;
 
-        if (CcMath.IsNear(a.p_1, b.p_0) || CcMath.IsNear(a.center, b.center))
+        if (!a.junctionOnly &&
+            (CcMath.IsNear(a.p_1, b.p_0) || CcMath.IsNear(a.center, b.center)))
             return;
 
         float gap = CcMath.Len(b.p_0 - a.p_1);
@@ -1263,13 +1314,8 @@ public sealed class CutterComp2D
     {
         Junction junction;
 
-        if (CcMath.IsNear(a.p_1, b.p_0))
-        {
-            b.p_0 = a.p_1;
-            CcMath.UpdateVectors(ref b);
-            Validate(ref b);
+        if (CcMath.IsNear(a.p_1, b.p_0) && !a.junctionOnly)
             return;
-        }
 
         float gap = CcMath.Len(b.p_0 - a.p_1);
         bool anyRapid = HasRapidMove(a, b);
@@ -1320,6 +1366,26 @@ public sealed class CutterComp2D
         return FiniteIntersectionPoints(A, B, out tip1, out tip2);
     }
 
+    private static bool IsExpectedLeadEndpointTouch(in Move2D leadIn, in Move2D move, int count, in Vec2 tip1, in Vec2 tip2)
+    {
+        Vec2 expected = (move.compMode == CompMode.CM_OUT && CcMath.IsNear(leadIn.p_0, move.p_1)) ? leadIn.p_0 : leadIn.p_1;
+
+        if (count <= 0 || !CcMath.IsNear(tip1, expected))
+            return false;
+
+        return count < 2 || CcMath.IsNear(tip2, expected);
+    }
+
+    private static bool IsExpectedLeadOutJunctionTouch(in Move2D lastSteady, in Move2D leadOut, int count, in Vec2 tip1, in Vec2 tip2)
+    {
+        Vec2 junction = lastSteady.p_1;
+
+        if (count <= 0 || !CcMath.IsNear(junction, leadOut.p_0) || !CcMath.IsNear(tip1, junction))
+            return false;
+
+        return count < 2 || CcMath.IsNear(tip2, junction);
+    }
+
     private static CrossingHit LookAheadForCrossing(Move2D[] moves, int numMoves, int srcIdx, int startTargetIdx, int maxIdx, int maxLookahead, int firstCutIdx, int lastCutIdx)
     {
         CrossingHit best = new CrossingHit
@@ -1360,6 +1426,13 @@ public sealed class CutterComp2D
 
             int n = CommonTIPAny(src, target, out Vec2 t1, out Vec2 t2);
             if (n <= 0)
+                continue;
+
+            if (src.compMode == CompMode.CM_IN && IsExpectedLeadEndpointTouch(src, target, n, t1, t2))
+                continue;
+
+            if (target.compMode == CompMode.CM_OUT && lastCutIdx >= 0 &&
+                IsExpectedLeadOutJunctionTouch(moves[lastCutIdx], target, n, t1, t2))
                 continue;
 
             Vec2 pick = t1;

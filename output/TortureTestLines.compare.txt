@@ -1,0 +1,82 @@
+cc_xy comparison report
+full profile count: 720
+simple profile count: 720
+invalid full count: 0
+invalid simple count: 3
+shared count: 712
+
+index 75 unmatched full move (profile index 75)
+  type=line line=111 p0=(-0.07874, 14.6888) p1=(-0.04318, 14.6914)
+  gcode: N97 G1 X-0.0017 Y0.5784
+
+index 76 unmatched full move (profile index 76)
+  type=line line=114 p0=(-0.04318, 14.6914) p1=(-0.00508, 14.7269)
+  gcode: N104 G1 X-0.0002 Y0.5798
+
+index 77 unmatched full move (profile index 77)
+  type=line line=116 p0=(-0.00508, 14.7269) p1=(-0.0889, 14.6406)
+  gcode: N104 G1 X-0.0035 Y0.5764
+
+index 78 unmatched simple move (profile index 75)
+  type=line line=97 p0=(-0.0797922, 14.6894) p1=(-0.0241869, 14.6921)
+  gcode: N93 X0.0062 Y0.5137
+
+index 79 unmatched simple move (profile index 76)
+  type=line line=101 p0=(-0.0241869, 14.6921) p1=(0.0348149, 14.7206)
+  gcode: N97 X0.0296 Y0.521
+
+index 80 unmatched simple move (profile index 77)
+  type=line line=0 p0=(0.0348149, 14.7206) p1=(-0.0614688, 14.667)
+  gcode: <line 0>
+
+index 81 unmatched simple move (profile index 78)
+  type=line line=0 p0=(-0.0614688, 14.667) p1=(-0.0876584, 14.6396)
+  gcode: <line 0>
+
+index 97 unmatched full move (profile index 93)
+  type=line line=140 p0=(-0.07874, 18.4429) p1=(-0.04318, 18.4455)
+  gcode: N129 G1 X-0.0017 Y0.7262
+
+index 98 unmatched full move (profile index 94)
+  type=line line=143 p0=(-0.04318, 18.4455) p1=(-0.00508, 18.481)
+  gcode: N136 G1 X-0.0002 Y0.7276
+
+index 99 unmatched full move (profile index 95)
+  type=line line=145 p0=(-0.00508, 18.481) p1=(-0.0889, 18.3947)
+  gcode: N136 G1 X-0.0035 Y0.7242
+
+index 100 unmatched simple move (profile index 94)
+  type=line line=129 p0=(-0.0798122, 18.4436) p1=(-0.0241893, 18.4462)
+  gcode: N125 X0.0062 Y0.6615
+
+index 101 unmatched simple move (profile index 95)
+  type=line line=133 p0=(-0.0241893, 18.4462) p1=(0.0348068, 18.4747)
+  gcode: N129 X0.0296 Y0.6688
+
+index 102 unmatched simple move (profile index 96)
+  type=line line=0 p0=(0.0348068, 18.4747) p1=(-0.061473, 18.4212)
+  gcode: <line 0>
+
+index 103 unmatched simple move (profile index 97)
+  type=line line=0 p0=(-0.061473, 18.4212) p1=(-0.0876482, 18.3938)
+  gcode: <line 0>
+
+index 726 unmatched full move (profile index 718)
+  type=line line=931 p0=(-4.33578, 8.78332) p1=(-4.33578, 8.78332)
+  gcode: N751 G28 G91 Z0.
+
+index 727 unmatched full move (profile index 719)
+  type=line line=934 p0=(-4.33578, 8.78332) p1=(-4.33578, 8.78332)
+  gcode: N754 G28 G91 X0. Y0.
+
+summary
+  first mismatch index: 75
+  mismatch count: 16
+  unmatched full count: 8
+  unmatched simple count: 8
+  type mismatch count: 0
+  validity mismatch count: 0
+  max p0 delta: 0.001779
+  max p1 delta: 0.001779
+  max center delta: 0.002537
+  max radius delta: 0.001559

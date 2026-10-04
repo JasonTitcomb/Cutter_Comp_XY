@@ -7,6 +7,7 @@
 #include <cctype>
 #include <iostream>
 #include <iomanip>
+#include <iterator>
 
 #define DBG_PRINTLN(x)             \
   do                               \
@@ -19,6 +20,7 @@
 #include "cc_main.h"
 #include "../mcu/cutter_comp_grblhal.h"
 #include "writer.h"
+#include "compare.h"
 #include <cstdarg>
 /*
   This is a desktop test harness for the CutterComp2D class, which performs 2D cutter compensation on linear and arc moves.
@@ -32,9 +34,11 @@
 
 // -------------------- Config --------------------
 
-static constexpr float TOOL_RADIUS = 0.03f;
+// Tool radius for cutter compensation override.
+// If TOOL_RADIUS is set to 0.0f, the cutter compensation will use the tool radius in the file itself.
+static constexpr float TOOL_RADIUS = 0.0f;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
-static constexpr bool GLOBAL_TRIM_CROSSING = false;          // if true, will trim crossing elements down to the intersection point.
+static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
 static constexpr bool GLOBAL_MERGE = false;
 static constexpr bool OUTPUT_SVG = true;
@@ -48,6 +52,7 @@ struct HostRunnerContext
 };
 
 static HostRunnerContext *g_hostRunnerContext = nullptr;
+static std::string g_currentInputFile;
 
 static void host_output_cb(const char *text, size_t len)
 {
@@ -59,20 +64,38 @@ static void host_output_cb(const char *text, size_t len)
 static void host_error_cb(const char *message, CompError err, uint32_t lineNum)
 {
   if (message)
-    std::fprintf(stderr, "%s\n", message);
+    std::fprintf(stderr, "%s: %s\n", g_currentInputFile.c_str(), message);
   if (err != CE_ERROR)
-    std::fprintf(stderr, "CompMsg code=%u Ln%u\n", (unsigned)err, (unsigned)lineNum);
+    std::fprintf(stderr, "%s: CompMsg code=%u Ln%u\n", g_currentInputFile.c_str(), (unsigned)err, (unsigned)lineNum);
 }
 
 static void host_xy_error_cb(cc_status_code_t err, msg_type_t severity, uint32_t lineNum)
 {
   (void)severity;
   if (err != cc_status_OK)
-    std::fprintf(stderr, "[cc_xy] CompMsg code=%u Ln%u\n", (unsigned)err, (unsigned)lineNum);
+    std::fprintf(stderr, "%s: [mcu] CompMsg code=%u Ln%u\n", g_currentInputFile.c_str(), (unsigned)err, (unsigned)lineNum);
 }
 
 static std::vector<Move2D> *g_simpleProfileOut = nullptr;
 static float g_mc_host_pos[N_AXIS] = {};
+
+static bool host_cc_emit_via_mc(const move2d *mv)
+{
+  if (mv && mv->valid && mv->pause_after != 0.0f && g_simpleProfileOut)
+  {
+    Move2D marker{};
+    marker.p_0 = v2(mv->p_0.x, mv->p_0.y);
+    marker.p_1 = marker.p_0;
+    marker.z_0 = mv->z_0;
+    marker.z_1 = mv->z_1;
+    marker.lineNum = mv->lineNum;
+    marker.pause_after = mv->pause_after;
+    marker.valid = true;
+    g_simpleProfileOut->push_back(marker);
+  }
+
+  return cc_emit_via_mc(mv);
+}
 
 static gc_ccomp_t host_make_cc_state_for_side(CompSide side, bool enteringComp, float toolRadius)
 {
@@ -107,7 +130,7 @@ static cc_status_code_t cc_mc_line_arc_in_via_grblhal(const Move2D &mv, const gc
     plane.axis_0 = 0;
     plane.axis_1 = 1;
     plane.axis_linear = 2;
-    int32_t turns = (mv.arcDir == ARC_CCW) ? 1 : -1;
+    int32_t turns = (mv.arcDir == ARC_CCW) ? mv.turns : -mv.turns;
     return cc_mc_arc_in(ccState, xyz, &pl_data, position, ijk, mv.radius, plane, turns);
   }
 
@@ -205,7 +228,45 @@ static std::vector<std::string> load_program_from_file(const char *path)
   return lines;
 }
 
-static std::vector<Move2D> build_original_moves(const std::vector<std::string> &program)
+static bool comp_starts_in_inches(const std::vector<std::string> &program)
+{
+  bool inchMode = false;
+  for (const auto &line : program)
+  {
+    char clean[160];
+    strip_comments(line.c_str(), clean, sizeof(clean));
+    ScanLine scan;
+    scan_line(clean, scan);
+    if (scan.sawG20)
+      inchMode = true;
+    if (scan.sawG21)
+      inchMode = false;
+    if (scan.sawG41 || scan.sawG42)
+      return inchMode;
+  }
+  return inchMode;
+}
+
+static float comp_tool_radius_from_diameter(const std::vector<std::string> &program)
+{
+  float diameter = 0.0f;
+  for (const auto &line : program)
+  {
+    char clean[160];
+    strip_comments(line.c_str(), clean, sizeof(clean));
+    ScanLine scan;
+    scan_line(clean, scan);
+    if (scan.hasD)
+      diameter = scan.D;
+    if (scan.sawG41 || scan.sawG42)
+      return diameter * 0.5f;
+  }
+  return 0.0f;
+}
+
+static ScanLine scan_in_mm(const ScanLine &source, bool inchMode);
+
+static std::vector<Move2D> build_original_moves(const std::vector<std::string> &program, bool millimeters = false)
 {
   std::vector<Move2D> orig;
   ModalState m{};
@@ -226,8 +287,9 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
     ScanLine s;
     scan_line(clean, s);
     m.lineNumber = input_line_number;
-    Move2D mv = interpret_move(s, m);
-    if (mv.type != MOT_EMPTY)
+    set_physical_units(!millimeters && (s.sawG21 ? false : (s.sawG20 || m.inchMode)));
+    Move2D mv = interpret_move(millimeters ? scan_in_mm(s, m.inchMode) : s, m);
+    if (mv.type != MOT_EMPTY || mv.pauseKind != PAUSE_NONE)
     {
       mv.valid = true;
       orig.push_back(mv);
@@ -237,8 +299,25 @@ static std::vector<Move2D> build_original_moves(const std::vector<std::string> &
   return orig;
 }
 
+static ScanLine scan_in_mm(const ScanLine &source, bool inchMode)
+{
+  ScanLine scan = source;
+  if (!source.sawG20 && (source.sawG21 || !inchMode))
+    return scan;
+
+  if (scan.hasX) scan.X *= 25.4f;
+  if (scan.hasY) scan.Y *= 25.4f;
+  if (scan.hasZ) scan.Z *= 25.4f;
+  if (scan.hasI) scan.I *= 25.4f;
+  if (scan.hasJ) scan.J *= 25.4f;
+  if (scan.hasR) scan.R *= 25.4f;
+  if (scan.hasF) scan.F *= 25.4f;
+  return scan;
+}
+
 static bool run_profile_simple_xy(const std::vector<std::string> &program,
                                   float toolRadius,
+                                  CornerType cornerTreatment,
                                   std::vector<Move2D> &profileOut)
 {
   ModalState modal{};
@@ -255,6 +334,8 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
   g_mc_host_pos[0] = 0.0f;
   g_mc_host_pos[1] = 0.0f;
   g_mc_host_pos[2] = 0.0f;
+  cc_api_init(0.0f, CC_UNITS_MM, host_cc_emit_via_mc, host_xy_error_cb);
+  cc_mc_sync_input_pos(g_mc_host_pos);
 
    g_simpleProfileOut = &profileOut;
 
@@ -272,14 +353,26 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     modal.lineNumber = input_line_number;
     const CompSide prevComp = modal.comp;
-    Move2D mv = interpret_move(s, modal);
+    set_physical_units(false);
+    Move2D mv = interpret_move(scan_in_mm(s, modal.inchMode), modal);
     const bool enteringComp = (prevComp == COMP_OFF && modal.comp != COMP_OFF);
     const bool exitingComp = (prevComp != COMP_OFF && modal.comp == COMP_OFF);
 
     if (enteringComp)
     {
-      cc_api_init(toolRadius, CC_UNITS_MM, cc_emit_via_mc, host_xy_error_cb);
+      cc_api_init(toolRadius, modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM, host_cc_emit_via_mc, host_xy_error_cb);
       cc_api_set_lookahead_enabled(GLOBAL_TRIM_CROSSING);
+      cc_api_set_corner_treatment_mode(cornerTreatment == CORNER_CHAMFER ? CC_CTM_CHAMFER : CC_CTM_ROLL);
+    }
+
+    if (mv.pauseKind != PAUSE_NONE)
+    {
+      if (cc_mc_enqueue_pause_marker(mv.pause_after) != cc_status_OK)
+      {
+        g_simpleProfileOut = nullptr;
+        return false;
+      }
+      continue;
     }
 
     if (mv.type == MOT_EMPTY)
@@ -297,6 +390,14 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
     }
 
     gc_ccomp_t ccState = host_make_cc_state_for_side(modal.comp, enteringComp, toolRadius);
+
+    // grblHAL rejects a G2/G3 P word that is not a positive integer before motion is issued.
+    if (mv.type == MOT_ARC && mv.turns < 1)
+    {
+      host_xy_error_cb(cc_status_InvalidMove, CC_MSG_ERROR, mv.lineNum);
+      g_simpleProfileOut = nullptr;
+      return false;
+    }
 
     if (cc_mc_line_arc_in_via_grblhal(mv, ccState) != cc_status_OK)
     {
@@ -408,13 +509,13 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
     if (!m.valid)
       continue;
 
-    const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL;
+    const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL_MM;
 
     const std::string gcodeLine = lookup_gcode_line(program, m.lineNum);
     if (gcodeLine.find("G53") != std::string::npos || gcodeLine.find("M30") != std::string::npos)
       continue;
 
-    if (fabsf(m.z_1 - m.z_0) >= TOL)
+    if (fabsf(m.z_1 - m.z_0) >= TOL_MM)
       continue;
 
     if (!hasXYMotion && m.type == MOT_RAPID)
@@ -439,8 +540,8 @@ static std::vector<Move2D> filter_compare_moves(const std::vector<Move2D> &moves
     if (!m.valid)
       continue;
 
-    const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL;
-    if (fabsf(m.z_1 - m.z_0) >= TOL)
+    const bool hasXYMotion = len(m.p_1 - m.p_0) >= TOL_MM;
+    if (fabsf(m.z_1 - m.z_0) >= TOL_MM)
       continue;
 
     if (!hasXYMotion && m.type == MOT_RAPID)
@@ -475,8 +576,20 @@ static void write_xy_compare_report(const char *path,
                                     size_t invalidSimpleCount)
 {
   std::ofstream out(path);
-  const float compareTol = 0.001f;
-  const size_t sharedCount = std::min(fullProfile.size(), simpleProfile.size());
+  const float compareTol = 0.005f;
+  const std::vector<ComparePair> pairs = align_compare_moves(fullProfile, simpleProfile, compareTol);
+  size_t sharedCount = 0;
+  size_t unmatchedFullCount = 0;
+  size_t unmatchedSimpleCount = 0;
+  for (const ComparePair &pair : pairs)
+  {
+    if (pair.fullIndex == fullProfile.size())
+      ++unmatchedSimpleCount;
+    else if (pair.simpleIndex == simpleProfile.size())
+      ++unmatchedFullCount;
+    else
+      ++sharedCount;
+  }
   size_t mismatchCount = 0;
   size_t typeMismatchCount = 0;
   size_t invalidMismatchCount = 0;
@@ -486,7 +599,10 @@ static void write_xy_compare_report(const char *path,
   float maxCenterDelta = 0.0f;
   float maxRadiusDelta = 0.0f;
   if (!out)
+  {
+    std::fprintf(stderr, "Failed to open comparison report: %s\n", path);
     return;
+  }
 
   out << "cc_xy comparison report\n";
   out << "full profile count: " << fullProfile.size() << "\n";
@@ -495,14 +611,35 @@ static void write_xy_compare_report(const char *path,
   out << "invalid simple count: " << invalidSimpleCount << "\n";
   out << "shared count: " << sharedCount << "\n";
 
-  for (size_t i = 0; i < sharedCount; ++i)
+  for (size_t i = 0; i < pairs.size(); ++i)
   {
-    const Move2D &full = fullProfile[i];
-    const Move2D &simple = simpleProfile[i];
+    const ComparePair &pair = pairs[i];
+    if (pair.fullIndex == fullProfile.size() || pair.simpleIndex == simpleProfile.size())
+    {
+      if (firstMismatch < 0)
+        firstMismatch = (int)i;
+      ++mismatchCount;
+      if (mismatchCount <= 20)
+      {
+        const bool fullOnly = pair.simpleIndex == simpleProfile.size();
+        const size_t index = fullOnly ? pair.fullIndex : pair.simpleIndex;
+        const Move2D &move = fullOnly ? fullProfile[index] : simpleProfile[index];
+        out << "\nindex " << i << " unmatched " << (fullOnly ? "full" : "simple")
+            << " move (profile index " << index << ")\n"
+            << "  type=" << motion_type_name(move.type) << " line=" << move.lineNum
+            << " p0=(" << move.p_0.x << ", " << move.p_0.y << ")"
+            << " p1=(" << move.p_1.x << ", " << move.p_1.y << ")\n"
+            << "  gcode: " << lookup_gcode_line(fullOnly ? fullProgram : simpleProgram, move.lineNum) << "\n";
+      }
+      continue;
+    }
+    const Move2D &full = fullProfile[pair.fullIndex];
+    const Move2D &simple = simpleProfile[pair.simpleIndex];
     const float p0Delta = compare_vec_delta(full.p_0, simple.p_0);
     const float p1Delta = compare_vec_delta(full.p_1, simple.p_1);
-    const float centerDelta = compare_vec_delta(full.center, simple.center);
-    const float radiusDelta = fabsf(full.radius - simple.radius);
+    const bool bothArcs = full.type == MOT_ARC && simple.type == MOT_ARC;
+    const float centerDelta = bothArcs ? compare_vec_delta(full.center, simple.center) : 0.0f;
+    const float radiusDelta = bothArcs ? fabsf(full.radius - simple.radius) : 0.0f;
     bool mismatch = false;
 
     if (p0Delta > maxP0Delta)
@@ -529,8 +666,8 @@ static void write_xy_compare_report(const char *path,
     if (p0Delta > compareTol || p1Delta > compareTol)
       mismatch = true;
 
-    if ((full.type == MOT_ARC || simple.type == MOT_ARC) &&
-        (centerDelta > compareTol || radiusDelta > compareTol))
+    if (bothArcs &&
+        (full.arcDir != simple.arcDir || centerDelta > compareTol || radiusDelta > compareTol))
       mismatch = true;
 
     if (!mismatch)
@@ -549,7 +686,8 @@ static void write_xy_compare_report(const char *path,
       const bool fullHasNWord = try_extract_n_word(fullGcodeLine, fullNWord);
       const bool simpleHasNWord = try_extract_n_word(simpleGcodeLine, simpleNWord);
 
-      out << "\nindex " << i << " mismatch\n";
+      out << "\nindex " << i << " mismatch (full index " << pair.fullIndex
+          << ", simple index " << pair.simpleIndex << ")\n";
       out << "  full   : type=" << motion_type_name(full.type)
         << " out_line=" << full.lineNum
         << (fullHasNWord ? " n=" + std::to_string(fullNWord) : "")
@@ -582,6 +720,8 @@ static void write_xy_compare_report(const char *path,
   out << "\nsummary\n";
   out << "  first mismatch index: " << firstMismatch << "\n";
   out << "  mismatch count: " << mismatchCount << "\n";
+  out << "  unmatched full count: " << unmatchedFullCount << "\n";
+  out << "  unmatched simple count: " << unmatchedSimpleCount << "\n";
   out << "  type mismatch count: " << typeMismatchCount << "\n";
   out << "  validity mismatch count: " << invalidMismatchCount << "\n";
   out << std::fixed << std::setprecision(6)
@@ -657,56 +797,63 @@ static bool run_profile_streaming(const char *inputPath,
 }
 
 // Command line usage:
-// main_host [inputfile] [outputfolder] [toolradius] [cornerTreatment] [svg]
+// main_host [inputfile|all] [outputfolder] [toolradius] [cornerTreatment] [svg]
 // Defaults:
-//   inputfile: default_file
+//   inputfile: all files in default_files (or one file when supplied)
 //   outputfolder: "../../output/"
-//   toolradius: TOOL_RADIUS
+//   toolradius: TOOL_RADIUS (in the input program's units)
 //   cornerTreatment: CORNER_TREATMENT ("roll" or "chamfer")
 //   svg: "svg" (default, output SVG), or "nosvg" (do not output SVG)
 int main(int argc, char *argv[])
 {
-  // const char *default_file = "../../data/RapidComp.nc";
-  //const char *default_file = "../../data/subcall.nc";
-  //const char *default_file = "../../data/G41_1.nc";
-  //const char *default_file = "../../data/ThreadMill.nc";
-  //const char *default_file = "../../data/G41_2.nc";
-  //const char *default_file = "../../data/TortureTestG91.nc";
-  //const char *default_file = "../../data/Sample2.nc";
-  // const char *default_file = "../../data/Sample2mm.nc";
-  //   const char *default_file = "../../data/ArcExtension_Test_ArcArc_1.nc";
-  //  const char *default_file = "../../data/TortureTestmm.nc";
-  // const char *default_file = "../../data/simple1.nc";
-  //const char *default_file = "../../data/TortureTestG90.nc"; // test with 0.0609 Rad
-  //  const char *default_file = "../../data/TortureTestLinux.nc";
-  //  const char *default_file = "../../data/ArcTooSmall.nc";
-  //  const char *default_file = "../../data/TortureTestLines.nc";
-  //  const char *default_file = "../../data/AI_Torture.nc";
-  const char *default_file = "../../data/TortureTestSmallFilletsG91.nc";
-  //  const char *default_file = "../../data/SimpleSquarePocket.nc";
-  //const char *default_file = "../../data/SimpleSquarePocketOverlap.nc";
-  //  const char *default_file = "../../data/CompErrorTest.nc";
-  //  const char *default_file = "../../data/Tangent_ArcLine.nc";
+  const char *default_files[] = {
+      "../../data/RapidComp.nc",
+      "../../data/SubCall.nc",
+      "../../data/G41_1.nc",
+      "../../data/ThreadMill.nc",
+      "../../data/G41_2.nc",
+      "../../data/TortureTestG91.nc",
+      "../../data/Sample2.nc",
+      "../../data/Sample3.nc",
+      "../../data/Sample2mm.nc",
+      "../../data/TortureTestmm.nc",
+      "../../data/_TortureTestG90.nc",
+      "../../data/TortureTestG90.nc",
+      "../../data/TortureTestG90LARGE.nc",
+      "../../data/TortureTestG90LARGE2X.nc",
+      "../../data/TortureTestG90SMALL.nc",
+      "../../data/ArcTooSmall.nc",
+      "../../data/TortureTestLines.nc",
+      "../../data/TortureTestSmallFilletsG91.nc",
+      "../../data/SimpleSquarePocket.nc",
+      "../../data/SimpleSquarePocketOverlap.nc",
+      "../../data/CompErrorTest.nc",
+      "../../data/PauseMarkers.nc",
+      "../../data/MultipleZmoves.nc",
+      "../../data/CompErrorTest.nc",
+      "../../data/Comp_Err_out_Test.nc"};
 
-  const char *input_file = (argc > 1) ? argv[1] : default_file;
-  const std::string inputFilePath(input_file);
-  const std::string inputBaseName = basename_no_ext(inputFilePath);
+  std::vector<const char *> inputFiles;
+  if (argc > 1 && std::strcmp(argv[1], "all") != 0)
+    inputFiles.push_back(argv[1]);
+  else
+    inputFiles.assign(std::begin(default_files), std::end(default_files));
 
   std::string outputFolder = (argc > 2) ? argv[2] : "../../output/";
   if (!outputFolder.empty() && outputFolder.back() != '/' && outputFolder.back() != '\\')
     outputFolder += '/';
 
-  float toolRadius = TOOL_RADIUS;
+  float configuredToolRadius = TOOL_RADIUS;
   if (argc > 3)
   {
     try
     {
-      toolRadius = std::stof(argv[3]);
+      configuredToolRadius = std::stof(argv[3]);
     }
     catch (...)
     {
       std::fprintf(stderr, "Invalid tool radius: %s\n", argv[3]);
-      toolRadius = TOOL_RADIUS;
+      configuredToolRadius = TOOL_RADIUS;
     }
   }
 
@@ -734,69 +881,95 @@ int main(int argc, char *argv[])
       std::fprintf(stderr, "Unknown SVG option: %s (using default)\n", argv[5]);
   }
 
-  // Get input file extension (if any)
-  std::string inputExt;
-  size_t dotPos = inputFilePath.find_last_of('.');
-  if (dotPos != std::string::npos && dotPos > inputFilePath.find_last_of("/\\"))
+  int result = 0;
+  for (const char *input_file : inputFiles)
   {
-    inputExt = inputFilePath.substr(dotPos);
+    const std::string inputFilePath(input_file);
+    g_currentInputFile = inputFilePath;
+    const std::string inputBaseName = basename_no_ext(inputFilePath);
+    std::printf("Processing: %s\n", input_file);
+
+    // Get input file extension (if any)
+    std::string inputExt;
+    size_t dotPos = inputFilePath.find_last_of('.');
+    if (dotPos != std::string::npos && dotPos > inputFilePath.find_last_of("/\\"))
+    {
+      inputExt = inputFilePath.substr(dotPos);
+    }
+    else
+    {
+      inputExt = ".ngc";
+    }
+
+    const std::string outBaseName = inputBaseName;
+    const std::string svgPath = outputFolder + outBaseName + ".host.svg";
+    const std::string simpleSvgPath = outputFolder + outBaseName + ".mcu.svg";
+    const std::string comparePath = outputFolder + outBaseName + ".compare.txt";
+    const std::string ngcPath = outputFolder + outBaseName + inputExt;
+
+    std::vector<std::string> program = load_program_from_file(input_file);
+    if (program.empty())
+    {
+      result = 1;
+      continue;
+    }
+
+    float toolRadius = configuredToolRadius;
+    if (toolRadius == 0.0f)
+      toolRadius = comp_tool_radius_from_diameter(program);
+
+    const float mcuRadiusMm = comp_starts_in_inches(program) ? toolRadius * 25.4f : toolRadius;
+
+    const bool isvalid = run_profile_streaming(input_file, ngcPath.c_str(), toolRadius, cornerTreatment);
+    if (!isvalid)
+    {
+      result = 1;
+      std::fprintf(stderr, "%s: Host profile validation failed; output is incomplete\n", input_file);
+    }
+
+    std::vector<Move2D> simpleCompensated;
+    const bool simpleValid = run_profile_simple_xy(program, toolRadius, cornerTreatment, simpleCompensated);
+    if (!simpleValid)
+    {
+      result = 1;
+      std::fprintf(stderr, "%s: MCU simulation failed; output is incomplete\n", input_file);
+    }
+
+    std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
+    auto compensated = build_original_moves(compProgram);
+    auto compensatedMm = build_original_moves(compProgram, true);
+    std::vector<Move2D> compensatedVisible = filter_valid_moves(compensated);
+
+    if (outputSVG)
+    {
+      auto orig = build_original_moves(program);
+      const size_t invalidFullCount = count_invalid_moves(compensated);
+      const size_t invalidSimpleCount = count_invalid_moves(simpleCompensated);
+      std::vector<Move2D> simpleVisible = filter_valid_moves(simpleCompensated);
+      std::vector<Move2D> simpleCompareVisible = filter_compare_moves(simpleCompensated);
+      std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensatedMm, compProgram);
+      write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleCompareVisible, compProgram, program,
+                              invalidFullCount, invalidSimpleCount);
+
+      write_svg(svgPath.c_str(), compensatedVisible, &orig, false, true, fabs(toolRadius * 2.0f),
+                false, true, false, inputBaseName.c_str(), toolRadius, false, "Host"); // mirror for better visualization
+      auto originalMm = build_original_moves(program, true);
+      write_svg(simpleSvgPath.c_str(), simpleVisible, &originalMm, false, true, fabs(mcuRadiusMm * 2.0f),
+                false, true, false, inputBaseName.c_str(), mcuRadiusMm, false, "MCU", true);
+      //std::printf("Wrote: %s, %s, %s, %s (full)\n", svgPath.c_str(), simpleSvgPath.c_str(), comparePath.c_str(), ngcPath.c_str());
+    }
+    else
+    {
+      const size_t invalidFullCount = count_invalid_moves(compensated);
+      const size_t invalidSimpleCount = count_invalid_moves(simpleCompensated);
+      std::vector<Move2D> simpleVisible = filter_compare_moves(simpleCompensated);
+      std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensatedMm, compProgram);
+      write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleVisible, compProgram, program,
+                              invalidFullCount, invalidSimpleCount);
+      std::printf("Wrote: %s (full)\n", ngcPath.c_str());
+      std::printf("Standalone cc_xy moves: %zu\n", simpleVisible.size());
+      std::printf("Compare report: %s\n", comparePath.c_str());
+    }
   }
-  else
-  {
-    inputExt = ".ngc";
-  }
-
-  const std::string outBaseName = inputBaseName;
-  const std::string svgPath = outputFolder + outBaseName + ".svg";
-  const std::string simpleSvgPath = outputFolder + outBaseName + ".xy.svg";
-  const std::string comparePath = outputFolder + outBaseName + ".xy.compare.txt";
-  const std::string ngcPath = outputFolder + outBaseName + inputExt;
-
-  const bool isvalid = run_profile_streaming(input_file, ngcPath.c_str(), toolRadius, cornerTreatment);
-  if (!isvalid)
-    std::puts("(warning: profile validation failed)");
-
-  std::vector<std::string> program = load_program_from_file(input_file);
-  if (program.empty())
-    return 1;
-
-  std::vector<Move2D> simpleCompensated;
-  const bool simpleValid = run_profile_simple_xy(program, toolRadius, simpleCompensated);
-  if (!simpleValid)
-    std::puts("(warning: standalone cc_xy validation failed)");
-
-  std::vector<std::string> compProgram = load_program_from_file(ngcPath.c_str());
-  auto compensated = build_original_moves(compProgram);
-  std::vector<Move2D> compensatedVisible = filter_valid_moves(compensated);
-
-  if (outputSVG)
-  {
-    auto orig = build_original_moves(program);
-    const size_t invalidFullCount = count_invalid_moves(compensated);
-    const size_t invalidSimpleCount = count_invalid_moves(simpleCompensated);
-    std::vector<Move2D> simpleVisible = filter_valid_moves(simpleCompensated);
-    std::vector<Move2D> simpleCompareVisible = filter_compare_moves(simpleCompensated);
-    std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
-    write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleCompareVisible, compProgram, program,
-                            invalidFullCount, invalidSimpleCount);
-
-    write_svg(svgPath.c_str(), compensatedVisible, &orig, false, true, fabs(toolRadius * 2.0f),
-              false, true, false, inputBaseName.c_str(), toolRadius); // mirror for better visualization
-    write_svg(simpleSvgPath.c_str(), simpleVisible, &orig, false, true, fabs(toolRadius * 2.0f),
-              false, true, false, inputBaseName.c_str(), toolRadius);
-    std::printf("Wrote: %s, %s, %s, %s (full)\n", svgPath.c_str(), simpleSvgPath.c_str(), comparePath.c_str(), ngcPath.c_str());
-  }
-  else
-  {
-    const size_t invalidFullCount = count_invalid_moves(compensated);
-    const size_t invalidSimpleCount = count_invalid_moves(simpleCompensated);
-    std::vector<Move2D> simpleVisible = filter_compare_moves(simpleCompensated);
-    std::vector<Move2D> compensatedCompareVisible = filter_compare_moves(compensated, compProgram);
-    write_xy_compare_report(comparePath.c_str(), compensatedCompareVisible, simpleVisible, compProgram, program,
-                            invalidFullCount, invalidSimpleCount);
-    std::printf("Wrote: %s (full)\n", ngcPath.c_str());
-    std::printf("Standalone cc_xy moves: %zu\n", simpleVisible.size());
-    std::printf("Compare report: %s\n", comparePath.c_str());
-  }
-  return 0;
+  return result;
 }

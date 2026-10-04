@@ -51,6 +51,7 @@ private:
     bool globalTrim_ = false;
     bool emitComments_ = true;
     bool inchMode_ = false;
+    int outputMotionG_ = 0;
 
 public:
     void incrementLineNumber(void)
@@ -76,6 +77,7 @@ public:
         modalState_.inchMode = false;
         modalState_.lineNumber = 0;
         inchMode_ = false;
+        outputMotionG_ = 0;
 
         cc_.setOptions(options_);
         sync_units_from_modal();
@@ -147,28 +149,10 @@ public:
             return false;
         }
 
-        if (cc_.compSide != COMP_OFF)
+        if (!emit_ready_batch())
         {
-            const int pendingProfileWindow = profileCount_ - emittedProfileCount_;
-            if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
-            {
-                if (!trim_and_merge_pending_profile())
-                {
-                    report_error("(trim failed)", CE_ERROR);
-                    runActive_ = false;
-                    return false;
-                }
-
-                if (!emit_comp_profile(EMIT_HOLDBACK, false))
-                {
-                    report_error("(emit failed)", CE_ERROR);
-                    runActive_ = false;
-                    return false;
-                }
-
-                profile_compact();
-                emit_status("(BATCH)\n");
-            }
+            runActive_ = false;
+            return false;
         }
 
         if (cc_.compSide == COMP_OFF && sawCompStart_ && !compClosed_)
@@ -191,6 +175,13 @@ public:
 
             profile_compact();
             emit_status("(COMP OFF)\n");
+            if (outputMotionG_ != modalState_.motionG)
+            {
+                char motionLine[8];
+                snprintf(motionLine, sizeof(motionLine), "G%d", modalState_.motionG);
+                emit_raw_line(motionLine);
+                outputMotionG_ = modalState_.motionG;
+            }
         }
 
         return true;
@@ -357,6 +348,29 @@ private:
 
     void emit_move_as_gcode(const Move2D &m)
     {
+        if (m.pauseKind != PAUSE_NONE)
+        {
+            char line[160];
+            int n = 0;
+            if (m.lineNum != 0)
+                n = snprintf(line, sizeof(line), "N%u ", (unsigned)m.lineNum);
+
+            if (m.pauseKind == PAUSE_M0)
+                n += snprintf(line + n, sizeof(line) - (size_t)n, "M0");
+            else if (m.pauseKind == PAUSE_M1)
+                n += snprintf(line + n, sizeof(line) - (size_t)n, "M1");
+            else
+                n += snprintf(line + n, sizeof(line) - (size_t)n, "G4 P%g", m.pause_after);
+
+            n += snprintf(line + n, sizeof(line) - (size_t)n, "\n");
+            if (outputCB_ && n > 0)
+                outputCB_(line, (size_t)n);
+            return;
+        }
+
+        if (m.type == MOT_ARC && fabsf(m.radius) < TOL)
+            return;
+
         char line[160];
         int n = 0;
         const int posDigits = inchMode_ ? 4 : 3;
@@ -434,7 +448,12 @@ private:
         }
 
         if (outputCB_ && n > 0)
+        {
             outputCB_(line, n);
+            outputMotionG_ = (m.type == MOT_RAPID) ? 0 :
+                             (m.type == MOT_LINE) ? 1 :
+                             (m.arcDir == ARC_CW) ? 2 : 3;
+        }
     }
 
     bool emit_comp_profile(int holdBackCount, bool flushAll)
@@ -456,9 +475,10 @@ private:
         for (int i = emittedProfileCount_; i < emitLimit; ++i)
         {
             const Move2D &m = profile_[i];
-            if (!m.valid || m.type == MOT_EMPTY)
+            if (!m.valid || (m.type == MOT_EMPTY && m.pauseKind == PAUSE_NONE))
                 continue;
-            if (m.type == MOT_LINE && m.hasXY && !m.hasZ && len(m.p_1 - m.p_0) < TOL)
+            Vec2 delta = m.p_1 - m.p_0;
+            if (m.type == MOT_LINE && m.hasXY && !m.hasZ && dot(delta, delta) < TOL * TOL)
                 continue;
             emit_move_as_gcode(m);
         }
@@ -467,33 +487,34 @@ private:
         return true;
     }
 
-    bool process_one_gcode_line(ScanLine s)
+    bool emit_ready_batch()
     {
-        // Set modalState_.lineNumber to ln_number before calling interpret_move
-        modalState_.lineNumber = modalState_.lineNumber;
-        Move2D mv = interpret_move(s, modalState_);
-        sync_units_from_modal();
-
-        cc_.setComp(modalState_.comp);
-
-        if (mv.type == MOT_EMPTY)
-        {
-            if (s.sawG40)
-            {
-                cc_.flush();
-                Move2D out;
-                while (cc_.popOut(out))
-                {
-                    if (!profile_push(out))
-                    {
-                        report_error("(profile buffer full)", CE_ERROR);
-                        return false;
-                    }
-                }
-            }
+        if (cc_.compSide == COMP_OFF)
             return true;
+
+        const int pendingProfileWindow = profileCount_ - emittedProfileCount_;
+        if (pendingProfileWindow < MIN_PENDING_BEFORE_BATCH)
+            return true;
+
+        if (!trim_and_merge_pending_profile())
+        {
+            report_error("(trim failed)", CE_ERROR);
+            return false;
         }
 
+        if (!emit_comp_profile(EMIT_HOLDBACK, false))
+        {
+            report_error("(emit failed)", CE_ERROR);
+            return false;
+        }
+
+        profile_compact();
+        emit_status("(BATCH)\n");
+        return true;
+    }
+
+    bool compensate_move(const Move2D &mv)
+    {
         if (!cc_.pushIn(mv))
         {
             report_error("(comp input buffer full)", CE_ERROR);
@@ -515,10 +536,93 @@ private:
                 return false;
             }
         }
+        return true;
+    }
 
+    // Feeds the abs(P) - 1 extra full turns of a G2/G3 P arc, then leaves the final
+    // arc in mv. Z is spread over the total angular travel the same way grblHAL does.
+    bool process_arc_turns(Move2D &mv)
+    {
+        if (mv.turns < 1)
+        {
+            report_error("(arc P must be a positive integer)", CE_INVALID_MOVE);
+            return false;
+        }
+
+        if (mv.compMode == CM_IN || mv.compMode == CM_OUT)
+        {
+            report_error("(arc P not allowed on a G41/G42/G40 move)", CE_INVALID_MOVE);
+            return false;
+        }
+
+        const int32_t extraTurns = mv.turns - 1;
+        const float zPerTurn = (mv.z_1 - mv.z_0) / (TWO_PI * (float)extraTurns + arc_travel_abs(mv)) * TWO_PI;
+
+        for (int32_t i = 0; i < extraTurns; ++i)
+        {
+            Move2D turn = mv;
+            turn.p_1 = mv.p_0;
+            turn.z_1 = mv.z_0 + zPerTurn;
+            turn.turns = 1;
+
+            if (!compensate_move(turn) || !emit_ready_batch())
+                return false;
+
+            mv.z_0 = turn.z_1;
+        }
+
+        mv.turns = 1;
+        return true;
+    }
+
+    bool process_one_gcode_line(ScanLine s)
+    {
+        set_physical_units(s.sawG21 ? false : (s.sawG20 || modalState_.inchMode));
+        // Set modalState_.lineNumber to ln_number before calling interpret_move
+        modalState_.lineNumber = modalState_.lineNumber;
+        Move2D mv = interpret_move(s, modalState_);
+        sync_units_from_modal();
+
+        cc_.setComp(modalState_.comp);
+
+        if (mv.type == MOT_EMPTY && mv.pauseKind == PAUSE_NONE)
+        {
+            if (s.sawG40)
+            {
+                cc_.flush();
+                if (!cc_.process())
+                {
+                    report_error("(comp flush failed)", CE_ERROR);
+                    return false;
+                }
+                Move2D out;
+                while (cc_.popOut(out))
+                {
+                    if (!profile_push(out))
+                    {
+                        report_error("(profile buffer full)", CE_ERROR);
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        if (mv.type == MOT_ARC && mv.turns != 1 && !process_arc_turns(mv))
+            return false;
+
+        if (!compensate_move(mv))
+            return false;
+
+        Move2D out;
         if (s.sawG40)
         {
             cc_.flush();
+            if (!cc_.process())
+            {
+                report_error("(comp flush failed)", CE_ERROR);
+                return false;
+            }
 
             while (cc_.popOut(out))
             {
@@ -535,15 +639,22 @@ private:
 
     bool process_raw_gcode_line(const char *rawLine, ScanLine s)
     {
+        set_physical_units(s.sawG21 ? false : (s.sawG20 || modalState_.inchMode));
         (void)interpret_move(s, modalState_);
         sync_units_from_modal();
         emit_raw_line(rawLine);
+        outputMotionG_ = modalState_.motionG;
         return true;
     }
 
     bool flush_pipeline()
     {
         cc_.flush();
+        if (!cc_.process())
+        {
+            report_error("(comp flush failed)", CE_ERROR);
+            return false;
+        }
         Move2D out;
         while (cc_.popOut(out))
         {

@@ -1,0 +1,25 @@
+cc_xy comparison report
+full profile count: 8
+simple profile count: 8
+invalid full count: 0
+invalid simple count: 0
+shared count: 8
+
+index 4 mismatch (full index 4, simple index 4)
+  full   : type=line out_line=11 p0=(22.225, 25.4) p1=(50.8, 25.4) r=0 valid=1
+  simple : type=line src_line=11 p0=(25.4, 25.4) p1=(50.8, 25.4) r=0 valid=1
+  full gcode  : X2.0
+  simple gcode: X2.0
+  delta  : p0=3.174999 p1=0.000000 center=0.000000 radius=0.000000
+
+summary
+  first mismatch index: 4
+  mismatch count: 1
+  unmatched full count: 0
+  unmatched simple count: 0
+  type mismatch count: 0
+  validity mismatch count: 0
+  max p0 delta: 3.174999
+  max p1 delta: 0.000000
+  max center delta: 0.000000
+  max radius delta: 0.000000

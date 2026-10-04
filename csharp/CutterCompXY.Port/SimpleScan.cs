@@ -29,6 +29,8 @@ public struct ScanLine
     public int T;
     public bool hasS;
     public float S;
+    public bool hasP;
+    public float P;
 
     // Special modal toggles
     public bool sawG17;
@@ -301,6 +303,11 @@ public static class SimpleScan
                 s.hasS = true;
                 i = ParseFloat(line, i, out s.S);
             }
+            else if (c == 'P')
+            {
+                s.hasP = true;
+                i = ParseFloat(line, i, out s.P);
+            }
             else
             {
                 i = ParseFloat(line, i, out _);
@@ -465,6 +472,8 @@ public static class SimpleScan
             output.type = MotionType.MOT_ARC;
             output.arcDir = modeState.motionG == 2 ? ArcDir.ARC_CW : ArcDir.ARC_CCW;
             output.hasXY = true;
+            if (s.hasP)
+                output.turns = (s.P >= 1.0f && s.P == MathF.Floor(s.P)) ? (int)s.P : 0;
 
             if (s.hasI || s.hasJ)
             {

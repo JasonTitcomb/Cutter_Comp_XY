@@ -7,22 +7,32 @@
 
 #pragma once
 #include <math.h>
+#include <float.h>
 
-#define TOL 0.0001f
+#define TOL_MM 0.0001f
+#define TOL (physicalTol)
+#define TOL_SQ (TOL * TOL)
 #define ARC_TOL_IN 0.0005f    // tolerance for arc fitting and intersection calculations; also used as the minimum gap size for corner treatment
 #define GAP_TOL_IN 0.0001f     // if the gap between two moves is smaller than this, we will just make a bevel instead of trying to roll (generally helps with small gaps that can cause issues for the roll logic, but setting this too high can cause visible facets in compensation results)
-#define EPS 1e-7f             // general small value for float comparisons
+#define ANGLE_EPS (8.0f * FLT_EPSILON)
+#define PARAM_TOL 0.0001f
 #define PARALLEL_TOL 1e-3f    // tolerance for considering two lines as parallel
 #define BEVEL_VEC_TOL 1.0e-1f // if the turn is very slight (cosine of angle is close to 1) then just do a bevel instead of a roll, to avoid creating very large roll arcs that are visually indistinguishable from a bevel but more likely to cause issues for downstream processing and for CNC execution.
 #define PI 3.14159265358979323846f
 #define TWO_PI 6.2831853071795864769f
 #define MAX_SWEEP_DEG 359.9f
 #define MIN_ARC_LEN 0.001f
+#define ARC_TRAVEL_EPS 5E-7f  // grblHAL ARC_ANGULAR_TRAVEL_EPSILON
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 
 float arcTol = ARC_TOL_IN;
 float gapTol = GAP_TOL_IN;
+float physicalTol = TOL_MM;
+static void set_physical_units(bool inchMode)
+{
+  physicalTol = inchMode ? TOL_MM / 25.4f : TOL_MM;
+}
 static float c2d_clamp(float x, float lo, float hi) { return (x < lo) ? lo : (x > hi) ? hi
                                                                                              : x; }
 struct Vec2
@@ -43,9 +53,9 @@ static float dot(const Vec2 &a, const Vec2 &b) { return a.x * b.x + a.y * b.y; }
 static float cross(const Vec2 &a, const Vec2 &b) { return a.x * b.y - a.y * b.x; }
 static float len(const Vec2 &v) { return sqrtf(dot(v, v)); }
 static float dist(const Vec2 &a, const Vec2 &b) { return len(a - b); }
-static bool is_near(const Vec2 &a, const Vec2 &b){ Vec2 d = a - b;  return dot(d, d) <= TOL * TOL;}
-static bool is_equal(const Vec2 &a, const Vec2 &b){ return dist(a, b) <= EPS; }
-static bool is_equal(const float a, const float b){ return fabsf(a - b) <= EPS; }
+static bool is_near(const Vec2 &a, const Vec2 &b){ Vec2 d = a - b;  return dot(d, d) <= TOL_SQ;}
+static bool is_equal(const Vec2 &a, const Vec2 &b){ return is_near(a, b); }
+static bool is_equal(const float a, const float b){ return fabsf(a - b) <= TOL; }
 
 static Vec2 normalize(const Vec2 &v)
 {
@@ -108,7 +118,10 @@ enum CompError : uint8_t
   CE_COMP_IN_CROSSING,
   CE_COMP_OUT_CROSSING,
   CE_UNRESOLVED_GAP,
-  CE_OUTPUT_BUFFER_OVERFLOW
+  CE_OUTPUT_BUFFER_OVERFLOW,
+  CE_CONSECUTIVE_Z_MOVES = 111,
+  CE_PENDING_EVENT_OVERFLOW = 112,
+  CE_ABORTED = 113
 };
 
 enum Units : uint8_t
@@ -117,6 +130,13 @@ enum Units : uint8_t
   UNITS_INCH = 1
 };
 
+enum PauseKind : uint8_t
+{
+  PAUSE_NONE = 0,
+  PAUSE_M0,
+  PAUSE_M1,
+  PAUSE_DWELL
+};
 
 struct Move2D
 {
@@ -138,11 +158,16 @@ struct Move2D
   CompMode compMode = CM_NONE;
   bool hasXY = false;
   bool hasZ = false;
+  float pause_after = 0.0f;
+  PauseKind pauseKind = PAUSE_NONE;
   bool valid = true;
+  bool junctionOnly = false;
+  int32_t turns = 1; // G2/G3 P word; 0 marks an invalid P
 };
 
 static void update_vectors(Move2D &m)
 {
+  m.hasZ = !is_equal(m.z_1, m.z_0);
   if (m.type == MOT_ARC)
   {
     Vec2 rsVec = m.p_0 - m.center;
@@ -154,9 +179,7 @@ static void update_vectors(Move2D &m)
 
     if (rsLen < TOL && reLen < TOL)
     {
-      //m.startDir = {0, 0};
-      //m.endDir = {0, 0};
-      return;
+        return;
     }
 
     Vec2 rs = (rsLen >= TOL) ? (rsVec * (1.0f / rsLen)) : normalize(reVec);
@@ -179,15 +202,18 @@ static void update_vectors(Move2D &m)
 
   if (!m.hasXY)
   {
-    m.startDir = {0, 0};
-    m.endDir = {0, 0};
+    if (!m.junctionOnly)
+    {
+      m.startDir = {0, 0};
+      m.endDir = {0, 0};
+    }
     return;
   }
 
   if (m.type == MOT_LINE || m.type == MOT_RAPID)
   {
     Vec2 d = m.p_1 - m.p_0;
-    if (dot(d, d) < TOL * TOL)
+    if (dot(d, d) < TOL_SQ)
       return;
 
     Vec2 u = normalize(d);
@@ -218,9 +244,9 @@ static int get_winding_dir(Vec2 a, Vec2 b)
 {
   // a and b are already unit vectors (startDir/endDir from update_vectors)
   float z = cross(a, b);
-  if (z > TOL)
+  if (z > PARAM_TOL)
     return +1;
-  if (z < -TOL)
+  if (z < -PARAM_TOL)
     return -1;
   return 0;
 }
@@ -250,31 +276,6 @@ static float arcSweepDeg(const Move2D &m)
   return sw * (180.0f / PI);
 }
 
-// static float arcSweepDeg_(Move2D &m)
-// {
-//   float a0 = wrap2pi(atan2f(m.p_0.y - m.center.y, m.p_0.x - m.center.x));
-//   float a1 = wrap2pi(atan2f(m.p_1.y - m.center.y, m.p_1.x - m.center.x));
-
-//   if (m.arcDir == ARC_CCW)
-//   {
-//     float sw = a1 - a0;
-//     if (sw < 0)
-//       sw += TWO_PI;
-
-//     // calculate length from sweep and radius.
-//     // m.length = fabsf(m.radius) * sw;
-//     return sw * (180.0f / PI); // [0, 360)
-//   }
-//   else
-//   { // ARC_CW
-//     float sw = a0 - a1;
-//     if (sw < 0)
-//       sw += TWO_PI;
-//     // m.length = fabsf(m.radius) * sw;
-//     return sw * (180.0f / PI); // [0, 360)
-//   }
-// }
-
 static float sweepCCW(float a0, float a1)
 {
   a0 = angleNorm(a0);
@@ -295,12 +296,12 @@ static bool angle_on_arc_norm(float a0n, float a1n, float apn, ArcDir dir)
 {
   if (dir == ARC_CCW)
   {
-    return (apn >= a0n - EPS && apn <= a1n + EPS) ||
-           (a0n > a1n && (apn >= a0n - EPS || apn <= a1n + EPS));
+    return (apn >= a0n - ANGLE_EPS && apn <= a1n + ANGLE_EPS) ||
+           (a0n > a1n && (apn >= a0n - ANGLE_EPS || apn <= a1n + ANGLE_EPS));
   }
 
-  return (apn >= a1n - EPS && apn <= a0n + EPS) ||
-         (a1n > a0n && (apn >= a1n - EPS || apn <= a0n + EPS));
+  return (apn >= a1n - ANGLE_EPS && apn <= a0n + ANGLE_EPS) ||
+         (a1n > a0n && (apn >= a1n - ANGLE_EPS || apn <= a0n + ANGLE_EPS));
 }
 
 
@@ -309,7 +310,7 @@ static float line_t(const Move2D &m, Vec2 p)
 {
   Vec2 d = m.p_1 - m.p_0;
   float L2 = dot(d, d);
-  if (L2 < 1e-12f)
+  if (L2 < TOL_SQ)
     return 0.0f;
   return dot(p - m.p_0, d) / L2;
 }
@@ -339,6 +340,25 @@ static bool isMotionValid(const Move2D &m)
   return m.valid && m.type != MOT_EMPTY && m.hasXY;
 }
 
+// Angular travel of one turn of an arc as executed by grblHAL/LinuxCNC: an end point
+// equal to the start point, or a hair behind it in the travel direction, is a full circle.
+static float arc_travel_abs(const Move2D &m)
+{
+  Vec2 r0 = m.p_0 - m.center;
+  Vec2 r1 = m.p_1 - m.center;
+  float travel = atan2f(cross(r0, r1), dot(r0, r1));
+
+  if (m.arcDir == ARC_CCW)
+  {
+    if (travel <= ARC_TRAVEL_EPS)
+      travel += TWO_PI;
+  }
+  else if (travel >= -ARC_TRAVEL_EPS)
+    travel -= TWO_PI;
+
+  return fabsf(travel);
+}
+
 // Check if two elements are colinear.
 // For lines, checks if directions are parallel. For arcs, checks if centers/radii match.
 static bool isColinearWith(const Move2D &a, const Move2D &b)
@@ -354,11 +374,11 @@ static bool isColinearWith(const Move2D &a, const Move2D &b)
     Vec2 da = a.startDir;
     Vec2 db = b.startDir;
 
-    if (len(da) < TOL || len(db) < TOL)
+    if (dot(da, da) < PARAM_TOL * PARAM_TOL || dot(db, db) < PARAM_TOL * PARAM_TOL)
       return false;
 
     float cr = fabsf(cross(da, db));
-    return cr < TOL;
+    return cr < PARAM_TOL;
   }
 
   // -------- ARC vs ARC --------
@@ -370,7 +390,12 @@ static bool isColinearWith(const Move2D &a, const Move2D &b)
     if (fabsf(a.radius - b.radius) > TOL)
       return false;
 
-    return true;
+    // Merging keeps a's Z, so only planar arcs in the same direction whose combined
+    // sweep stays below a full turn can be merged without losing turns or Z travel.
+    if (a.arcDir != b.arcDir || fabsf(a.z_1 - a.z_0) > TOL || fabsf(b.z_1 - b.z_0) > TOL)
+      return false;
+
+    return arc_travel_abs(a) + arc_travel_abs(b) < TWO_PI - 1e-3f;
   }
 
   return false;
@@ -382,9 +407,9 @@ static bool angleOnSweepCCW(float a0, float a1, float ap)
   a1 = angleNorm(a1);
   ap = angleNorm(ap);
   if (a0 <= a1)
-    return (ap + EPS >= a0) && (ap <= a1 + EPS);
+    return (ap + ANGLE_EPS >= a0) && (ap <= a1 + ANGLE_EPS);
   // wrap
-  return (ap >= a0 - EPS) || (ap <= a1 + EPS);
+  return (ap >= a0 - ANGLE_EPS) || (ap <= a1 + ANGLE_EPS);
 }
 
 static bool angleOnSweepCW(float a0, float a1, float ap)
@@ -397,18 +422,18 @@ static bool pointOnSegment(Vec2 a, Vec2 b, Vec2 p)
 {
   Vec2 ab = b - a;
   float lab2 = dot(ab, ab);
-  if (lab2 < TOL)
+  if (lab2 < TOL_SQ)
   {
     Vec2 pa = p - a;
-    return dot(pa, pa) < TOL * TOL;
+    return dot(pa, pa) < TOL_SQ;
   }
 
   float t = dot(p - a, ab) / lab2;
-  if (t < -TOL || t > 1.0f + TOL)
+  if (t < -PARAM_TOL || t > 1.0f + PARAM_TOL)
     return false;
 
   float c = cross(p - a, ab);
-  return (c * c) < (TOL * TOL * lab2);
+  return (c * c) < (TOL_SQ * lab2);
 }
 
 
@@ -466,17 +491,19 @@ static IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec
 
   float lr = dist(ln1.p_0, ln1.p_1);
   float ls = dist(ln2.p_0, ln2.p_1);
-  Vec2 r = ln1.startDir;
-  Vec2 s = ln2.startDir;
+  Vec2 r = (lr >= TOL) ? (ln1.p_1 - ln1.p_0) * (1.0f / lr) : ln1.startDir;
+  Vec2 s = (ls >= TOL) ? (ln2.p_1 - ln2.p_0) * (1.0f / ls) : ln2.startDir;
+  float rLenSq = dot(r, r);
+  float sLenSq = dot(s, s);
 
-  if (lr < TOL || ls < TOL || len(r) < TOL || len(s) < TOL)
+  if (rLenSq < PARAM_TOL * PARAM_TOL || sLenSq < PARAM_TOL * PARAM_TOL)
   {
     tip = false;
-    //return IT_NONE;
+    return IT_NONE;
   }
 
   float den = cross(r, s);
-  float denTol = PARALLEL_TOL * len(r) * len(s);
+  float denTol = PARALLEL_TOL * sqrtf(rLenSq) * sqrtf(sLenSq);
   if (fabsf(den) <= denTol)
   {
     tip = false; // too parallel to reliably intersect
@@ -494,31 +521,47 @@ static IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec
 static IntersectType intersectCircleCircle(const Move2D &a1, const Move2D &a2, Vec2 &p1, Vec2 &p2, int &count)
 {
   Vec2 c0 = a1.center, c1 = a2.center;
-  float r0 = a1.radius, r1 = a2.radius;
+  float r0 = fabsf(a1.radius), r1 = fabsf(a2.radius);
   Vec2 d = c1 - c0;
-  float distc = len(d);
+  float distcSq = dot(d, d);
+  float distc;
   count = 0;
 
-  if (distc < TOL)
+  if (distcSq < TOL_SQ)
     return IT_NONE;
-  if (distc > r0 + r1 + TOL)
+  distc = sqrtf(distcSq);
+  const float sum = r0 + r1;
+  const float diff = fabsf(r0 - r1);
+  const float scale = fmaxf(distc, sum);
+  const float distanceTol = fmaxf(TOL, 8.0f * FLT_EPSILON * scale);
+  if (distc - sum > distanceTol)
     return IT_NONE;
-  if (distc < fabsf(r0 - r1) - TOL)
+  if (diff - distc > distanceTol)
     return IT_NONE;
 
-  float a = (r0 * r0 - r1 * r1 + distc * distc) / (2.0f * distc);
-  float h2 = r0 * r0 - a * a;
+  float a = 0.5f * (distc + (r0 - r1) * (sum / distc));
   Vec2 u = d * (1.0f / distc);
   Vec2 mid = c0 + u * a;
 
-  if (fabsf(h2) < TOL)
+  if (fabsf(distc - sum) <= distanceTol || fabsf(distc - diff) <= distanceTol)
   {
     p1 = mid;
     count = 1;
     return IT_TANGENT;
   }
 
-  float h = sqrtf(fmaxf(0.0f, h2));
+  const float h2 = (r0 - a) * (r0 + a);
+  const float h2Tol = 8.0f * FLT_EPSILON * fmaxf(r0 * r0, a * a);
+  if (h2 < -h2Tol)
+    return IT_NONE;
+  if (h2 <= h2Tol)
+  {
+    p1 = mid;
+    count = 1;
+    return IT_TANGENT;
+  }
+
+  float h = sqrtf(h2);
   Vec2 perp = leftNormal(u);
   p1 = mid + perp * h;
   p2 = mid - perp * h;
@@ -566,4 +609,3 @@ static IntersectType intersectLineCircle(Vec2 l1, Vec2 a1, Vec2 ctr, float r, Ve
   count = 2;
   return IT_INTERSECT;
 }
-

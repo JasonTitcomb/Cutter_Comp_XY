@@ -29,7 +29,7 @@ incorrectly. Review the code and test carefully before using it on real hardware
 - `host/` - Desktop harness (`main_host.cpp`) and visualization/report writers (`writer.h`).
 - `csharp/CutterCompXY.Port/` - .NET 8 C# parity/port executable.
 - `data/` - Sample NC programs used by the host harness.
-- `output/` - Generated host outputs (`.nc/.ngc`, `.svg`, `.xy.svg`, `.xy.compare.txt`).
+- `output/` - Generated host outputs (`.nc/.ngc`, `.host.svg`, `.mcu.svg`, `.compare.txt`).
 - `build/` - CMake/Visual Studio build output (generated).
 - `platformio.ini` - PlatformIO embedded environments.
 
@@ -41,11 +41,33 @@ incorrectly. Review the code and test carefully before using it on real hardware
 	 - You can pass args: `cc_runner [inputfile] [outputfolder] [toolradius] [roll|chamfer] [svg|nosvg]`.
 4. Generated outputs in `output/`:
 	 - `<input>.<ext>` - compensated toolpath G-code (keeps input extension when present)
-	 - `<input>.svg` - compensated vs original overlay
-	 - `<input>.xy.svg` - standalone `cc_xy` profile visualization
-	 - `<input>.xy.compare.txt` - comparison report between full runner and standalone `cc_xy`
+	 - `<input>.host.svg` - compensated vs original overlay
+	 - `<input>.mcu.svg` - MCU core profile visualization through the grblHAL host shim
+	 - `<input>.compare.txt` - comparison report between full runner and standalone `cc_xy`
+
+SVG paths use non-scaling strokes: 1 px normally and 2 px for emphasized MCU paths, independent of geometry size or SVG viewport scaling. Rapid dash lengths and marker outlines are also screen-space sizes. Tool-circle radii and tool-sweep widths remain in geometry units to show the actual tool diameter. Regenerate existing SVGs after rebuilding to apply this styling.
+
+SVG titles display the tool diameter as `tool dia.` (twice the absolute tool radius). The runner's tool-size argument remains a radius.
+
+The C++ host and MCU use a physical equality/proximity tolerance of 0.0001 mm (0.0001 / 25.4 in in G20 mode), separately from the angular endpoint tolerance of 8 times `FLT_EPSILON` radians. Unit-vector and segment-parameter thresholds do not scale with program units. The C++ helpers share the active unit setting, like the existing arc/gap tolerances; interleaved or concurrent engines with different units are not supported.
+
+Comparison reports use a 0.005 mm XY tolerance and bounded geometric alignment (up to 16 skipped segments) instead of pairing every move by index. Inserted, missing, and trailing moves are explicitly reported as unmatched and counted as mismatches; they are not discarded. Center/radius deltas are calculated only for arc-to-arc pairs, and opposite arc directions are mismatches. Profiles are still compared in XY only; changing-Z moves are excluded. The `cc_runner_modal` CTest covers physical/angular tolerance boundaries in both units, inserted and removed connectors, genuine geometry differences, trailing moves, arc direction, and preservation of the small arc-to-line connector in `TortureTestSmallFilletsG91.nc`.
+
+The `cc_host_crossings` CTest covers short-segment membership and trimming crossing roll arcs in inch and millimeter coordinates, plus circle tangency, separation, containment, coincident centers, and signed radii. The host circle-intersection calculation uses the same scale-aware linear tangency and squared roundoff tolerances as the MCU core.
+
+Both the host and MCU reject arcs whose start/end radius difference exceeds 0.0005 in (0.0127 mm). A radius error stops processing; the CLI exits nonzero and reports that generated outputs are incomplete. Previously emitted motion may remain in the diagnostic G-code/SVG outputs, and host/MCU lookahead can leave different-length partial profiles. `TortureTestG90LARGE.nc` has corrected I/J centers at N15, N39, N44, N57, N60 and N62 to equalize start/end radii while preserving programmed endpoints. The `cc_host_crossings` CTest also checks accepted and rejected radius mismatches, failure latching, and runner rejection in both units with crossing trimming enabled and disabled.
+
+With crossing lookahead disabled, both the host and MCU check both adjoining lines for reversal immediately after resolving a corner, before emitting the preceding line or corner inserts. An inversion reports the reversed move's source line and stops processing, even if a later corner could extend that line back into its original direction. Crossing lookahead retains its existing deferred cleanup behavior. The `cc_host_crossings` and `cc_junction_recovery` CTests cover early rejection, source-line attribution, and enabled-lookahead behavior.
+
+With crossing lookahead disabled, an unresolved line-line corner is also rejected rather than bridged with a fallback bevel. The host and MCU stop before emitting the preceding line and the unresolved connector. The `cc_host_crossings` CTest covers the short zigzag from `G41_1.nc`; its SVGs are generated from the partial emitted paths, not from rejected moves.
+
+At compensation cancellation, the C++ and C# runners restore the input motion mode with a standalone `G0`/`G1`/`G2`/`G3` block only if it differs from the last emitted motion mode. This keeps subsequent unmodified modal lines (including Z-only retracts) from inheriting a compensated arc mode when the cancel move is omitted. The `cc_runner_modal` CTest covers mode restoration, unchanged post-comp lines, matching modes, emitted cancel moves, runner reuse, absolute/incremental coordinates, and status comments and crossing trimming enabled/disabled.
 
 Input examples are provided under `data/` (`G41_1.nc`, `G42_1.nc`, `TortureTestG90.nc`, `TortureTestG91.nc`, etc.).
+
+The default host test-file list includes `TortureTestG90LARGE2X.nc`, a twice-size copy of `TortureTestG90LARGE.nc`. All XYZ coordinates, I/J arc offsets, and the D tool diameter are doubled; feeds, units, motion modes, and move count are unchanged. After scaling, I/J centers at N31, N40, N49, N53, N54, and N58 are minimally adjusted to bring start/end radius discrepancies within the fixed arc tolerance without changing endpoints. All numeric words use at most four decimal places.
+
+The normal runner also visualizes the MCU path without flashing a board. Run `cc_runner data/Sample3.nc output 0.065` from the repository root after building `cc_runner`; it writes `output/Sample3.mcu.svg` alongside the host SVG and comparison report. The radius argument follows the program's units at compensation entry (0.065 in = 1.651 mm for G20). The MCU core always receives mm; G20 motion coordinates, I/J, R, Z, and feed are converted by the host scanner. This tests the MCU compensation core and grblHAL shim, not the firmware G-code parser or motion planner.
 
 ## Arduino / PlatformIO
 - Configured environments are defined in `platformio.ini`:

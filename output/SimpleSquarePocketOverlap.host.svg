@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.29719 -0.34709 0.92818 0.897833">
+<rect x="-0.29719" y="-0.34709" width="0.92818" height="0.897833" fill="white" />
+<text x="0.1669" y="-0.326206" fill="#111111" font-size="0.0139227" text-anchor="middle" dominant-baseline="middle">SimpleSquarePocketOverlap  |  Host  |  tool dia.=0.125</text>
+<line x1="-0.263033" y1="0.532365" x2="-0.247996" y2="0.532365" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
+<text x="-0.242984" y="0.532365" fill="#222222" font-size="0.00835362" dominant-baseline="middle">Compensated</text>
+<line x1="-0.0903915" y1="0.532365" x2="-0.075355" y2="0.532365" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />
+<text x="-0.0703428" y="0.532365" fill="#222222" font-size="0.00835362" dominant-baseline="middle">Original</text>
+<line x1="0.08225" y1="0.532365" x2="0.0972865" y2="0.532365" stroke="#888888" stroke-width="1" stroke-dasharray="4,4" vector-effect="non-scaling-stroke" />
+<text x="0.102299" y="0.532365" fill="#222222" font-size="0.00835362" dominant-baseline="middle">Rapid</text>
+<line x1="0.254891" y1="0.532365" x2="0.269928" y2="0.532365" stroke="#bbbbbb" stroke-width="0.00417681" stroke-opacity="0.6" stroke-linecap="round" />
+<text x="0.27494" y="0.532365" fill="#222222" font-size="0.00835362" dominant-baseline="middle">Tool sweep</text>
+<g stroke="#008000" stroke-width="1"><line vector-effect="non-scaling-stroke" x1="0.432127" y1="0.532365" x2="0.437975" y2="0.532365" /><line vector-effect="non-scaling-stroke" x1="0.435051" y1="0.529441" x2="0.435051" y2="0.535289" /></g>
+<text x="0.447582" y="0.532365" fill="#222222" font-size="0.00835362" dominant-baseline="middle">Origin</text>
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="1" stroke-dasharray="4,4" points="0,0.1436 0.3888,0.0876999 " />
+<circle cx="0" cy="0.1436" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="1" stroke-dasharray="4,4" points="0.3888,0.0876999 0.3888,0.0876999 " />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="0.3888,0.0876999 0.3888,0.0876999 " />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="0.3888,0.0876999 0.5888,0.0876999 " />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.5888" cy="0.0876999" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="0.5888,0.0876999 0.5888,-0.2949 " />
+<circle cx="0.5888" cy="0.0876999" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.5888" cy="-0.2949" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="0.5888,-0.2949 0.588779,-0.295554 0.588714,-0.296205 0.588608,-0.296851 0.588459,-0.297488 0.588269,-0.298114 0.588039,-0.298727 0.587769,-0.299323 0.58746,-0.2999 0.587115,-0.300456 0.586734,-0.300988 0.586318,-0.301493 0.585871,-0.301971 0.585393,-0.302418 0.584888,-0.302834 0.584356,-0.303215 0.5838,-0.30356 0.583223,-0.303869 0.582627,-0.304139 0.582014,-0.304369 0.581388,-0.304559 0.580751,-0.304708 0.580105,-0.304814 0.579454,-0.304879 0.5788,-0.3049 " />
+<circle cx="0.5888" cy="-0.2949" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.5788" cy="-0.3049" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="0.5788,-0.3049 -0.255,-0.3049 " />
+<circle cx="0.5788" cy="-0.3049" r="0.00092818" fill="#1f77b4" />
+<circle cx="-0.255" cy="-0.3049" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="-0.255,-0.3049 -0.255,0.4485 " />
+<circle cx="-0.255" cy="-0.3049" r="0.00092818" fill="#1f77b4" />
+<circle cx="-0.255" cy="0.4485" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="-0.255,0.4485 0.5888,0.4485 " />
+<circle cx="-0.255" cy="0.4485" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.5888" cy="0.4485" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="0.5888,0.4485 0.5888,-0.0123 " />
+<circle cx="0.5888" cy="0.4485" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.5888" cy="-0.0123" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="0.5888,-0.0123 0.3888,-0.0123 " />
+<circle cx="0.5888" cy="-0.0123" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.3888" cy="-0.0123" r="0.00092818" fill="#1f77b4" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#1f77b4" stroke-width="1" points="0.3888,-0.0123 0.3888,-0.0123 " />
+<circle cx="0.3888" cy="-0.0123" r="0.00092818" fill="#1f77b4" />
+<circle cx="0.3888" cy="-0.0123" r="0.00092818" fill="#1f77b4" />
+<g opacity="0.5">
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0.3888,0.0876999 0.3888,0.0876999 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0.3888,0.0876999 0.5263,0.0876999 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0.5263,0.0876999 0.5263,-0.2424 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0.5263,-0.2424 -0.1925,-0.2424 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="-0.1925,-0.2424 -0.1925,0.386 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="-0.1925,0.386 0.5263,0.386 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0.5263,0.386 0.5263,-0.0123 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0.5263,-0.0123 0.3888,-0.0123 " />
+<polyline fill="none" stroke="#bbbbbb" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0.3888,-0.0123 0.3888,-0.0123 " />
+</g>
+<g opacity="0.35">
+<polyline fill="none" stroke="#999999" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0,0.1436 0.3888,0.0876999 " />
+<polyline fill="none" stroke="#999999" stroke-width="0.125" stroke-linecap="round" stroke-linejoin="round" points="0.3888,0.0876999 0.3888,0.0876999 " />
+</g>
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="1" stroke-dasharray="4,4" points="0,0.1436 0.3888,0.0876999 " />
+<circle cx="0" cy="0.1436" r="0.00092818" fill="#d62728" />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="1" stroke-dasharray="4,4" points="0.3888,0.0876999 0.3888,0.0876999 " />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#d62728" />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="0.3888,0.0876999 0.3888,0.0876999 " />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#d62728" />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="0.3888,0.0876999 0.5263,0.0876999 " />
+<circle cx="0.3888" cy="0.0876999" r="0.00092818" fill="#d62728" />
+<circle cx="0.5263" cy="0.0876999" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="0.5263,0.0876999 0.5263,-0.2424 " />
+<circle cx="0.5263" cy="0.0876999" r="0.00092818" fill="#d62728" />
+<circle cx="0.5263" cy="-0.2424" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="0.5263,-0.2424 -0.1925,-0.2424 " />
+<circle cx="0.5263" cy="-0.2424" r="0.00092818" fill="#d62728" />
+<circle cx="-0.1925" cy="-0.2424" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="-0.1925,-0.2424 -0.1925,0.386 " />
+<circle cx="-0.1925" cy="-0.2424" r="0.00092818" fill="#d62728" />
+<circle cx="-0.1925" cy="0.386" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="-0.1925,0.386 0.5263,0.386 " />
+<circle cx="-0.1925" cy="0.386" r="0.00092818" fill="#d62728" />
+<circle cx="0.5263" cy="0.386" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="0.5263,0.386 0.5263,-0.0123 " />
+<circle cx="0.5263" cy="0.386" r="0.00092818" fill="#d62728" />
+<circle cx="0.5263" cy="-0.0123" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="0.5263,-0.0123 0.3888,-0.0123 " />
+<circle cx="0.5263" cy="-0.0123" r="0.00092818" fill="#d62728" />
+<circle cx="0.3888" cy="-0.0123" r="0.00092818" fill="#d62728" />
+<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#d62728" stroke-width="1" points="0.3888,-0.0123 0.3888,-0.0123 " />
+<circle cx="0.3888" cy="-0.0123" r="0.00092818" fill="#d62728" />
+<circle cx="0.3888" cy="-0.0123" r="0.00092818" fill="#d62728" />
+<g stroke="#008000" stroke-width="1">
+<line vector-effect="non-scaling-stroke" x1="-0.0092818" y1="0.1436" x2="0.0092818" y2="0.1436" />
+<line vector-effect="non-scaling-stroke" x1="0" y1="0.134318" x2="0" y2="0.152882" />
+</g>
+</svg>

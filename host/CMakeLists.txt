@@ -57,6 +57,22 @@ add_executable(cc_runner
   ../mcu/cutter_comp.c
 )
 
+enable_testing()
+add_executable(cc_junction_recovery ../test/cc_junction_recovery.c)
+add_test(NAME cc_junction_recovery COMMAND cc_junction_recovery)
+add_executable(cc_host_crossings ../test/cc_host_crossings.cpp)
+add_test(NAME cc_host_crossings COMMAND cc_host_crossings)
+add_executable(cc_runner_modal ../test/cc_runner_modal.cpp)
+target_compile_definitions(cc_runner_modal PRIVATE _USE_MATH_DEFINES)
+add_test(NAME cc_runner_modal COMMAND cc_runner_modal)
+add_executable(cc_svg_strokes ../test/cc_svg_strokes.cpp)
+target_include_directories(cc_svg_strokes PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../src)
+target_compile_definitions(cc_svg_strokes PRIVATE _USE_MATH_DEFINES)
+add_test(NAME cc_svg_strokes COMMAND cc_svg_strokes)
+if (NOT MSVC)
+  target_link_libraries(cc_host_crossings PRIVATE m)
+endif()
+
 if (GRBL_HOST_AVAILABLE)
   add_executable(grbl_host_runner
     grbl_host_main.c

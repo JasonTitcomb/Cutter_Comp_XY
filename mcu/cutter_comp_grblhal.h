@@ -12,7 +12,7 @@
  */
 #ifndef CUTTER_COMP_GRBLHAL_H
 #define CUTTER_COMP_GRBLHAL_H
-#include "config.h"
+#include "grbl\config.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -21,6 +21,7 @@ extern "C"
 
 #if CUTTER_COMP_ENABLE
 
+#include <math.h>
 #include <stdio.h>
 
 #include "../mcu/cutter_comp.h"
@@ -35,8 +36,6 @@ extern "C"
     static plan_line_data_t cc_mc_active_plan_data = {0};
     static bool cc_mc_have_plan_data = false;
     static bool cc_mc_active = false;
-    static bool cc_mc_pause_after_next_motion = false;
-    static float cc_mc_pending_dwell = 0.0f;
     static float cc_mc_input_pos[N_AXIS] = {0};
     static comp_side cc_mc_saved_comp_side = CC_COMP_OFF;
     static comp_mode cc_mc_saved_comp_mode = CC_CM_NONE;
@@ -52,8 +51,6 @@ extern "C"
     {
         cc_mc_have_plan_data = false;
         cc_mc_active = false;
-        cc_mc_pause_after_next_motion = false;
-        cc_mc_pending_dwell = 0.0f;
 
         for (int i = 0; i < N_AXIS; ++i)
             cc_mc_input_pos[i] = pos ? pos[i] : 0.0f;
@@ -62,8 +59,7 @@ extern "C"
     // Sync cc_mc_input_pos with the current parser position.
     // Must be called when enabling comp, and can be called any time cc_mc_input_pos
     // may be stale (e.g. after rapids that bypass cc_mc_line_in).
-    // This also clears transient bridge state so a restarted job cannot inherit
-    // a pending synthetic pause from the previous run.
+    // This also clears transient bridge state for a restarted job.
     static inline void cc_mc_sync_input_pos(const float *pos)
     {
         cc_mc_reset_runtime_state(pos);
@@ -150,8 +146,11 @@ extern "C"
         case cc_status_CompOutCrossing:
             msg = "Crossing error: move out of cutting area";
             break;
-        case cc_status_GlobalSelfIntersection:
-            msg = "Global self intersection detected";
+        case cc_status_ConsecutiveZMoves:
+            msg = "Too many consecutive Z moves";
+            break;
+        case cc_status_PendingEventOverflow:
+            msg = "Too many consecutive pauses";
             break;
         }
 
@@ -226,7 +225,6 @@ extern "C"
         if (cc.side == CComp_Off && cc_api_get_comp() == CC_COMP_OFF)
         {
             cc_mc_active = false;
-            cc_mc_pause_after_next_motion = false;
             cc_mc_input_pos[0] = xyz[0];
             cc_mc_input_pos[1] = xyz[1];
             cc_mc_input_pos[2] = xyz[2];
@@ -269,6 +267,28 @@ extern "C"
         return cc_status_OK;
     }
 
+    // Absolute angular travel of an arc, computed the way grblHAL mc_arc() does.
+    static inline float cc_mc_arc_travel_abs(const float *position, const float *ijk, const float *xyz, bool ccw)
+    {
+        const float twoPi = 6.2831853071795864769f;
+        const float travelEps = 5E-7f;
+        double rvx = -(double)ijk[0];
+        double rvy = -(double)ijk[1];
+        double rtx = (double)xyz[0] - ((double)position[0] - rvx);
+        double rty = (double)xyz[1] - ((double)position[1] - rvy);
+        float travel = (float)atan2(rvx * rty - rvy * rtx, rvx * rtx + rvy * rty);
+
+        if (ccw)
+        {
+            if (travel <= travelEps)
+                travel += twoPi;
+        }
+        else if (travel >= -travelEps)
+            travel -= twoPi;
+
+        return fabsf(travel);
+    }
+
     // replaces mc_arc when cutter compensation is active. If compensation is not active, passes through to mc_arc.
     cc_status_code_t cc_mc_arc_in(gc_ccomp_t cc, float *xyz, plan_line_data_t *pl_data, float *position, float *ijk, float radius, plane_t plane, int32_t turns)
     {
@@ -278,7 +298,6 @@ extern "C"
         if (cc.side == CComp_Off && cc_api_get_comp() == CC_COMP_OFF)
         {
             cc_mc_active = false;
-            cc_mc_pause_after_next_motion = false;
             cc_mc_input_pos[0] = xyz[0];
             cc_mc_input_pos[1] = xyz[1];
             cc_mc_input_pos[2] = xyz[2];
@@ -293,8 +312,39 @@ extern "C"
         if (side != current_side || (side != CC_COMP_OFF && cc_api_get_mode() == CC_CM_NONE))
             cc_api_set_comp(side);
 
-        move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, position, ijk, radius, turns, true);
-        cc_status_code_t st = cc_api_process_move(&mv);
+        // grblHAL turns: sign is direction, abs(turns) - 1 extra full circles precede the arc.
+        int32_t direction = (turns >= 0) ? 1 : -1;
+        int32_t extraTurns = (turns > 1) ? turns - 1 : ((turns < -1) ? -turns - 1 : 0);
+        float arcStart[N_AXIS];
+        cc_status_code_t st;
+
+        for (int i = 0; i < N_AXIS; ++i)
+            arcStart[i] = position ? position[i] : cc_mc_input_pos[i];
+
+        if (extraTurns > 0)
+        {
+            const float twoPi = 6.2831853071795864769f;
+            float travel = cc_mc_arc_travel_abs(arcStart, ijk, xyz, direction > 0);
+            float zPerTurn = (xyz[2] - arcStart[2]) / (twoPi * (float)extraTurns + travel) * twoPi;
+
+            for (int32_t t = 0; t < extraTurns; ++t)
+            {
+                float turnEnd[N_AXIS];
+                for (int i = 0; i < N_AXIS; ++i)
+                    turnEnd[i] = arcStart[i];
+                turnEnd[2] += zPerTurn;
+
+                move2d turn = cc_mc_to_move2d(cc, turnEnd, pl_data, arcStart, ijk, radius, direction, true);
+                st = cc_api_process_move(&turn);
+                if (st != cc_status_OK)
+                    return st;
+
+                arcStart[2] = turnEnd[2];
+            }
+        }
+
+        move2d mv = cc_mc_to_move2d(cc, xyz, pl_data, arcStart, ijk, radius, direction, true);
+        st = cc_api_process_move(&mv);
 
         if (st != cc_status_OK)
             return st;
@@ -308,7 +358,21 @@ extern "C"
         return cc_status_OK;
     }
 
-    static inline void cc_emit_via_mc(const move2d *mv)
+    static inline void cc_mc_pause(float dwell)
+    {
+        protocol_buffer_synchronize();
+        if (dwell > 0.0f)
+        {
+            mc_dwell(dwell);
+            if (!sys.flags.single_block)
+                return;
+        }
+
+        system_set_exec_state_flag(EXEC_FEED_HOLD);
+        protocol_execute_realtime();
+    }
+
+    static inline bool cc_emit_via_mc(const move2d *mv)
     {
         // report_message("CC: cc_emit_via_mc", Message_Info);
         plan_line_data_t local_pl_data = {0};
@@ -317,22 +381,19 @@ extern "C"
         bool emitted_motion = false;
 
         if (!mv || !mv->valid)
-            return;
+            return true;
 
         if (mv->pause_after != 0.0f)
         {
-            // Synthetic marker for a deferred pause or dwell after the next emitted motion.
-            cc_mc_pause_after_next_motion = true;
-            cc_mc_pending_dwell = 0.0f;
-            if(mv->pause_after > 0.0f)
-                cc_mc_pending_dwell = mv->pause_after;
-            return;
+            cc_mc_pause(mv->pause_after);
+            return true;
         }
 
         if (cc_mc_have_plan_data)
             local_pl_data = cc_mc_active_plan_data;
 
         local_pl_data.feed_rate = mv->feed;
+        local_pl_data.line_number = mv->lineNum;
         local_pl_data.condition.rapid_motion = (mv->type == CC_MOT_RAPID) ? 1 : 0;
 
         if (mv->type == CC_MOT_LINE || mv->type == CC_MOT_RAPID)
@@ -340,7 +401,8 @@ extern "C"
             xyz[0] = mv->p_1.x;
             xyz[1] = mv->p_1.y;
             xyz[2] = mv->z_1;
-            mc_line(xyz, pl_data);
+            if (!mc_line(xyz, pl_data))
+                return false;
             emitted_motion = true;
         }
         else if (mv->type == CC_MOT_ARC)
@@ -370,26 +432,13 @@ extern "C"
         }
 
         // Pause only after emitting a real motion.
-        if ((sys.flags.single_block || cc_mc_pause_after_next_motion) && emitted_motion)
+        if (sys.flags.single_block && emitted_motion)
         {
-            float dwell = cc_mc_pending_dwell;
-
             report_message("CC: Pausing after move", Message_Info);
-            cc_mc_pause_after_next_motion = false;
-            cc_mc_pending_dwell = 0.0f;
-
-             if (dwell > 0.0f)
-            {
-                report_message("CC: Dwell...", Message_Info);
-                mc_dwell(dwell);
-                if (!sys.flags.single_block)
-                    return;
-            }
-
-            protocol_buffer_synchronize();
-            system_set_exec_state_flag(EXEC_FEED_HOLD);
-            protocol_execute_realtime();
+            cc_mc_pause(0.0f);
         }
+
+        return true;
     }
 #endif
 #ifdef __cplusplus

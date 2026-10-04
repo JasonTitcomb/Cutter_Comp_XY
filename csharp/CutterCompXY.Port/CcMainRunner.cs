@@ -34,6 +34,7 @@ public sealed class CcMainRunner
     private float lastFeed;
     private int emittedProfileCount;
     private int trimResumeIndex;
+    private int outputMotionG;
 
     public bool Begin(CcMainOptions opts)
     {
@@ -68,6 +69,7 @@ public sealed class CcMainRunner
         globalTrim = options.globalTrimCrossing;
         emittedProfileCount = 0;
         trimResumeIndex = 0;
+        outputMotionG = 0;
         sawCompStart = false;
         sawG40 = false;
         compClosed = false;
@@ -130,28 +132,10 @@ public sealed class CcMainRunner
             return false;
         }
 
-        if (cc.comp_state != CompSide.COMP_OFF)
+        if (!EmitReadyBatch())
         {
-            int pendingProfileWindow = profile.Count - emittedProfileCount;
-            if (pendingProfileWindow >= MIN_PENDING_BEFORE_BATCH)
-            {
-                if (!TrimAndMergePendingProfile())
-                {
-                    ReportError("(trim failed)", CompError.CE_ERROR);
-                    runActive = false;
-                    return false;
-                }
-
-                if (!EmitCompProfile(EMIT_HOLDBACK, false))
-                {
-                    ReportError("(emit failed)", CompError.CE_ERROR);
-                    runActive = false;
-                    return false;
-                }
-
-                ProfileCompact();
-                EmitStatus("(BATCH)\n");
-            }
+            runActive = false;
+            return false;
         }
 
         if (cc.comp_state == CompSide.COMP_OFF && sawCompStart && !compClosed)
@@ -174,6 +158,11 @@ public sealed class CcMainRunner
 
             ProfileCompact();
             EmitStatus("(COMP OFF)\n");
+            if (outputMotionG != modalState.motionG)
+            {
+                EmitRawLine("G" + modalState.motionG.ToString(CultureInfo.InvariantCulture));
+                outputMotionG = modalState.motionG;
+            }
         }
 
         return true;
@@ -392,6 +381,9 @@ public sealed class CcMainRunner
             sb.Append('\n');
             string line = sb.ToString();
             outputCB(line, line.Length);
+            outputMotionG = m.type == MotionType.MOT_RAPID ? 0 :
+                            m.type == MotionType.MOT_LINE ? 1 :
+                            m.arcDir == ArcDir.ARC_CW ? 2 : 3;
         }
     }
 
@@ -416,7 +408,9 @@ public sealed class CcMainRunner
             Move2D m = profile[i];
             if (!m.valid || m.type == MotionType.MOT_EMPTY)
                 continue;
-            if (m.type == MotionType.MOT_LINE && m.hasXY && !m.hasZ && CcMath.Len(m.p_1 - m.p_0) < CcConst.TOL)
+            Vec2 delta = m.p_1 - m.p_0;
+            if (m.type == MotionType.MOT_LINE && m.hasXY && !m.hasZ &&
+                CcMath.Dot(delta, delta) < CcConst.TOL * CcConst.TOL)
                 continue;
             EmitMoveAsGcode(m);
         }
@@ -430,7 +424,118 @@ public sealed class CcMainRunner
         _ = SimpleScan.InterpretMove(s, ref modalState);
         SyncUnitsFromModal();
         EmitRawLine(rawLine);
+        outputMotionG = modalState.motionG;
         return true;
+    }
+
+    private bool EmitReadyBatch()
+    {
+        if (cc.comp_state == CompSide.COMP_OFF)
+            return true;
+
+        int pendingProfileWindow = profile.Count - emittedProfileCount;
+        if (pendingProfileWindow < MIN_PENDING_BEFORE_BATCH)
+            return true;
+
+        if (!TrimAndMergePendingProfile())
+        {
+            ReportError("(trim failed)", CompError.CE_ERROR);
+            return false;
+        }
+
+        if (!EmitCompProfile(EMIT_HOLDBACK, false))
+        {
+            ReportError("(emit failed)", CompError.CE_ERROR);
+            return false;
+        }
+
+        ProfileCompact();
+        EmitStatus("(BATCH)\n");
+        return true;
+    }
+
+    private bool CompensateMove(in Move2D mv)
+    {
+        if (!cc.PushIn(mv))
+        {
+            ReportError("(comp input buffer full)", CompError.CE_ERROR);
+            return false;
+        }
+
+        if (!cc.Process())
+        {
+            ReportError("(comp processing failed!)", CompError.CE_ERROR);
+            return false;
+        }
+
+        while (cc.PopOut(out Move2D outputMove))
+        {
+            if (!ProfilePush(outputMove))
+            {
+                ReportError("(profile buffer full)", CompError.CE_ERROR);
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // The compensation engine cannot offset a 360 degree arc, so a full turn is fed as two halves.
+    private bool CompensateArcTurn(Move2D arc)
+    {
+        if (!CcMath.IsFullCircle(arc))
+            return CompensateMove(arc) && EmitReadyBatch();
+
+        Vec2 opposite = arc.center - (arc.p_0 - arc.center);
+        float zMid = 0.5f * (arc.z_0 + arc.z_1);
+
+        Move2D first = arc;
+        first.p_1 = opposite;
+        first.z_1 = zMid;
+
+        Move2D second = arc;
+        second.p_0 = opposite;
+        second.z_0 = zMid;
+
+        return CompensateMove(first) && EmitReadyBatch() &&
+               CompensateMove(second) && EmitReadyBatch();
+    }
+
+    // Feeds the P - 1 extra full turns of a G2/G3 P arc followed by the final arc.
+    // Z is spread over the total angular travel the same way grblHAL does.
+    private bool ProcessArc(Move2D mv)
+    {
+        if (mv.turns < 1)
+        {
+            ReportError("(arc P must be a positive integer)", CompError.CE_INVALID_MOVE);
+            return false;
+        }
+
+        if (mv.compMode == CompMode.CM_IN || mv.compMode == CompMode.CM_OUT)
+        {
+            ReportError("(full-circle or arc P move not allowed on a G41/G42/G40 move)", CompError.CE_INVALID_MOVE);
+            return false;
+        }
+
+        int extraTurns = mv.turns - 1;
+        float zPerTurn = (mv.z_1 - mv.z_0) / (CcConst.TWO_PI * extraTurns + CcMath.ArcTravelAbs(mv)) * CcConst.TWO_PI;
+
+        for (int i = 0; i < extraTurns; ++i)
+        {
+            Move2D turn = mv;
+            turn.p_1 = mv.p_0;
+            turn.z_1 = mv.z_0 + zPerTurn;
+            turn.turns = 1;
+            turn.hasZ = mv.hasZ;
+
+            if (!CompensateArcTurn(turn))
+                return false;
+
+            mv.z_0 = turn.z_1;
+        }
+
+        mv.turns = 1;
+        return CompensateArcTurn(mv);
     }
 
     private bool ProcessOneGcodeLine(ScanLine s)
@@ -457,25 +562,15 @@ public sealed class CcMainRunner
             return true;
         }
 
-        if (!cc.PushIn(mv))
+        bool arcNeedsExpansion = mv.type == MotionType.MOT_ARC && (mv.turns != 1 || CcMath.IsFullCircle(mv));
+        if (arcNeedsExpansion)
         {
-            ReportError("(comp input buffer full)", CompError.CE_ERROR);
-            return false;
-        }
-
-        if (!cc.Process())
-        {
-            ReportError("(comp processing failed!)", CompError.CE_ERROR);
-            return false;
-        }
-
-        while (cc.PopOut(out Move2D outputMove))
-        {
-            if (!ProfilePush(outputMove))
-            {
-                ReportError("(profile buffer full)", CompError.CE_ERROR);
+            if (!ProcessArc(mv))
                 return false;
-            }
+        }
+        else if (!CompensateMove(mv))
+        {
+            return false;
         }
 
         if (s.sawG40)

@@ -1,3 +1,8 @@
 D:/Repos/Cutter_Comp_XY/build/CMakeFiles/cc_runner.dir
+D:/Repos/Cutter_Comp_XY/build/CMakeFiles/cc_junction_recovery.dir
+D:/Repos/Cutter_Comp_XY/build/CMakeFiles/cc_host_crossings.dir
+D:/Repos/Cutter_Comp_XY/build/CMakeFiles/cc_runner_modal.dir
+D:/Repos/Cutter_Comp_XY/build/CMakeFiles/cc_svg_strokes.dir
+D:/Repos/Cutter_Comp_XY/build/CMakeFiles/RUN_TESTS.dir
 D:/Repos/Cutter_Comp_XY/build/CMakeFiles/ALL_BUILD.dir
 D:/Repos/Cutter_Comp_XY/build/CMakeFiles/ZERO_CHECK.dir

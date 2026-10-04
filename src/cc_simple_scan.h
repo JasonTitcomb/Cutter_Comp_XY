@@ -30,11 +30,15 @@ struct ScanLine
     bool hasF = false;
     float F = 0;
     bool hasD = false;
-    int32_t D = 0;
+    float D = 0;
     bool hasT = false;
     int32_t T = 0;
     bool hasS = false;
     float S = 0;
+    bool hasM = false;
+    int32_t M = 0;
+    bool hasP = false;
+    float P = 0;
 
     // Special modal toggles
     bool sawG17 = false;
@@ -50,6 +54,7 @@ struct ScanLine
     bool sawG1 = false;
     bool sawG2 = false;
     bool sawG3 = false;
+    bool sawG4 = false;
     bool sawG91 = false;
 };
 
@@ -62,7 +67,7 @@ struct ModalState
     CompSide comp = COMP_OFF;
     CompMode compMode = CM_NONE;
     float feed = 0.0f;
-    int32_t D_Register = 0;
+    float D_Register = 0;
     int32_t T_Register = 0;
     float speed = 0.0f;
     Vec2 pos{0, 0}; // current internal XY position; updated by interpret_to_move
@@ -229,6 +234,8 @@ static void scan_line(const char *line, ScanLine &s)
                     s.sawG2 = true;
                 if (s.G == 3)
                     s.sawG3 = true;
+                if (s.G == 4)
+                    s.sawG4 = true;
                 if (s.G == 17)
                     s.sawG17 = true;
                 if (s.G == 20)
@@ -287,7 +294,7 @@ static void scan_line(const char *line, ScanLine &s)
             else if (c == 'D')
             {
                 s.hasD = true;
-                p = parse_int(p, s.D);
+                p = parse_float(p, s.D);
             }
             else if (c == 'T')
             {
@@ -298,6 +305,16 @@ static void scan_line(const char *line, ScanLine &s)
             {
                 s.hasS = true;
                 p = parse_float(p, s.S);
+            }
+            else if (c == 'M')
+            {
+                s.hasM = true;
+                p = parse_int(p, s.M);
+            }
+            else if (c == 'P')
+            {
+                s.hasP = true;
+                p = parse_float(p, s.P);
             }
             else
             {
@@ -449,6 +466,22 @@ static Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     out.hasZ = s.hasZ;
     out.feed = modeState.feed;
 
+    if (s.hasM && (s.M == 0 || s.M == 1))
+    {
+        out.type = MOT_EMPTY;
+        out.pause_after = -1.0f;
+        out.pauseKind = (s.M == 0) ? PAUSE_M0 : PAUSE_M1;
+        return out;
+    }
+
+    if (s.sawG4 && s.hasP && s.P >= 0.0f)
+    {
+        out.type = MOT_EMPTY;
+        out.pause_after = s.P;
+        out.pauseKind = PAUSE_DWELL;
+        return out;
+    }
+
     if (modeState.compMode == CM_IN || modeState.compMode == CM_OUT)
     {
         out.compMode = CM_STEADY; // in a comp block but no change from previous move, so steady comp mode.
@@ -489,6 +522,8 @@ static Move2D interpret_move(const ScanLine &s, ModalState &modeState)
     {
         out.type = MOT_ARC;
         out.arcDir = (modeState.motionG == 2) ? ARC_CW : ARC_CCW;
+        if (s.hasP)
+            out.turns = (s.P >= 1.0f && s.P == floorf(s.P)) ? (int32_t)s.P : 0;
         // out.hasXY = true; // arcs must have XY for center calculations;
 
         // Resolve center either from I/J or from R

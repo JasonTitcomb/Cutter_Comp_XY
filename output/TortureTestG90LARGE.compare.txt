@@ -1,0 +1,32 @@
+cc_xy comparison report
+full profile count: 104
+simple profile count: 104
+invalid full count: 0
+invalid simple count: 0
+shared count: 104
+
+index 71 mismatch (full index 71, simple index 71)
+  full   : type=arc out_line=94 n=54 p0=(911.659, 204.384) p1=(929.554, 188.821) r=16.3956 valid=1
+  simple : type=arc src_line=54 n=54 p0=(911.652, 204.383) p1=(929.554, 188.821) r=16.3957 valid=1
+  full gcode  : N54 G3 X36.5966 Y7.4339 I0.6448 J0.03
+  simple gcode: N54 X36.6442 Y6.9241 I1.1558 J0.0538
+  delta  : p0=0.007576 p1=0.000184 center=0.007507 radius=0.000072
+
+index 72 mismatch (full index 72, simple index 72)
+  full   : type=arc out_line=96 n=54 p0=(929.554, 188.821) p1=(929.561, 188.816) r=12.9873 valid=1
+  simple : type=arc src_line=0 p0=(929.554, 188.815) p1=(929.562, 188.816) r=12.9875 valid=1
+  full gcode  : N54 G2 X36.5969 Y7.4337 I0.0475 J-0.5091
+  simple gcode: <line 0>
+  delta  : p0=0.006004 p1=0.000811 center=0.006292 radius=0.000220
+
+summary
+  first mismatch index: 71
+  mismatch count: 2
+  unmatched full count: 0
+  unmatched simple count: 0
+  type mismatch count: 0
+  validity mismatch count: 0
+  max p0 delta: 0.007576
+  max p1 delta: 0.001685
+  max center delta: 0.007507
+  max radius delta: 0.001282

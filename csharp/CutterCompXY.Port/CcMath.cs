@@ -3,8 +3,9 @@ namespace CutterCompXY.Port;
 public static class CcConst
 {
     public const float TOL = 0.0001f;
+    public const float TOL_SQ = TOL * TOL;
     public const float ARC_TOL_IN = 0.0005f;
-    public const float GAP_TOL_IN = 0.001f;
+    public const float GAP_TOL_IN = 0.0001f;
     public const float INPUT_ARC_TOL = 0.001f;
     public const float EPS = 1e-7f;
     public const float PARALLEL_TOL = 1e-3f;
@@ -13,6 +14,7 @@ public static class CcConst
     public const float TWO_PI = 6.2831853071795864769f;
     public const float MAX_SWEEP_DEG = 359.9f;
     public const float MIN_ARC_LEN = 0.001f;
+    public const float ARC_TRAVEL_EPS = 5E-7f; // grblHAL ARC_ANGULAR_TRAVEL_EPSILON
     public const float IN_TO_MM = 25.4f;
 }
 
@@ -84,7 +86,8 @@ public enum CompError : byte
     CE_COMP_IN_CROSSING,
     CE_COMP_OUT_CROSSING,
     CE_UNRESOLVED_GAP,
-    CE_OUTPUT_BUFFER_OVERFLOW
+    CE_OUTPUT_BUFFER_OVERFLOW,
+    CE_PENDING_EVENT_OVERFLOW
 }
 
 public enum Units : byte
@@ -122,7 +125,9 @@ public struct Move2D
     public CompMode compMode;
     public bool hasXY;
     public bool hasZ;
+    public bool junctionOnly;
     public bool valid;
+    public int turns; // G2/G3 P word; 0 marks an invalid P
 
     public Move2D()
     {
@@ -143,7 +148,9 @@ public struct Move2D
         compMode = CompMode.CM_NONE;
         hasXY = false;
         hasZ = false;
+        junctionOnly = false;
         valid = true;
+        turns = 1;
     }
 }
 
@@ -204,8 +211,11 @@ public static class CcMath
 
         if (!m.hasXY)
         {
-            m.startDir = new Vec2(0, 0);
-            m.endDir = new Vec2(0, 0);
+            if (!m.junctionOnly)
+            {
+                m.startDir = new Vec2(0, 0);
+                m.endDir = new Vec2(0, 0);
+            }
             return;
         }
 
@@ -379,7 +389,7 @@ public static class CcMath
     {
         Vec2 d = m.p_1 - m.p_0;
         float l2 = Dot(d, d);
-        if (l2 < 1e-12f)
+        if (l2 < CcConst.TOL_SQ)
             return 0.0f;
         return Dot(p - m.p_0, d) / l2;
     }
@@ -408,7 +418,8 @@ public static class CcMath
     {
         if (IsLineLike(m))
         {
-            m.valid = Len(m.p_1 - m.p_0) >= CcConst.TOL;
+            Vec2 delta = m.p_1 - m.p_0;
+            m.valid = Dot(delta, delta) >= CcConst.TOL_SQ;
         }
         else if (m.type == MotionType.MOT_ARC)
         {
@@ -433,10 +444,37 @@ public static class CcMath
     public static bool IsNear(in Vec2 a, in Vec2 b)
     {
         Vec2 d = a - b;
-        return Dot(d, d) <= CcConst.TOL * CcConst.TOL;
+        return Dot(d, d) <= CcConst.TOL_SQ;
     }
 
     public static bool IsMotionValid(in Move2D m) => m.valid && m.type != MotionType.MOT_EMPTY && m.hasXY;
+
+    // Angular travel of one turn of an arc as executed by grblHAL/LinuxCNC: an end point
+    // equal to the start point, or a hair behind it in the travel direction, is a full circle.
+    public static float ArcTravelAbs(in Move2D m)
+    {
+        Vec2 r0 = m.p_0 - m.center;
+        Vec2 r1 = m.p_1 - m.center;
+        float travel = MathF.Atan2(Cross(r0, r1), Dot(r0, r1));
+
+        if (m.arcDir == ArcDir.ARC_CCW)
+        {
+            if (travel <= CcConst.ARC_TRAVEL_EPS)
+                travel += CcConst.TWO_PI;
+        }
+        else if (travel >= -CcConst.ARC_TRAVEL_EPS)
+            travel -= CcConst.TWO_PI;
+
+        return MathF.Abs(travel);
+    }
+
+    public static bool IsFullCircle(in Move2D m)
+    {
+        if (m.type != MotionType.MOT_ARC || !IsNear(m.p_0, m.p_1))
+            return false;
+        Vec2 r0 = m.p_0 - m.center;
+        return Dot(r0, r0) >= CcConst.TOL_SQ && ArcTravelAbs(m) > CcConst.PI;
+    }
 
     public static bool IsColinearWith(in Move2D a, in Move2D b)
     {
@@ -447,7 +485,8 @@ public static class CcMath
         {
             Vec2 da = a.startDir;
             Vec2 db = b.startDir;
-            if (Len(da) < CcConst.TOL || Len(db) < CcConst.TOL)
+            if (Dot(da, da) < CcConst.TOL_SQ ||
+                Dot(db, db) < CcConst.TOL_SQ)
                 return false;
             float cr = MathF.Abs(Cross(da, db));
             return cr < CcConst.TOL;
@@ -457,7 +496,13 @@ public static class CcMath
         {
             if (!IsNear(a.center, b.center) || MathF.Abs(a.radius - b.radius) > CcConst.TOL)
                 return false;
-            return true;
+
+            // Merging keeps a's Z, so only planar arcs in the same direction whose combined
+            // sweep stays below a full turn can be merged without losing turns or Z travel.
+            if (a.arcDir != b.arcDir || MathF.Abs(a.z_1 - a.z_0) > CcConst.TOL || MathF.Abs(b.z_1 - b.z_0) > CcConst.TOL)
+                return false;
+
+            return ArcTravelAbs(a) + ArcTravelAbs(b) < CcConst.TWO_PI - 1e-3f;
         }
 
         return false;
@@ -524,14 +569,17 @@ public static class CcMath
         Vec2 ab = b - a;
         float lab2 = Dot(ab, ab);
         if (lab2 < CcConst.TOL)
-            return Len(p - a) < CcConst.TOL;
+        {
+            Vec2 pa = p - a;
+            return Dot(pa, pa) < CcConst.TOL_SQ;
+        }
 
         float t = Dot(p - a, ab) / lab2;
         if (t < -CcConst.TOL || t > 1.0f + CcConst.TOL)
             return false;
 
-        float d = MathF.Abs(Cross(p - a, ab)) / MathF.Sqrt(lab2);
-        return d < CcConst.TOL;
+        float cross = Cross(p - a, ab);
+        return cross * cross < CcConst.TOL_SQ * lab2;
     }
 
     public static bool PointOnArc(in Move2D a, in Vec2 p)
@@ -573,15 +621,18 @@ public static class CcMath
         Vec2 s = ln2.startDir;
         float lr = Len(ln1.p_1 - ln1.p_0);
         float ls = Len(ln2.p_1 - ln2.p_0);
+        float rLenSq = Dot(r, r);
+        float sLenSq = Dot(s, s);
 
         ip = new Vec2(0, 0);
-        if (lr < CcConst.TOL || ls < CcConst.TOL || Len(r) < CcConst.TOL || Len(s) < CcConst.TOL)
+        if (lr < CcConst.TOL || ls < CcConst.TOL ||
+            rLenSq < CcConst.TOL_SQ || sLenSq < CcConst.TOL_SQ)
         {
             tip = false;
         }
 
         float den = Cross(r, s);
-        float denTol = CcConst.PARALLEL_TOL * Len(r) * Len(s);
+        float denTol = CcConst.PARALLEL_TOL * MathF.Sqrt(rLenSq) * MathF.Sqrt(sLenSq);
         if (MathF.Abs(den) <= denTol)
         {
             tip = false;
@@ -603,13 +654,15 @@ public static class CcMath
         float r0 = a1.radius;
         float r1 = a2.radius;
         Vec2 d = c1 - c0;
-        float distc = Len(d);
+        float distcSq = Dot(d, d);
+        float distc;
         count = 0;
         p1 = new Vec2(0, 0);
         p2 = new Vec2(0, 0);
 
-        if (distc < CcConst.TOL)
+        if (distcSq < CcConst.TOL_SQ)
             return IntersectType.IT_NONE;
+        distc = MathF.Sqrt(distcSq);
         if (distc > r0 + r1 + CcConst.TOL)
             return IntersectType.IT_NONE;
         if (distc < MathF.Abs(r0 - r1) - CcConst.TOL)

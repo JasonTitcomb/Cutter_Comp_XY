@@ -174,9 +174,25 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
+    <ProjectReference Include="D:\Repos\Cutter_Comp_XY\build\cc_host_crossings.vcxproj">
+      <Project>{3EBA71D1-04F4-31D2-8D73-48AC3D55CFF9}</Project>
+      <Name>cc_host_crossings</Name>
+    </ProjectReference>
+    <ProjectReference Include="D:\Repos\Cutter_Comp_XY\build\cc_junction_recovery.vcxproj">
+      <Project>{3E230C58-FC4A-3FE6-B99B-C6F0E01117BD}</Project>
+      <Name>cc_junction_recovery</Name>
+    </ProjectReference>
     <ProjectReference Include="D:\Repos\Cutter_Comp_XY\build\cc_runner.vcxproj">
       <Project>{536524A9-D8E5-3BFA-8F9D-72EAA30A6C62}</Project>
       <Name>cc_runner</Name>
+    </ProjectReference>
+    <ProjectReference Include="D:\Repos\Cutter_Comp_XY\build\cc_runner_modal.vcxproj">
+      <Project>{C01DA4DA-63AD-3440-B32A-6F6B346D2463}</Project>
+      <Name>cc_runner_modal</Name>
+    </ProjectReference>
+    <ProjectReference Include="D:\Repos\Cutter_Comp_XY\build\cc_svg_strokes.vcxproj">
+      <Project>{C3695833-17AD-3563-96C2-12992BBEFAEF}</Project>
+      <Name>cc_svg_strokes</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

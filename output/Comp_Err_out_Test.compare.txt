@@ -1,0 +1,40 @@
+cc_xy comparison report
+full profile count: 0
+simple profile count: 5
+invalid full count: 0
+invalid simple count: 0
+shared count: 0
+
+index 0 unmatched simple move (profile index 0)
+  type=rapid line=2 p0=(0, 0) p1=(0, 0.01)
+  gcode: N2 X0 Y0.01
+
+index 1 unmatched simple move (profile index 1)
+  type=rapid line=3 p0=(0, 0.01) p1=(0.1, 0.065)
+  gcode: N3 G41.1 D0.13 X0.1 Y0
+
+index 2 unmatched simple move (profile index 2)
+  type=line line=4 p0=(0.1, 0.065) p1=(0.135, 0.065)
+  gcode: N4 G1 X0.2
+
+index 3 unmatched simple move (profile index 3)
+  type=line line=5 p0=(0.135, 0.065) p1=(0.135, 0.5)
+  gcode: N7 Y0.5
+
+index 4 unmatched simple move (profile index 4)
+  type=arc line=0 p0=(0.135, 0.5) p1=(0.2, 0.565)
+  gcode: <line 0>
+
+count mismatch: full=0 simple=5
+
+summary
+  first mismatch index: 0
+  mismatch count: 5
+  unmatched full count: 0
+  unmatched simple count: 5
+  type mismatch count: 0
+  validity mismatch count: 0
+  max p0 delta: 0.000000
+  max p1 delta: 0.000000
+  max center delta: 0.000000
+  max radius delta: 0.000000

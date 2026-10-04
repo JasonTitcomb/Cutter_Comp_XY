@@ -33,11 +33,11 @@ static inline FILE *open_file_write_binary(const char *path)
 }
 
 
-static void svg_polyline(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke, float stroke_width = 0.002f)
+static void svg_polyline(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke, float stroke_width = 1.0f)
 {
     if (pts.size() < 2)
         return;
-    ss << "<polyline fill=\"none\" stroke=\"" << stroke << "\" stroke-width=\"" << stroke_width << "\" points=\"";
+    ss << "<polyline fill=\"none\" vector-effect=\"non-scaling-stroke\" stroke=\"" << stroke << "\" stroke-width=\"" << stroke_width << "\" points=\"";
     for (auto &p : pts)
         ss << p.x << "," << p.y << " ";
     ss << "\" />\n";
@@ -138,14 +138,108 @@ static Vec2 move_label_pos(const Move2D &m)
     return m.p_0;
 }
 
-static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke, float stroke_width = 0.002f)
+static void svg_polyline_dashed(std::ostringstream &ss, const std::vector<Vec2> &pts, const char *stroke, float stroke_width = 1.0f, float dash_length = 4.0f)
 {
     if (pts.size() < 2)
         return;
-    ss << "<polyline fill=\"none\" stroke=\"" << stroke << "\" stroke-width=\"" << stroke_width << "\" stroke-dasharray=\"0.01,0.01\" points=\"";
+    ss << "<polyline fill=\"none\" vector-effect=\"non-scaling-stroke\" stroke=\"" << stroke << "\" stroke-width=\"" << stroke_width
+       << "\" stroke-dasharray=\"" << dash_length << "," << dash_length << "\" points=\"";
     for (auto &p : pts)
         ss << p.x << "," << p.y << " ";
     ss << "\" />\n";
+}
+
+static const char *pause_marker_label(PauseKind kind)
+{
+    if (kind == PAUSE_M0)
+        return "M0";
+    if (kind == PAUSE_M1)
+        return "M1";
+    if (kind == PAUSE_DWELL)
+        return "G4";
+    return "Pause";
+}
+
+static bool is_svg_pause_marker(const Move2D &m)
+{
+    return m.pauseKind != PAUSE_NONE || m.pause_after != 0.0f;
+}
+
+static void svg_pause_marker(std::ostringstream &ss, const Vec2 &p, float size, PauseKind kind)
+{
+    const float halfSize = 0.5f * size;
+    ss << "<rect x=\"" << (p.x - halfSize) << "\" y=\"" << (p.y - halfSize)
+       << "\" width=\"" << size << "\" height=\"" << size
+       << "\" fill=\"#ffd166\" stroke=\"#111111\" vector-effect=\"non-scaling-stroke\" stroke-width=\"1"
+       << "\"><title>Pause";
+    if (kind != PAUSE_NONE)
+        ss << " " << pause_marker_label(kind);
+    ss << "</title></rect>\n";
+}
+
+enum class SvgLegendSymbol
+{
+    COMPENSATED,
+    ORIGINAL,
+    RAPID,
+    TOOL_SWEEP,
+    TOOL_CIRCLES,
+    PAUSE,
+    ORIGIN
+};
+
+static void svg_legend_entry(std::ostringstream &ss, float x, float y, float fontSize,
+                             SvgLegendSymbol symbol, const char *label)
+{
+    const float x0 = x + 0.2f * fontSize;
+    const float x1 = x + 2.0f * fontSize;
+    const float centerX = 0.5f * (x0 + x1);
+    const float halfMark = 0.35f * fontSize;
+    const float strokeWidth = 1.0f;
+
+    switch (symbol)
+    {
+    case SvgLegendSymbol::COMPENSATED:
+    case SvgLegendSymbol::ORIGINAL:
+    case SvgLegendSymbol::RAPID:
+    case SvgLegendSymbol::TOOL_SWEEP:
+    {
+        const char *color = symbol == SvgLegendSymbol::COMPENSATED ? "#d62728" :
+                            symbol == SvgLegendSymbol::ORIGINAL ? "#1f77b4" :
+                            symbol == SvgLegendSymbol::TOOL_SWEEP ? "#bbbbbb" : "#888888";
+        ss << "<line x1=\"" << x0 << "\" y1=\"" << y << "\" x2=\"" << x1 << "\" y2=\"" << y
+           << "\" stroke=\"" << color << "\" stroke-width=\""
+           << (symbol == SvgLegendSymbol::TOOL_SWEEP ? 0.5f * fontSize : strokeWidth) << "\"";
+        if (symbol == SvgLegendSymbol::RAPID)
+            ss << " stroke-dasharray=\"4,4\"";
+        if (symbol == SvgLegendSymbol::TOOL_SWEEP)
+            ss << " stroke-opacity=\"0.6\" stroke-linecap=\"round\"";
+        else
+            ss << " vector-effect=\"non-scaling-stroke\"";
+        ss << " />\n";
+        break;
+    }
+    case SvgLegendSymbol::TOOL_CIRCLES:
+        ss << "<circle cx=\"" << centerX << "\" cy=\"" << y << "\" r=\"" << halfMark
+           << "\" fill=\"none\" stroke=\"#888888\" stroke-width=\"" << strokeWidth
+           << "\" vector-effect=\"non-scaling-stroke\" stroke-dasharray=\"4,4\" />\n";
+        break;
+    case SvgLegendSymbol::PAUSE:
+        ss << "<rect x=\"" << (centerX - halfMark) << "\" y=\"" << (y - halfMark)
+           << "\" width=\"" << (2.0f * halfMark) << "\" height=\"" << (2.0f * halfMark)
+           << "\" fill=\"#ffd166\" stroke=\"#111111\" vector-effect=\"non-scaling-stroke\" stroke-width=\"" << strokeWidth << "\" />\n";
+        break;
+    case SvgLegendSymbol::ORIGIN:
+        ss << "<g stroke=\"#008000\" stroke-width=\"" << strokeWidth << "\">"
+           << "<line vector-effect=\"non-scaling-stroke\" x1=\"" << (centerX - halfMark) << "\" y1=\"" << y << "\" x2=\"" << (centerX + halfMark)
+           << "\" y2=\"" << y << "\" /><line vector-effect=\"non-scaling-stroke\" x1=\"" << centerX << "\" y1=\"" << (y - halfMark)
+           << "\" x2=\"" << centerX << "\" y2=\"" << (y + halfMark) << "\" /></g>\n";
+        break;
+    }
+
+    ss << "<text x=\"" << (x + 2.6f * fontSize) << "\" y=\"" << y
+       << "\" fill=\"#222222\" font-size=\"" << fontSize
+       << "\" dominant-baseline=\"middle\">" << label << "</text>\n";
 }
 
 static void write_svg(const char *path,
@@ -159,14 +253,23 @@ static void write_svg(const char *path,
                       bool show_seq_numbers = true,
                       const char *input_base_name = nullptr,
                       float tool_radius = 0.0f,
-                      bool plot_invalid_elements = false)
+                      bool plot_invalid_elements = false,
+                      const char *source_label = nullptr,
+                      bool emphasize_paths = false)
 {
     Bounds b;
     auto accumulate_bounds = [&](const std::vector<Move2D> &mv, bool onlyValid)
     {
         for (auto &m : mv)
         {
-            if (onlyValid && (!m.valid || m.type == MOT_EMPTY))
+            if (onlyValid && !m.valid)
+                continue;
+            if (is_svg_pause_marker(m))
+            {
+                b.add(m.p_0);
+                continue;
+            }
+            if (onlyValid && m.type == MOT_EMPTY)
                 continue;
             auto pts = approx_move_points(m);
             for (auto &p : pts)
@@ -182,13 +285,52 @@ static void write_svg(const char *path,
     float minx = b.minx - pad, miny = b.miny - pad;
     float w = (b.maxx - b.minx) + 2 * pad;
     float h = (b.maxy - b.miny) + 2 * pad;
+     const float textSize = 0.015f * std::max(w, h);
+     const float originX = mirror_x ? b.maxx + b.minx : 0.0f;
+     const float originY = mirror_y ? b.maxy + b.miny : 0.0f;
+    const float originMarkSize = 0.01f * std::max(w, h);
+    const float originExtent = 2.0f * originMarkSize;
+    const float scale = std::max(w, h);
+    const float legendFontSize = 0.009f * scale;
+    const float legendPadding = 0.6f * legendFontSize;
+    const float legendGap = 0.035f * scale;
+    bool hasRapid = false;
+    bool hasPause = false;
+    if (original)
+    {
+        for (const Move2D &m : *original)
+        {
+            hasRapid = hasRapid || (m.valid && m.type == MOT_RAPID);
+            hasPause = hasPause || (m.valid && is_svg_pause_marker(m));
+        }
+    }
+    for (const Move2D &m : moves)
+    {
+        hasRapid = hasRapid || (m.valid && m.type == MOT_RAPID);
+        hasPause = hasPause || (m.valid && is_svg_pause_marker(m));
+    }
+    const bool showSweepLegend = show_tool_sweep && tool_diameter > 0.0f;
+    const bool showCirclesLegend = show_tool_circles && !show_tool_sweep && tool_diameter > 0.0f;
+    const int legendCount = 1 + (original ? 1 : 0) + (hasRapid ? 1 : 0) +
+                            (showSweepLegend ? 1 : 0) + (showCirclesLegend ? 1 : 0) +
+                            (hasPause ? 1 : 0) + 1;
+    const float legendY = miny + h + legendGap;
+    const float legendHeight = 2.0f * legendPadding + 1.5f * legendFontSize;
+     const float viewMinX = std::min(minx, originX - originExtent);
+     const float viewMinY = std::min(miny, originY - originExtent);
+    const float baseViewMaxX = std::max(minx + w, originX + originExtent);
+    const float requiredLegendWidth = legendCount * 12.5f * legendFontSize + 2.0f * legendGap;
+    const float viewMaxX = std::max(baseViewMaxX, viewMinX + requiredLegendWidth);
+    const float viewMaxY = std::max(std::max(miny + h, originY + originExtent), legendY + legendHeight + legendPadding);
     std::ostringstream ss;
     ss << "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\""
-       << minx << " " << miny << " " << w << " " << h << "\">\n";
-    ss << "<rect x=\"" << minx << "\" y=\"" << miny << "\" width=\"" << w
-       << "\" height=\"" << h << "\" fill=\"white\" />\n";
-    const float textSize = 0.015f * std::max(w, h);
+         << viewMinX << " " << viewMinY << " " << (viewMaxX - viewMinX) << " "
+         << (viewMaxY - viewMinY) << "\">\n";
+     ss << "<rect x=\"" << viewMinX << "\" y=\"" << viewMinY << "\" width=\"" << (viewMaxX - viewMinX)
+         << "\" height=\"" << (viewMaxY - viewMinY) << "\" fill=\"white\" />\n";
     const float textNudge = 0.015f * std::max(w, h);
+    const float pathWidth = emphasize_paths ? 2.0f : 1.0f;
+    const float dashLength = 4.0f * pathWidth;
      if (input_base_name && input_base_name[0] != '\0')
      {
           const float headerX = minx + 0.5f * w;
@@ -196,13 +338,49 @@ static void write_svg(const char *path,
           ss << "<text x=\"" << headerX << "\" y=\"" << headerY
               << "\" fill=\"#111111\" font-size=\"" << textSize
               << "\" text-anchor=\"middle\" dominant-baseline=\"middle\">"
-              << input_base_name << "  |  tool radius=" << tool_radius << "</text>\n";
+              << input_base_name;
+          if (source_label)
+              ss << "  |  " << source_label;
+          ss << "  |  tool dia.=" << fabsf(tool_radius * 2.0f) << "</text>\n";
      }
+    const float legendEntryY = legendY + legendPadding + 0.5f * legendFontSize;
+    const float legendEntryWidth = (viewMaxX - viewMinX - 2.0f * legendGap) / legendCount;
+    float legendEntryX = viewMinX + legendGap;
+    svg_legend_entry(ss, legendEntryX, legendEntryY, legendFontSize, SvgLegendSymbol::COMPENSATED, "Compensated");
+    legendEntryX += legendEntryWidth;
+    if (original)
+    {
+        svg_legend_entry(ss, legendEntryX, legendEntryY, legendFontSize, SvgLegendSymbol::ORIGINAL, "Original");
+        legendEntryX += legendEntryWidth;
+    }
+    if (hasRapid)
+    {
+        svg_legend_entry(ss, legendEntryX, legendEntryY, legendFontSize, SvgLegendSymbol::RAPID, "Rapid");
+        legendEntryX += legendEntryWidth;
+    }
+    if (showSweepLegend)
+    {
+        svg_legend_entry(ss, legendEntryX, legendEntryY, legendFontSize, SvgLegendSymbol::TOOL_SWEEP, "Tool sweep");
+        legendEntryX += legendEntryWidth;
+    }
+    if (showCirclesLegend)
+    {
+        svg_legend_entry(ss, legendEntryX, legendEntryY, legendFontSize, SvgLegendSymbol::TOOL_CIRCLES, "Tool dia.");
+        legendEntryX += legendEntryWidth;
+    }
+    if (hasPause)
+    {
+        svg_legend_entry(ss, legendEntryX, legendEntryY, legendFontSize, SvgLegendSymbol::PAUSE, "Pause");
+        legendEntryX += legendEntryWidth;
+    }
+    svg_legend_entry(ss, legendEntryX, legendEntryY, legendFontSize, SvgLegendSymbol::ORIGIN, "Origin");
     if (original)
     {
         for (auto &m : *original)
         {
-            if (m.type == MOT_EMPTY || !m.valid)
+            if (!m.valid)
+                continue;
+            if (m.type == MOT_EMPTY)
                 continue;
             auto pts = approx_move_points(m);
             for (auto &p : pts)
@@ -215,11 +393,11 @@ static void write_svg(const char *path,
             // Use dashed style for rapid moves, solid for others
             if (m.type == MOT_RAPID)
             {
-                svg_polyline_dashed(ss, pts, "#888888", 0.003f); // Gray color for rapid moves
+                svg_polyline_dashed(ss, pts, "#888888", pathWidth, dashLength); // Gray color for rapid moves
             }
             else
             {
-                svg_polyline(ss, pts, "#1f77b4", 0.005f);
+                svg_polyline(ss, pts, "#1f77b4", pathWidth);
             }
             if (!pts.empty())
             {
@@ -313,16 +491,26 @@ static void write_svg(const char *path,
                     float t = (float)s / (float)nsteps;
                     float x = p0.x + t * (p1.x - p0.x);
                     float y = p0.y + t * (p1.y - p0.y);
-                    ss << "<circle cx=\"" << x << "\" cy=\"" << y << "\" r=\"" << (0.5f * tool_diameter) << "\" stroke=\"#888\" stroke-width=\"0.001\" fill=\"none\" stroke-dasharray=\"0.01,0.01\" />\n";
+                    ss << "<circle cx=\"" << x << "\" cy=\"" << y << "\" r=\"" << (0.5f * tool_diameter) << "\" stroke=\"#888\" vector-effect=\"non-scaling-stroke\" stroke-width=\"1\" fill=\"none\" stroke-dasharray=\"4,4\" />\n";
                 }
             }
         }
     }
     for (auto &m : moves)
     {
-        if (m.type == MOT_EMPTY)
-            continue;
         if (!plot_invalid_elements && !m.valid)
+            continue;
+        if (is_svg_pause_marker(m))
+        {
+            Vec2 p = m.p_0;
+            if (mirror_x)
+                p.x = b.maxx + b.minx - p.x;
+            if (mirror_y)
+                p.y = b.maxy + b.miny - p.y;
+            svg_pause_marker(ss, p, 0.02f * std::max(w, h), m.pauseKind);
+            continue;
+        }
+        if (m.type == MOT_EMPTY)
             continue;
         auto pts = approx_move_points(m);
         for (auto &p : pts)
@@ -336,11 +524,11 @@ static void write_svg(const char *path,
         // Use dashed style for rapid moves, solid for others
         if (m.type == MOT_RAPID && m.valid)
         {
-            svg_polyline_dashed(ss, pts, "#888888"); // Gray color for rapid moves
+            svg_polyline_dashed(ss, pts, "#888888", pathWidth, dashLength); // Gray color for rapid moves
         }
         else
         {
-            svg_polyline(ss, pts, moveColor);
+            svg_polyline(ss, pts, moveColor, pathWidth);
         }
         if (!pts.empty())
         {
@@ -361,7 +549,14 @@ static void write_svg(const char *path,
                << m.lineNum << "</text>\n";
         }
     }
-    ss << "</svg>\n";
+     const float originStrokeWidth = 1.0f;
+     ss << "<g stroke=\"#008000\" stroke-width=\"" << originStrokeWidth << "\">\n"
+         << "<line vector-effect=\"non-scaling-stroke\" x1=\"" << (originX - originMarkSize) << "\" y1=\"" << originY
+         << "\" x2=\"" << (originX + originMarkSize) << "\" y2=\"" << originY << "\" />\n"
+         << "<line vector-effect=\"non-scaling-stroke\" x1=\"" << originX << "\" y1=\"" << (originY - originMarkSize)
+         << "\" x2=\"" << originX << "\" y2=\"" << (originY + originMarkSize) << "\" />\n"
+         << "</g>\n";
+     ss << "</svg>\n";
     std::ofstream out(path, std::ios::binary);
     out << ss.str();
 }

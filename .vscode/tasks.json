@@ -29,22 +29,25 @@
 		{
 			"label": "Copy cutter_comp to GRBLHAL Due",
 			"type": "shell",
-			"command": "Copy-Item -Path 'mcu/cutter_comp*' -Destination 'D:\\Repos\\SAM3X8E\\grblHAL_Due\\src\\grbl' -Force;",
+			"command": "Copy-Item -Path 'mcu/cutter_comp.c','mcu/cutter_comp.h' -Destination 'D:\\Repos\\SAM3X8E\\grblHAL_Due\\src\\grbl' -Force;",
 			"problemMatcher": []
 		},
 		{
-			"label": "Copy cutter_comp to GRBLHAL Teensy",
+			"label": "Copy cutter_comp to Teensy",
 			"type": "shell",
-			"command": "Copy-Item -Path 'mcu/cutter_comp*' -Destination 'D:\\Repos\\iMXRT1062\\grblHAL_Teensy4\\src\\grbl' -Force;",
+			"command": "Copy-Item -Path 'mcu/cutter_comp.c','mcu/cutter_comp.h' -Destination 'D:\\Repos\\iMXRT1062\\grblHAL_Teensy4\\src\\grbl\\cutter_comp' -Force;",
 			"problemMatcher": []
 		},
 		{
-			"label": "Copy cutter_comp to all GRBLHAL targets",
-			"dependsOn": [
-				"Copy cutter_comp to GRBLHAL Due",
-				"Copy cutter_comp to GRBLHAL Teensy"
-			],
-			"dependsOrder": "sequence",
+			"label": "Copy cutter_comp to GRBLHAL CutterComp Plugin repo",
+			"type": "shell",
+			"command": "Copy-Item -Path 'mcu/cutter_comp.c','mcu/cutter_comp.h' -Destination 'D:\\Repos\\grblHALCutterComp' -Force;",
+			"problemMatcher": []
+		},
+		{
+			"label": "Copy all NC and MCU SVG outputs to GRBLHAL Misc",
+			"type": "shell",
+			"command": "$workspace = '${workspaceFolder}'; $dataDir = Join-Path $workspace 'data'; $outputDir = Join-Path $workspace 'output'; $destination = 'D:\\Repos\\grblHALCutterComp\\Misc'; $files = @(Get-ChildItem -LiteralPath $dataDir -Filter '*.nc' -File) + @(Get-ChildItem -LiteralPath $outputDir -Filter '*.mcu.svg' -File); if ($files.Count -eq 0) { throw 'No NC or MCU SVG files found to copy.' }; New-Item -ItemType Directory -Path $destination -Force | Out-Null; Copy-Item -LiteralPath $files.FullName -Destination $destination -Force; Write-Host ('Copied ' + $files.Count + ' file(s) to ' + $destination + '.')",
 			"problemMatcher": []
 		}
 	]
