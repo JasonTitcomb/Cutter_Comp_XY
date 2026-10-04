@@ -14,13 +14,15 @@ incorrectly. Review the code and test carefully before using it on real hardware
 - Motion support: `G0`, `G1`, `G2`, `G3` in XY (`G17`).
 - Coordinate modes: `G90` absolute and `G91` incremental.
 - Arc input formats: `I/J` incremental center offsets and `R`-based arc definition.
+- Planar and helical full-circle arcs using I/J centers and explicit XYZ words.
+- Positive-integer `P` turn counts on `G2`/`G3` in the C++ and C# runners, with multi-turn support through the MCU grblHAL adapter.
 - Comment stripping support for both `;` and `( ... )` comments.
 - Corner rolling / bevel-style transition behavior.
 - Optional global self-intersection trimming and geometry cleanup pass.
 - Configurable look ahead for gouge detection and buffer sizing.
 - +- offset values supported for wear compensation.
 - Incremental/Absolute support.
-- Z allowed but is simply passed through.
+- Z-only moves are preserved; helical arcs retain Z travel, interpolated over total angular travel when expanded into turns or half-circles.
 - Global self intersections are ignored when Z does not match between pairwise comparisons to allow for thread milling.
 
 ## Project Layout
@@ -37,8 +39,10 @@ incorrectly. Review the code and test carefully before using it on real hardware
 1. Build `cc_runner` with the VS Code CMake task (`CMake: build`).
 2. Run the executable from the CMake build output (or launch via your IDE profile).
 3. Input/output behavior:
-	 - If no CLI args are provided, the host uses the default file configured in `host/main_host.cpp`.
-	 - You can pass args: `cc_runner [inputfile] [outputfolder] [toolradius] [roll|chamfer] [svg|nosvg]`.
+	 - With no CLI args, or with `all` as the first argument, the host runs the default file list configured in `host/main_host.cpp`.
+	 - You can pass args: `cc_runner [inputfile|all] [outputfolder] [toolradius] [roll|chamfer] [svg|nosvg]`.
+	 - Default input/output paths are relative to the working directory: `../../data/` and `../../output/`, intended for execution from `build/Debug/`. A single-file invocation can instead supply explicit paths.
+	 - A zero or omitted tool-radius override uses half the input D diameter at compensation entry.
 4. Generated outputs in `output/`:
 	 - `<input>.<ext>` - compensated toolpath G-code (keeps input extension when present)
 	 - `<input>.host.svg` - compensated vs original overlay
@@ -48,6 +52,8 @@ incorrectly. Review the code and test carefully before using it on real hardware
 SVG paths use non-scaling strokes: 1 px normally and 2 px for emphasized MCU paths, independent of geometry size or SVG viewport scaling. Rapid dash lengths and marker outlines are also screen-space sizes. Tool-circle radii and tool-sweep widths remain in geometry units to show the actual tool diameter. Regenerate existing SVGs after rebuilding to apply this styling.
 
 SVG titles display the tool diameter as `tool dia.` (twice the absolute tool radius). The runner's tool-size argument remains a radius.
+
+SVGs are XY projections, not verification of helical Z travel. The current SVG arc sampler treats coincident start/end points as zero sweep, so unsplit full circles can disappear from host or original-path plots. It also does not visualize additional P turns. MCU-emitted full circles are split into half-circles and can therefore look correct even when the host plot omits a complete turn. Check generated G-code and controller arc semantics rather than relying on the plots alone.
 
 The C++ host and MCU use a physical equality/proximity tolerance of 0.0001 mm (0.0001 / 25.4 in in G20 mode), separately from the angular endpoint tolerance of 8 times `FLT_EPSILON` radians. Unit-vector and segment-parameter thresholds do not scale with program units. The C++ helpers share the active unit setting, like the existing arc/gap tolerances; interleaved or concurrent engines with different units are not supported.
 
@@ -68,6 +74,17 @@ Input examples are provided under `data/` (`G41_1.nc`, `G42_1.nc`, `TortureTestG
 The default host test-file list includes `TortureTestG90LARGE2X.nc`, a twice-size copy of `TortureTestG90LARGE.nc`. All XYZ coordinates, I/J arc offsets, and the D tool diameter are doubled; feeds, units, motion modes, and move count are unchanged. After scaling, I/J centers at N31, N40, N49, N53, N54, and N58 are minimally adjusted to bring start/end radius discrepancies within the fixed arc tolerance without changing endpoints. All numeric words use at most four decimal places.
 
 The normal runner also visualizes the MCU path without flashing a board. Run `cc_runner data/Sample3.nc output 0.065` from the repository root after building `cc_runner`; it writes `output/Sample3.mcu.svg` alongside the host SVG and comparison report. The radius argument follows the program's units at compensation entry (0.065 in = 1.651 mm for G20). The MCU core always receives mm; G20 motion coordinates, I/J, R, Z, and feed are converted by the host scanner. This tests the MCU compensation core and grblHAL shim, not the firmware G-code parser or motion planner.
+
+## Full Circles, Helices, and Arc Turns
+- For `G2`/`G3`, omitted P means one turn. A positive integer P requests P - 1 complete circles followed by the arc to the programmed endpoint. If that endpoint equals the start, the final arc is another complete circle.
+- For example, `G3 X0 Y1 Z-0.4 I-1 J0 P3`, starting at X1 Y0 Z-0.1, makes two complete CCW circles followed by a quarter-circle. Z is distributed over the entire 2.25 revolutions, not applied once per circle.
+- The C++ runner expands compensated multi-turn arcs into individual turns. The MCU API and C# runner split full circles into two half-circles, including midpoint Z interpolation. The grblHAL adapter accepts signed turn counts: positive for CCW, negative for CW.
+- Compensated multi-turn arcs are rejected on G41/G42/G40 entry or exit moves by the C++ and C# runners. The MCU API and C# runner also reject full-circle entry/exit moves. Use separate line lead-in and lead-out moves.
+- Arc merging does not combine opposite directions, changing-Z arcs, or arcs whose combined travel reaches a complete revolution.
+- Outside compensation, the runners retain raw input blocks; they do not expand P arcs into separate output blocks.
+- The host and C# scanners currently require an XYZ word to recognize an arc. I/J-only full-circle blocks without XYZ are not supported; supply explicit endpoint coordinates (or a Z endpoint for a helix). R cannot uniquely specify a full-circle center; use I/J.
+- Arc P validation is intended for positive integers, but upper-bound and nonfinite checks before integer conversion are not yet complete. Very large or nonfinite P values are not supported test inputs.
+- `cc_runner_modal` covers P3 helical Z distribution, P40 buffer handling, fractional-P rejection, and merge/trim combinations. `cc_junction_recovery` covers MCU planar/helical full circles, both directions, lookahead on/off, full-circle entry rejection, same-circle continuation, and tiny corner connectors. C# turn behavior has been checked manually; there is no persistent C# automated test project.
 
 ## Arduino / PlatformIO
 - Configured environments are defined in `platformio.ini`:
