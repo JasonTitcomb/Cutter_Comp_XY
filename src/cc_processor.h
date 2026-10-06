@@ -1155,7 +1155,11 @@ private:
         // define chamfer end points
         cap.p_0 = ipForL1;
         cap.p_1 = ipForL2;
-        // if the cap length is smaller than the tolerance.
+        if (dist(cap.p_0, cap.p_1) < TOL)
+        {
+            outmove[0] = makeBevel(a, b);
+            return 1;
+        }
         if (!validate(cap))
             return 0;
 

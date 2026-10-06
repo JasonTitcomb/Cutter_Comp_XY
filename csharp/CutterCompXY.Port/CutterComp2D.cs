@@ -1056,6 +1056,11 @@ public sealed class CutterComp2D
 
         cap.p_0 = ipForL1;
         cap.p_1 = ipForL2;
+        if (CcMath.Len(cap.p_1 - cap.p_0) < CcConst.TOL)
+        {
+            output[0] = MakeBevel(a, b);
+            return 1;
+        }
         if (!Validate(ref cap))
             return 0;
 

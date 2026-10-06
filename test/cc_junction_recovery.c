@@ -422,8 +422,41 @@ static bool check_shared_lead_endpoint(void)
            ctx.status == cc_status_CompInCrossing && ctx.lastLineNum == 13;
 }
 
+static bool check_tiny_chamfer(float capLength)
+{
+    cc_context ctx;
+    cc_init_internal(&ctx, 1.0f);
+    ctx.compSide = CC_COMP_LEFT;
+    float cornerX = sqrtf(2.0f) - 1.0f;
+    float lineX = cornerX + capLength * CC_TOL / sqrtf(2.0f);
+    move2d first = line_move(-2.0f, 0.0f, 0.0f, 0.0f);
+    move2d second = line_move(lineX, 1.0f, lineX, -2.0f);
+    first.z_1 = second.z_0 = second.z_1 = -1.0f;
+    first.feed = 123.0f;
+    vec2 firstEnd = first.p_1;
+    vec2 secondStart = second.p_0;
+    move2d inserts[3];
+    if (cc_make_corner_treatment(&ctx, &first, &second, inserts) != 1 ||
+        ctx.stopErr || inserts[0].type != CC_MOT_LINE || !inserts[0].valid ||
+        !cc_same_point(inserts[0].p_0, first.p_1) ||
+        !cc_same_point(inserts[0].p_1, second.p_0) ||
+        inserts[0].z_0 != -1.0f || inserts[0].z_1 != -1.0f ||
+        inserts[0].feed != first.feed || cc_dist(inserts[0].p_0, inserts[0].p_1) < CC_TOL)
+        return false;
+    if (capLength < 1.0f)
+        return cc_same_point(first.p_1, firstEnd) && cc_same_point(second.p_0, secondStart);
+    return !cc_same_point(first.p_1, firstEnd) && !cc_same_point(second.p_0, secondStart);
+}
+
 int main(void)
 {
+    const float capLengths[] = {0.0f, 0.5f, 2.0f};
+    for (int index = 0; index < 3; ++index)
+        if (!check_tiny_chamfer(capLengths[index]))
+        {
+            puts("tiny chamfer fallback or normal chamfer continuity failed");
+            return 1;
+        }
     cc_context ctx;
     move2d previous = line_move(-1.0f, 0.0f, 0.0f, 0.0f);
     move2d collapsed = line_move(0.0f, 0.0f, 1.0f, 0.0f);

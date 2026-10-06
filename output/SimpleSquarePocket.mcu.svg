@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.07944 -0.07944 1.74768 1.72045">
 <rect x="-0.07944" y="-0.07944" width="1.74768" height="1.72045" fill="white" />
-<text x="0.7944" y="-0.0401172" fill="#111111" font-size="0.0262152" text-anchor="middle" dominant-baseline="middle">SimpleSquarePocket  |  MCU  |  tool dia.=0.13</text>
+<text x="0.7944" y="-0.0401172" fill="#111111" font-size="0.0262152" text-anchor="middle" dominant-baseline="middle">SimpleSquarePocket  |  MCU  |  tool dia.=0.13 mm</text>
 <line x1="-0.0151254" y1="1.60641" x2="0.013187" y2="1.60641" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
 <text x="0.0226245" y="1.60641" fill="#222222" font-size="0.0157291" dominant-baseline="middle">Compensated</text>
 <line x1="0.309943" y1="1.60641" x2="0.338256" y2="1.60641" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />

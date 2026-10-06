@@ -971,7 +971,8 @@ int main(int argc, char *argv[])
     if (toolRadius == 0.0f)
       toolRadius = comp_tool_radius_from_diameter(program);
 
-    const float mcuRadiusMm = comp_starts_in_inches(program) ? toolRadius * 25.4f : toolRadius;
+    const bool toolInches = comp_starts_in_inches(program);
+    const float mcuRadiusMm = toolInches ? toolRadius * 25.4f : toolRadius;
 
     const bool isvalid = run_profile_streaming(input_file, ngcPath.c_str(), toolRadius, cornerTreatment);
     if (!isvalid)
@@ -1005,10 +1006,11 @@ int main(int argc, char *argv[])
                               invalidFullCount, invalidSimpleCount);
 
       write_svg(svgPath.c_str(), compensatedVisible, &orig, false, true, fabs(toolRadius * 2.0f),
-                false, true, false, inputBaseName.c_str(), toolRadius, false, "Host"); // mirror for better visualization
+                false, true, false, inputBaseName.c_str(), toolRadius, false, "Host", false,
+                toolInches ? UNITS_INCH : UNITS_MM); // mirror for better visualization
       auto originalMm = build_original_moves(program, true);
       write_svg(simpleSvgPath.c_str(), simpleVisible, &originalMm, false, true, fabs(mcuRadiusMm * 2.0f),
-                false, true, false, inputBaseName.c_str(), mcuRadiusMm, false, "MCU", true);
+                false, true, false, inputBaseName.c_str(), mcuRadiusMm, false, "MCU", true, UNITS_MM);
       //std::printf("Wrote: %s, %s, %s, %s (full)\n", svgPath.c_str(), simpleSvgPath.c_str(), comparePath.c_str(), ngcPath.c_str());
     }
     else

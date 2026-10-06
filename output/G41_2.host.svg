@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-2.28007 -0.205 3.98507 4.8018">
 <rect x="-2.28007" y="-0.205" width="3.98507" height="4.8018" fill="white" />
-<text x="-0.287534" y="-0.103525" fill="#111111" font-size="0.06765" text-anchor="middle" dominant-baseline="middle">G41_2  |  Host  |  tool dia.=0.13</text>
+<text x="-0.287534" y="-0.103525" fill="#111111" font-size="0.06765" text-anchor="middle" dominant-baseline="middle">G41_2  |  Host  |  tool dia.=0.13 mm</text>
 <line x1="-2.1141" y1="4.5075" x2="-2.04104" y2="4.5075" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
 <text x="-2.01668" y="4.5075" fill="#222222" font-size="0.04059" dominant-baseline="middle">Compensated</text>
 <line x1="-1.38023" y1="4.5075" x2="-1.30717" y2="4.5075" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />

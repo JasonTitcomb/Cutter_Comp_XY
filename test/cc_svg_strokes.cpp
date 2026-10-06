@@ -4,7 +4,7 @@
 #include <iterator>
 #include "../host/writer.h"
 
-static bool check_svg_strokes(float scale, bool emphasize, bool sweep)
+static bool check_svg_strokes(float scale, bool emphasize, bool sweep, Units units)
 {
     std::vector<Move2D> moves(3);
     moves[0].valid = true;
@@ -23,7 +23,7 @@ static bool check_svg_strokes(float scale, bool emphasize, bool sweep)
     const char *path = "cc_svg_strokes.svg";
     const float diameter = 0.25f * scale;
     write_svg(path, moves, &moves, false, false, diameter, !sweep, sweep,
-              false, "SVG test", 0.5f * diameter, false, nullptr, emphasize);
+              false, "SVG test", 0.5f * diameter, false, nullptr, emphasize, units);
     std::ifstream input(path, std::ios::binary);
     if (!input)
     {
@@ -39,7 +39,8 @@ static bool check_svg_strokes(float scale, bool emphasize, bool sweep)
     }
 
     std::ostringstream expectedTitle;
-    expectedTitle << "tool dia.=" << diameter << "</text>";
+    expectedTitle << "tool dia.=" << diameter
+                  << (units == UNITS_INCH ? " in" : " mm") << "</text>";
     if (svg.find(expectedTitle.str()) == std::string::npos ||
         svg.find("tool radius=") != std::string::npos)
         return false;
@@ -100,11 +101,15 @@ int main()
         {
             for (int sweep = 0; sweep < 2; ++sweep)
             {
-                if (!check_svg_strokes(scale, emphasize != 0, sweep != 0))
+                for (int inches = 0; inches < 2; ++inches)
                 {
-                    std::fprintf(stderr, "SVG stroke check failed: scale=%g emphasize=%d sweep=%d\n",
-                                 scale, emphasize, sweep);
-                    return 1;
+                    if (!check_svg_strokes(scale, emphasize != 0, sweep != 0,
+                                           inches ? UNITS_INCH : UNITS_MM))
+                    {
+                        std::fprintf(stderr, "SVG stroke check failed: scale=%g emphasize=%d sweep=%d inches=%d\n",
+                                     scale, emphasize, sweep, inches);
+                        return 1;
+                    }
                 }
             }
         }

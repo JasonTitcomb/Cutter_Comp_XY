@@ -124,17 +124,20 @@ static std::vector<SweepAttempt> sweep_program(const std::vector<std::string> &p
   return attempts;
 }
 
-static std::string sweep_html_escape(const std::string &text)
+static std::string sweep_markdown_escape(const std::string &text)
 {
   std::string escaped;
   for (char character : text)
   {
     switch (character)
     {
+    case '\\': escaped += "\\\\"; break;
+    case '|': escaped += "\\|"; break;
     case '&': escaped += "&amp;"; break;
     case '<': escaped += "&lt;"; break;
     case '>': escaped += "&gt;"; break;
-    case '"': escaped += "&quot;"; break;
+    case '\r':
+    case '\n': escaped += ' '; break;
     default: escaped += character; break;
     }
   }
@@ -162,43 +165,6 @@ static size_t sweep_increment_count(const std::vector<SweepAttempt> &attempts)
   return attempts.empty() ? 0 : attempts.size() - 1;
 }
 
-static void sweep_write_file_details(std::ostream &report, const SweepFileResult &file)
-{
-  const std::vector<SweepAttempt> &attempts = file.attempts;
-  const double finalDiameter = sweep_final_diameter(attempts);
-  const SweepAttempt &last = attempts.back();
-  report << "<details><summary>" << sweep_html_escape(file.input) << "</summary>"
-         << "<p>Units at first compensation entry: " << (file.inches ? "inch" : "mm") << ".</p>"
-         << "<p><strong>Final successfully processed tool diameter: ";
-  if (finalDiameter > 0.0)
-    report << finalDiameter << " in / " << finalDiameter * 25.4 << " mm";
-  else
-    report << "None (the initial diameter failed)";
-  report << "</strong></p><p>Termination: "
-         << (last.success ? "Reached maximum diameter (1.0 in)." : "Stopped at first processing error.")
-         << " Attempts: " << attempts.size()
-         << "; increments executed: " << sweep_increment_count(attempts) << ".</p>";
-  if (!last.success)
-    report << "<p>First failed diameter: " << last.diameterIn << " in / "
-           << last.diameterIn * 25.4 << " mm; error code: " << last.diagnostic.code
-           << "; source line: " << last.diagnostic.line << "; "
-           << sweep_html_escape(last.diagnostic.message) << "</p>";
-  report << "<table><thead><tr><th>Attempt</th><th>Diameter (in)</th><th>Diameter (mm)</th>"
-         << "<th>Offset radius (entry units)</th><th>Result</th><th>Error code</th>"
-         << "<th>Source line</th><th>Message</th></tr></thead><tbody>";
-  for (size_t index = 0; index < attempts.size(); ++index)
-  {
-    const SweepAttempt &attempt = attempts[index];
-    report << "<tr><td>" << index + 1 << "</td><td>" << attempt.diameterIn << "</td><td>"
-           << attempt.diameterIn * 25.4 << "</td><td>"
-           << attempt.diameterIn * (file.inches ? 1.0 : 25.4) * 0.5 << "</td><td>"
-           << (attempt.success ? "Success" : "Error") << "</td><td>"
-           << attempt.diagnostic.code << "</td><td>" << attempt.diagnostic.line << "</td><td>"
-           << sweep_html_escape(attempt.diagnostic.message) << "</td></tr>";
-  }
-  report << "</tbody></table></details>\n";
-}
-
 static bool sweep_write_report(const std::filesystem::path &path, bool mcu,
                                const std::vector<SweepFileResult> &files)
 {
@@ -208,49 +174,39 @@ static bool sweep_write_report(const std::filesystem::path &path, bool mcu,
     std::fprintf(stderr, "Cannot open sweep report: %s\n", path.string().c_str());
     return false;
   }
-  report << "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-         << "<title>" << (mcu ? "MCU" : "Host") << " diameter sweep</title>"
-         << "<style>body{font-family:system-ui;margin:2em}table{border-collapse:collapse}"
-         << "th,td{border:1px solid #aaa;padding:.4em;text-align:left}"
-         << "details{margin:1em 0}summary{cursor:pointer;font-weight:bold}</style></head><body>"
-         << "<h1>" << (mcu ? "MCU" : "Host") << " diameter sweep</h1><p>Engine: "
+  report << "# " << (mcu ? "MCU" : "Host") << " diameter sweep\n\nEngine: "
          << (mcu ? "MCU C99 core / desktop grblHAL shim" : "Host C++ runner")
-         << "</p><p>Tool diameter: 0.0001 in to 1.0 in; increment: 1.123% "
+         << "\n\nTool diameter: 0.0001 in to 1.0 in; increment: 1.123% "
          << "(multiply by 1.01123); offset radius = diameter / 2. "
-         << "Roll corners, crossing lookahead enabled, merging disabled.</p>"
-         << "<p>Increments executed counts diameter increases after the initial 0.0001 in attempt, "
+         << (CORNER_TREATMENT == CORNER_CHAMFER ? "Chamfer corners" : "Roll corners")
+         << ", crossing lookahead " << (GLOBAL_TRIM_CROSSING ? "enabled" : "disabled")
+         << ", merging " << (GLOBAL_MERGE ? "enabled" : "disabled") << "."
+         << "\n\nIncrements executed counts diameter increases after the initial 0.0001 in attempt, "
          << "including the increase to a failed attempt or the clamped 1.0 in endpoint. "
-         << "Total attempts = increments + 1.</p>"
-         << "<p>Files processed: " << files.size() << ".</p>"
-         << "<table><thead><tr><th>File</th><th>Entry units</th><th>Final diameter (in)</th>"
-         << "<th>Final diameter (mm)</th><th>Increments executed</th><th>Total attempts</th>"
-         << "<th>Termination</th><th>First failed diameter (in)</th><th>Error code</th>"
-         << "<th>Source line</th><th>Message</th></tr></thead><tbody>"
+         << "Total attempts = increments + 1.\n\nFiles processed: " << files.size() << ".\n\n"
+         << "| File | Entry units | Final diameter (in) | Final diameter (mm) | Increments executed | Total attempts | Termination | First failed diameter (in) | Error code | Source line | Message |\n"
+         << "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | --- |\n"
          << std::fixed << std::setprecision(9);
   for (const SweepFileResult &file : files)
   {
     const double finalDiameter = sweep_final_diameter(file.attempts);
     const SweepAttempt &last = file.attempts.back();
-    report << "<tr><td>" << sweep_html_escape(std::filesystem::path(file.input).filename().string())
-           << "</td><td>" << (file.inches ? "inch" : "mm") << "</td><td>";
+    report << "| " << sweep_markdown_escape(std::filesystem::path(file.input).filename().string())
+           << " | " << (file.inches ? "inch" : "mm") << " | ";
     if (finalDiameter > 0.0)
-      report << finalDiameter << "</td><td>" << finalDiameter * 25.4;
+      report << finalDiameter << " | " << finalDiameter * 25.4;
     else
-      report << "None</td><td>None";
-    report << "</td><td>" << sweep_increment_count(file.attempts) << "</td><td>"
-           << file.attempts.size() << "</td><td>" << (last.success ? "Maximum reached" : "First error")
-           << "</td><td>";
+      report << "None | None";
+    report << " | " << sweep_increment_count(file.attempts) << " | "
+           << file.attempts.size() << " | " << (last.success ? "Maximum reached" : "First error")
+           << " | ";
     if (!last.success)
       report << last.diameterIn;
     else
       report << "-";
-    report << "</td><td>" << last.diagnostic.code << "</td><td>" << last.diagnostic.line
-           << "</td><td>" << sweep_html_escape(last.diagnostic.message) << "</td></tr>";
+    report << " | " << last.diagnostic.code << " | " << last.diagnostic.line
+           << " | " << sweep_markdown_escape(last.diagnostic.message) << " |\n";
   }
-  report << "</tbody></table><h2>Per-file attempt details</h2>";
-  for (const SweepFileResult &file : files)
-    sweep_write_file_details(report, file);
-  report << "</body></html>\n";
   report.close();
   if (!report)
   {
@@ -328,7 +284,7 @@ static int sweep_main(int argc, char *argv[], const char *const *defaultFiles, s
                    input.c_str(), attempts.back().diameterIn, attempts.back().diagnostic.code,
                    (unsigned)attempts.back().diagnostic.line, attempts.back().diagnostic.message.c_str());
   }
-  if (!sweep_write_report(output / (mcu ? "mcu.sweep.html" : "host.sweep.html"), mcu, files))
+  if (!sweep_write_report(output / (mcu ? "mcu.sweep.md" : "host.sweep.md"), mcu, files))
     result = 1;
   return result;
 }
@@ -354,15 +310,6 @@ static int sweep_self_test()
       std::fprintf(stderr, "MCU sweep error description failed for code %u\n", (unsigned)code);
       return 1;
     }
-    const SweepFileResult file = {"error.nc", false, {{0.0001, false, diagnostic}}};
-    std::ostringstream report;
-    sweep_write_file_details(report, file);
-    if (report.str().find(expectedMessages[index]) == std::string::npos ||
-        report.str().find("MCU compensation error") != std::string::npos)
-    {
-      std::fprintf(stderr, "MCU sweep HTML error description failed for code %u\n", (unsigned)code);
-      return 1;
-    }
   }
   const std::vector<std::string> inchSquare = {
       "G20 G90 G0 X-2 Y0", "G1 G41 X0 Y0 F10", "X2 Y0", "X2 Y2",
@@ -379,9 +326,25 @@ static int sweep_self_test()
   const std::vector<std::string> mmArc = {
       "G21 G90 G0 X-50.8 Y0", "G1 G41 X25.4 Y0 F254", "G3 X0 Y25.4 I-25.4 J0",
       "G1 X-25.4 Y25.4", "G40 X-50.8 Y25.4"};
+  const std::vector<std::string> smallTorture = load_program_from_file(
+      (std::filesystem::path(CC_SWEEP_DATA_DIR) / "TortureTestG90SMALL.nc").string().c_str());
+  if (smallTorture.empty())
+  {
+    std::fprintf(stderr, "Missing small torture sweep regression input\n");
+    return 1;
+  }
   for (int engine = 0; engine < 2; ++engine)
   {
     const bool mcu = engine != 0;
+    const std::vector<SweepAttempt> smallTortureAttempts = sweep_program(smallTorture, mcu);
+    if (smallTortureAttempts.size() != 460 || smallTortureAttempts.back().success ||
+        std::fabs(sweep_final_diameter(smallTortureAttempts) - 0.016644660) > 1.0e-9 ||
+        std::fabs(smallTortureAttempts.back().diameterIn - 0.016831580) > 1.0e-9 ||
+        smallTortureAttempts.back().diagnostic.code == (mcu ? 107u : 7u))
+    {
+      std::fprintf(stderr, "Small torture sweep stopped early or at an unresolved gap for engine %d\n", engine);
+      return 1;
+    }
     for (int units = 0; units < 2; ++units)
     {
       std::vector<Move2D> outputMoves;
@@ -442,9 +405,9 @@ static int sweep_self_test()
       return 1;
     }
   }
-  if (sweep_html_escape("<&\">") != "&lt;&amp;&quot;&gt;")
+  if (sweep_markdown_escape("a|b\\c\nnext") != "a\\|b\\\\c next")
   {
-    std::fprintf(stderr, "Sweep HTML escaping failed\n");
+    std::fprintf(stderr, "Sweep Markdown escaping failed\n");
     return 1;
   }
   puts("Host and MCU diameter sweep self-tests passed");

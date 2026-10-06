@@ -255,7 +255,8 @@ static void write_svg(const char *path,
                       float tool_radius = 0.0f,
                       bool plot_invalid_elements = false,
                       const char *source_label = nullptr,
-                      bool emphasize_paths = false)
+                      bool emphasize_paths = false,
+                      Units tool_units = UNITS_MM)
 {
     Bounds b;
     auto accumulate_bounds = [&](const std::vector<Move2D> &mv, bool onlyValid)
@@ -341,7 +342,8 @@ static void write_svg(const char *path,
               << input_base_name;
           if (source_label)
               ss << "  |  " << source_label;
-          ss << "  |  tool dia.=" << fabsf(tool_radius * 2.0f) << "</text>\n";
+          ss << "  |  tool dia.=" << fabsf(tool_radius * 2.0f)
+             << (tool_units == UNITS_INCH ? " in" : " mm") << "</text>\n";
      }
     const float legendEntryY = legendY + legendPadding + 0.5f * legendFontSize;
     const float legendEntryWidth = (viewMaxX - viewMinX - 2.0f * legendGap) / legendCount;

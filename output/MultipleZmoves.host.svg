@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 22 13.4234">
 <rect x="-1" y="-1" width="22" height="13.4234" fill="white" />
-<text x="10" y="-0.505" fill="#111111" font-size="0.33" text-anchor="middle" dominant-baseline="middle">MultipleZmoves  |  Host  |  tool dia.=2</text>
+<text x="10" y="-0.505" fill="#111111" font-size="0.33" text-anchor="middle" dominant-baseline="middle">MultipleZmoves  |  Host  |  tool dia.=2 mm</text>
 <line x1="-0.1904" y1="11.9878" x2="0.166" y2="11.9878" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
 <text x="0.2848" y="11.9878" fill="#222222" font-size="0.198" dominant-baseline="middle">Compensated</text>
 <line x1="3.9016" y1="11.9878" x2="4.258" y2="11.9878" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />

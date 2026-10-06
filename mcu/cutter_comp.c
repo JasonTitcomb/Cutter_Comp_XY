@@ -2009,6 +2009,12 @@ static inline int cc_make_corner_treatment(cc_context *ctx, move2d *a, move2d *b
 
     cap.p_0 = ipForL1;
     cap.p_1 = ipForL2;
+    // If the cap is too short, replace it with a bevel instead of using the cap.
+    if (cc_dist(cap.p_0, cap.p_1) < CC_TOL)
+    {
+        outmove[0] = cc_make_bevel(a, b);
+        return 1;
+    }
     if (!cc_validate(ctx, &cap))
         return 0;
 

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-7.54863 -8.81609 23.5758 22.805">
 <rect x="-7.54863" y="-8.81609" width="23.5758" height="22.805" fill="white" />
-<text x="4.23926" y="-8.28563" fill="#111111" font-size="0.353637" text-anchor="middle" dominant-baseline="middle">SimpleSquarePocketOverlap  |  MCU  |  tool dia.=3.175</text>
+<text x="4.23926" y="-8.28563" fill="#111111" font-size="0.353637" text-anchor="middle" dominant-baseline="middle">SimpleSquarePocketOverlap  |  MCU  |  tool dia.=3.175 mm</text>
 <line x1="-6.68104" y1="13.5221" x2="-6.29911" y2="13.5221" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
 <text x="-6.1718" y="13.5221" fill="#222222" font-size="0.212182" dominant-baseline="middle">Compensated</text>
 <line x1="-2.29594" y1="13.5221" x2="-1.91402" y2="13.5221" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />

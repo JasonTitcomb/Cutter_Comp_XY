@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-3.00507 -3.00507 66.1116 45.1948">
 <rect x="-3.00507" y="-3.00507" width="66.1116" height="45.1948" fill="white" />
-<text x="30.0507" y="-1.51756" fill="#111111" font-size="0.991674" text-anchor="middle" dominant-baseline="middle">ThreadMill  |  MCU  |  tool dia.=7.62</text>
+<text x="30.0507" y="-1.51756" fill="#111111" font-size="0.991674" text-anchor="middle" dominant-baseline="middle">ThreadMill  |  MCU  |  tool dia.=7.62 mm</text>
 <line x1="-0.572166" y1="40.8807" x2="0.498842" y2="40.8807" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
 <text x="0.855845" y="40.8807" fill="#222222" font-size="0.595005" dominant-baseline="middle">Compensated</text>
 <line x1="11.7246" y1="40.8807" x2="12.7956" y2="40.8807" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />

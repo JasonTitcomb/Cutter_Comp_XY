@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-10.3633 -9.30923 132.606 88.5391">
 <rect x="-10.3633" y="-9.30923" width="132.606" height="88.5391" fill="white" />
-<text x="55.9397" y="-6.32559" fill="#111111" font-size="1.98909" text-anchor="middle" dominant-baseline="middle">TortureTestG90  |  MCU  |  tool dia.=3.09372</text>
+<text x="55.9397" y="-6.32559" fill="#111111" font-size="1.98909" text-anchor="middle" dominant-baseline="middle">TortureTestG90  |  MCU  |  tool dia.=3.09372 mm</text>
 <line x1="-5.48342" y1="76.6042" x2="-3.33521" y2="76.6042" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
 <text x="-2.61913" y="76.6042" fill="#222222" font-size="1.19345" dominant-baseline="middle">Compensated</text>
 <line x1="19.1813" y1="76.6042" x2="21.3295" y2="76.6042" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />

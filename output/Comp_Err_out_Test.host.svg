@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.0275 -0.0275 0.605 0.594144">
 <rect x="-0.0275" y="-0.0275" width="0.605" height="0.594144" fill="white" />
-<text x="0.275" y="-0.0138875" fill="#111111" font-size="0.009075" text-anchor="middle" dominant-baseline="middle">Comp_Err_out_Test  |  Host  |  tool dia.=0.13</text>
+<text x="0.275" y="-0.0138875" fill="#111111" font-size="0.009075" text-anchor="middle" dominant-baseline="middle">Comp_Err_out_Test  |  Host  |  tool dia.=0.13 mm</text>
 <line x1="-0.005236" y1="0.554665" x2="0.004565" y2="0.554665" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
 <text x="0.007832" y="0.554665" fill="#222222" font-size="0.005445" dominant-baseline="middle">Compensated</text>
 <line x1="0.107294" y1="0.554665" x2="0.117095" y2="0.554665" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />

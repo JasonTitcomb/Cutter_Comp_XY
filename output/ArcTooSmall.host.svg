@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-0.0425 -0.0425 0.935 0.345494">
 <rect x="-0.0425" y="-0.0425" width="0.935" height="0.345494" fill="white" />
-<text x="0.425" y="-0.0214625" fill="#111111" font-size="0.014025" text-anchor="middle" dominant-baseline="middle">ArcTooSmall  |  Host  |  tool dia.=0.5</text>
+<text x="0.425" y="-0.0214625" fill="#111111" font-size="0.014025" text-anchor="middle" dominant-baseline="middle">ArcTooSmall  |  Host  |  tool dia.=0.5 in</text>
 <line x1="-0.008092" y1="0.284481" x2="0.007055" y2="0.284481" stroke="#d62728" stroke-width="1" vector-effect="non-scaling-stroke" />
 <text x="0.012104" y="0.284481" fill="#222222" font-size="0.008415" dominant-baseline="middle">Compensated</text>
 <line x1="0.165818" y1="0.284481" x2="0.180965" y2="0.284481" stroke="#1f77b4" stroke-width="1" vector-effect="non-scaling-stroke" />

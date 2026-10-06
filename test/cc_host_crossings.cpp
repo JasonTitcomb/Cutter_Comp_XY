@@ -367,8 +367,52 @@ static bool check_runner_unresolved_gap(bool trimCrossings)
            emitted_gcode == before && emitted_gcode.find("X0.284") == std::string::npos;
 }
 
+static bool check_tiny_chamfer(float scale, float capLength)
+{
+    CutterComp2D processor;
+    CcMainOptions options;
+    options.toolRadius = scale;
+    options.cornerTreatment = CORNER_CHAMFER;
+    processor.setOptions(options);
+    processor.setUnits(scale == 1.0f ? UNITS_INCH : UNITS_MM);
+    processor.compSide = COMP_LEFT;
+    processor.compMode = CM_STEADY;
+    const float cornerX = scale * (sqrtf(2.0f) - 1.0f);
+    const float lineX = cornerX + capLength * TOL / sqrtf(2.0f);
+    Move2D first = line_move(v2(-2.0f * scale, -scale), v2(0.0f, -scale));
+    Move2D second = line_move(v2(lineX - scale, -scale), v2(lineX - scale, -2.0f * scale));
+    first.z_0 = first.z_1 = second.z_0 = second.z_1 = -scale;
+    first.feed = 123.0f;
+    if (!processor.pushIn(first) || !processor.process() ||
+        !processor.pushIn(second) || !processor.process())
+        return false;
+    processor.flush();
+    Move2D previous, bevel, next, extra;
+    if (!processor.popOut(previous) || !processor.popOut(bevel) ||
+        !processor.popOut(next) || processor.popOut(extra) ||
+        bevel.type != MOT_LINE || !bevel.valid ||
+        !same_point(bevel.p_0, previous.p_1) ||
+        !same_point(bevel.p_1, next.p_0) ||
+        bevel.z_0 != -scale || bevel.z_1 != -scale ||
+        bevel.feed != first.feed || dist(bevel.p_0, bevel.p_1) < TOL)
+        return false;
+    if (capLength < 1.0f)
+        return same_point(previous.p_1, v2(0.0f, 0.0f)) &&
+               is_near(next.p_0, v2(lineX, -scale));
+    return !same_point(previous.p_1, v2(0.0f, 0.0f)) &&
+           !is_near(next.p_0, v2(lineX, -scale));
+}
+
 int main(void)
 {
+    const float capLengths[] = {0.0f, 0.5f, 2.0f};
+    for (float capLength : capLengths)
+        if (!check_tiny_chamfer(1.0f, capLength) || !check_tiny_chamfer(25.4f, capLength))
+        {
+            printf("tiny chamfer fallback or normal chamfer continuity failed at cap length %.1f tolerances\n",
+                   capLength);
+            return 1;
+        }
     if (!check_shared_lead_endpoint(1.0f) || !check_shared_lead_endpoint(25.4f))
     {
         puts("shared lead endpoint drifted or crossing/parallel behavior changed");
