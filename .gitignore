@@ -1,5 +1,6 @@
 # Build outputs
 build/
+build-vs2026/
 .pio/
 
 # CMake generated files
@@ -32,4 +33,3 @@ cmake_install.cmake
 Thumbs.db
 *.tmp
 *.swp
-

@@ -112,13 +112,13 @@ extern "C"
         return cc_api_process_move(&marker);
     }
 
-    static void cc_message(cc_status_code_t msgcode, msg_type_t severity, uint32_t lineNum)
+    static inline const char *cc_status_description(cc_status_code_t msgcode)
     {
         const char *msg = "Unknown";
         switch (msgcode)
         {
         case cc_status_OK:
-            return;
+            return "OK";
         case cc_status_ArcLtToolRad:
             msg = "Arc radius less than tool radius";
             break;
@@ -152,7 +152,18 @@ extern "C"
         case cc_status_PendingEventOverflow:
             msg = "Too many consecutive pauses";
             break;
+        case cc_status_Aborted:
+            msg = "Operation aborted";
+            break;
         }
+        return msg;
+    }
+
+    static void cc_message(cc_status_code_t msgcode, msg_type_t severity, uint32_t lineNum)
+    {
+        if (msgcode == cc_status_OK)
+            return;
+        const char *msg = cc_status_description(msgcode);
 
         char formatted_msg[128] = {0};
         if (lineNum != 0)

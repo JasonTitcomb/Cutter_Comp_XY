@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="GlobalUsings.cs" />
+    <Compile Include="..\..\test\cc_csharp_crossings.cs" Link="CrossingSelfTest.cs" />
   </ItemGroup>
 </Project>

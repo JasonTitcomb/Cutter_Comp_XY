@@ -58,6 +58,14 @@ add_executable(cc_runner
 )
 
 enable_testing()
+add_test(NAME cc_diameter_sweep_self_test COMMAND cc_runner --sweep-self-test)
+foreach(engine host mcu)
+  add_test(NAME cc_diameter_sweep_${engine}
+    COMMAND cc_runner --sweep ${engine} all ${CMAKE_CURRENT_LIST_DIR}/../output/diameter-sweep)
+  set_tests_properties(cc_diameter_sweep_${engine} PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+    LABELS "diameter-sweep")
+endforeach()
 add_executable(cc_junction_recovery ../test/cc_junction_recovery.c)
 add_test(NAME cc_junction_recovery COMMAND cc_junction_recovery)
 add_executable(cc_host_crossings ../test/cc_host_crossings.cpp)
@@ -118,6 +126,7 @@ endif()
 target_compile_definitions(cc_runner PRIVATE
   _USE_MATH_DEFINES
   CUTTER_COMP_ENABLE=1
+  CC_SWEEP_DATA_DIR="${CMAKE_CURRENT_LIST_DIR}/../data"
 )
 
 if (GRBL_HOST_AVAILABLE)

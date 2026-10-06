@@ -367,6 +367,61 @@ static bool check_tiny_roll_is_line(void)
            insertCount == 1 && inserts[0].type == CC_MOT_LINE;
 }
 
+static bool check_shared_lead_endpoint(void)
+{
+    float toolRadius = 0.0010225861129f * 25.4f * 0.5f;
+    move2d leadIn = line_move(0.0f, 0.0f, 6.35f - toolRadius, 13.97f);
+    move2d leadOut = line_move(6.35f + 0.21693046f * toolRadius,
+                               13.97f - 0.97618706f * toolRadius, 0.0f, 0.0f);
+    cc_context ctx;
+    vec2 tip1;
+    vec2 tip2;
+    int count;
+
+    leadIn.type = CC_MOT_RAPID;
+    leadIn.compMode = CC_CM_IN;
+    leadOut.type = CC_MOT_RAPID;
+    leadOut.compMode = CC_CM_OUT;
+    leadOut.lineNum = 13;
+    count = cc_common_tip_any(&leadIn, &leadOut, &tip1, &tip2);
+    if (count != 1 || !cc_is_near(tip1, leadIn.p_0, 0.0f) ||
+        !cc_is_expected_lead_endpoint_touch(&leadIn, &leadOut, count, tip1, tip2))
+        return false;
+
+    for (int reverseFirst = 0; reverseFirst < 2; ++reverseFirst)
+    {
+        for (int reverseSecond = 0; reverseSecond < 2; ++reverseSecond)
+        {
+            move2d first = reverseFirst ? line_move(leadIn.p_1.x, leadIn.p_1.y, 0.0f, 0.0f) : leadIn;
+            move2d second = reverseSecond ? line_move(0.0f, 0.0f, leadOut.p_0.x, leadOut.p_0.y) : leadOut;
+            vec2 tip;
+            if (cc_intersect_line_line(&first, &second, &tip) != CC_IT_INTERSECT ||
+                !cc_same_point(tip, cc_v2(0.0f, 0.0f)) ||
+                cc_intersect_line_line(&second, &first, &tip) != CC_IT_INTERSECT ||
+                !cc_same_point(tip, cc_v2(0.0f, 0.0f)))
+                return false;
+        }
+    }
+
+    cc_init_internal(&ctx, toolRadius);
+    if (!cc_check_staged_lead_in(&ctx, &leadIn))
+        return false;
+    ctx.lookaheadLeadInSkipNext = false;
+    if (!cc_check_staged_lead_in(&ctx, &leadOut) || ctx.stopErr ||
+        ctx.lookaheadLeadInValid)
+        return false;
+
+    leadOut = line_move(0.0f, 7.0f, 10.0f, 7.0f);
+    leadOut.compMode = CC_CM_OUT;
+    leadOut.lineNum = 13;
+    cc_init_internal(&ctx, toolRadius);
+    if (!cc_check_staged_lead_in(&ctx, &leadIn))
+        return false;
+    ctx.lookaheadLeadInSkipNext = false;
+    return !cc_check_staged_lead_in(&ctx, &leadOut) && ctx.stopErr &&
+           ctx.status == cc_status_CompInCrossing && ctx.lastLineNum == 13;
+}
+
 int main(void)
 {
     cc_context ctx;
@@ -375,6 +430,12 @@ int main(void)
     move2d next = line_move(2.0f, 1.0f, 2.0f, 2.0f);
     move2d inserts[CC_INSERT_CAP];
     int insertCount;
+
+    if (!check_shared_lead_endpoint())
+    {
+        puts("shared lead endpoint drifted or genuine lead crossing was accepted");
+        return 1;
+    }
 
     if (!check_geometry_tolerances())
     {

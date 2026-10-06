@@ -36,6 +36,13 @@ incorrectly. Review the code and test carefully before using it on real hardware
 - `platformio.ini` - PlatformIO embedded environments.
 
 ## Host Workflow (Recommended for development)
+The checked-in VS Code workspace settings select Visual Studio Community 2026,
+x64, and the isolated `build-vs2026/` build directory. This avoids the old
+Visual Studio 2022 cache in `build/`. If CMake Tools still reports a missing
+2022 kit, run **CMake: Scan for Kits**, select the 2026 amd64 kit with
+**CMake: Select a Kit**, and reload the window. Adjust the generator and
+installation path in `.vscode/settings.json` for a different development machine.
+
 1. Build `cc_runner` with the VS Code CMake task (`CMake: build`).
 2. Run the executable from the CMake build output (or launch via your IDE profile).
 3. Input/output behavior:
@@ -52,6 +59,65 @@ incorrectly. Review the code and test carefully before using it on real hardware
 SVG paths use non-scaling strokes: 1 px normally and 2 px for emphasized MCU paths, independent of geometry size or SVG viewport scaling. Rapid dash lengths and marker outlines are also screen-space sizes. Tool-circle radii and tool-sweep widths remain in geometry units to show the actual tool diameter. Regenerate existing SVGs after rebuilding to apply this styling.
 
 SVG titles display the tool diameter as `tool dia.` (twice the absolute tool radius). The runner's tool-size argument remains a radius.
+
+### Testing one file from VS Code
+
+1. Open the input `.nc` or `.ngc` file in the editor and save any changes.
+2. Run **Terminal: Run Task** from the Command Palette and select
+   **Test current NC file**.
+3. Choose **Normal run**, **Host diameter sweep**, or **MCU diameter sweep**.
+
+The task builds first and uses the active editor file as input. Normal runs use
+the file's D diameter and generate G-code, SVGs and the comparison report.
+Sweeps generate the selected engine's HTML report with diameter limits and
+increment counts. Results go to `output/single-file/<input filename>/`, separate
+from the all-file sweep reports. The task reads the saved file on disk and rejects
+non-NC files. The task uses the workspace's `build-vs2026/Debug/cc_runner.exe`;
+update its runner argument if you change the build directory or configuration.
+
+### Tool-diameter sweep tests
+
+CTest provides `cc_diameter_sweep_host` and `cc_diameter_sweep_mcu`. Each runs the
+existing default runner fixture list (duplicate filenames are processed once).
+Every attempt starts with a fresh engine state and overrides the input D value:
+the tool **diameter** starts at 0.0001 in, increases by 1.123% (multiplied by
+1.01123), and stops at the first processing error or after testing exactly 1.0 in.
+The offset radius is half the diameter, converted to the active G20/G21 units.
+The MCU receives millimeter geometry and radius through the desktop grblHAL shim;
+this is not an on-board firmware/parser/planner test. Existing roll corners,
+crossing lookahead and no-merge settings are preserved.
+
+Build `cc_runner` with the VS Code CMake build tool, then select the two sweep
+tests in CMake Test Explorer. `cc_diameter_sweep_self_test` checks all 826 steps
+of a complete sweep, inch/mm equivalence, first-error stopping and engine reset.
+You can also run `cc_runner --sweep host|mcu [inputfile|all] [reportfolder]`.
+Unlike the normal runner, sweep defaults resolve data and output paths from the
+repository location rather than the process working directory.
+
+Reports are consolidated into `output/diameter-sweep/host.sweep.html` and
+`output/diameter-sweep/mcu.sweep.html`. Each has a per-file summary showing the
+final successfully processed diameter in inches and millimeters, increments
+executed, total attempts, and the first failure's diameter, code, source line
+and specific error description (MCU status codes use the same descriptions as
+the grblHAL adapter). Expandable per-file sections retain every attempted diameter and
+offset radius. Increments count diameter increases after the initial attempt,
+including the increase to a failing attempt or the clamped maximum; total
+attempts equal increments plus one (a complete sweep is 825 increments and
+826 attempts). A failure on the initial diameter
+reports **None**, not a successful zero diameter. The reported value is the last
+successful sampled diameter, not a binary-searched geometric limit.
+
+Host and MCU lead-in crossing checks allow the entry and exit moves to share
+their exact return endpoint. The host, MCU and C# engines' nonparallel line intersections
+preserve an exact shared endpoint to avoid roundoff-triggered crossing errors
+on nearly parallel rapids.
+Intersections elsewhere along the lead-in remain errors.
+
+Geometry errors are expected sweep termination (some fixtures deliberately
+contain errors), so they are reported without failing CTest. Missing/empty
+inputs, profiles without G41/G42, and report I/O errors fail the sweep test.
+Host and MCU stop independently and write separate reports so parallel CTest
+runs do not overwrite each other.
 
 SVGs are XY projections, not verification of helical Z travel. The current SVG arc sampler treats coincident start/end points as zero sweep, so unsplit full circles can disappear from host or original-path plots. It also does not visualize additional P turns. MCU-emitted full circles are split into half-circles and can therefore look correct even when the host plot omits a complete turn. Check generated G-code and controller arc semantics rather than relying on the plots alone.
 
@@ -96,6 +162,11 @@ The normal runner also visualizes the MCU path without flashing a board. Run `cc
 - Project: `csharp/CutterCompXY.Port/CutterCompXY.Port.csproj`.
 - Build from VS Code task: `dotnet: build`.
 - Target framework: .NET 8 (`net8.0`).
+
+Run `dotnet run --project csharp/CutterCompXY.Port -- --geometry-self-test`
+for shared-endpoint intersection regression checks in inch and millimeter
+geometry, including reversed endpoints/argument order, interior crossings and
+parallel lines.
 
 ## Integration API
 - High-level runtime wrapper: `CcMainRunner` in `src/cc_main.h`.

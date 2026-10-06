@@ -54,6 +54,7 @@ static float cross(const Vec2 &a, const Vec2 &b) { return a.x * b.y - a.y * b.x;
 static float len(const Vec2 &v) { return sqrtf(dot(v, v)); }
 static float dist(const Vec2 &a, const Vec2 &b) { return len(a - b); }
 static bool is_near(const Vec2 &a, const Vec2 &b){ Vec2 d = a - b;  return dot(d, d) <= TOL_SQ;}
+static bool same_point(const Vec2 &a, const Vec2 &b){ return a.x == b.x && a.y == b.y; }
 static bool is_equal(const Vec2 &a, const Vec2 &b){ return is_near(a, b); }
 static bool is_equal(const float a, const float b){ return fabsf(a - b) <= TOL; }
 
@@ -484,37 +485,45 @@ static bool pointOnArcCached(const Move2D &a, Vec2 p, const ArcAngles &aa)
     return angleOnSweepCW(aa.a0, aa.a1, ap);
 }
 
-static IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip, bool &tip)
+static IntersectType intersectLineLine(const Move2D &ln1, const Move2D &ln2, Vec2 &ip)
 {
   Vec2 p = ln1.p_0;
   Vec2 q = ln2.p_0;
 
+  ip = {0, 0};
   float lr = dist(ln1.p_0, ln1.p_1);
   float ls = dist(ln2.p_0, ln2.p_1);
+  if ((lr < TOL && !ln1.junctionOnly) || (ls < TOL && !ln2.junctionOnly))
+    return IT_NONE;
+
   Vec2 r = (lr >= TOL) ? (ln1.p_1 - ln1.p_0) * (1.0f / lr) : ln1.startDir;
   Vec2 s = (ls >= TOL) ? (ln2.p_1 - ln2.p_0) * (1.0f / ls) : ln2.startDir;
   float rLenSq = dot(r, r);
   float sLenSq = dot(s, s);
 
   if (rLenSq < PARAM_TOL * PARAM_TOL || sLenSq < PARAM_TOL * PARAM_TOL)
-  {
-    tip = false;
     return IT_NONE;
-  }
 
   float den = cross(r, s);
-  float denTol = PARALLEL_TOL * sqrtf(rLenSq) * sqrtf(sLenSq);
+  float denTol = PARALLEL_TOL * sqrtf(rLenSq * sLenSq);
   if (fabsf(den) <= denTol)
+    return IT_NONE; // too parallel to reliably intersect
+
+  // Must stay after the parallel test: collinear neighbours share an endpoint
+  // but must not report it as an intersection.
+  if (same_point(ln1.p_0, ln2.p_0) || same_point(ln1.p_0, ln2.p_1))
   {
-    tip = false; // too parallel to reliably intersect
-    return IT_NONE;
+    ip = ln1.p_0;
+    return IT_INTERSECT;
+  }
+  if (same_point(ln1.p_1, ln2.p_0) || same_point(ln1.p_1, ln2.p_1))
+  {
+    ip = ln1.p_1;
+    return IT_INTERSECT;
   }
 
   float t = cross(q - p, s) / den;
-  float u = cross(q - p, r) / den;
   ip = p + r * t;
-
-  tip = (t >= -TOL && t <= lr + TOL && u >= -TOL && u <= ls + TOL);
   return IT_INTERSECT;
 }
 

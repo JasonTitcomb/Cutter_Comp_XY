@@ -1,5 +1,12 @@
 {
     "cmake.sourceDirectory": "D:/Repos/Cutter_Comp_XY/host",
+    "cmake.buildDirectory": "${workspaceFolder}/build-vs2026",
+    "cmake.generator": "Visual Studio 18 2026",
+    "cmake.platform": "x64",
+    "cmake.toolset": "host=x64",
+    "cmake.configureSettings": {
+        "CMAKE_GENERATOR_INSTANCE": "C:/Program Files/Microsoft Visual Studio/18/Community"
+    },
     "C_Cpp.default.visualizerFile": "${workspaceFolder}/Move2D.natvis",
     "cmake.debugConfig": {
         "visualizerFile": "${workspaceFolder}/Move2D.natvis"

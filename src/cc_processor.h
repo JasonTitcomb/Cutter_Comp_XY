@@ -694,8 +694,7 @@ private:
     {
         if (isLineLike(a) && isLineLike(b))
         {
-            bool tip = false;
-            IntersectType it = intersectLineLine(a, b, pts[0], tip);
+            IntersectType it = intersectLineLine(a, b, pts[0]);
             return (it == IT_NONE) ? 0 : 1;
         }
 
@@ -1145,12 +1144,11 @@ private:
         // now create the intersections and trim the lines to the cap
         Vec2 ipForL1{0, 0};
         Vec2 ipForL2{0, 0};
-        bool tip = false;
-        IntersectType it = intersectLineLine(l1, cap, ipForL1, tip);
+        IntersectType it = intersectLineLine(l1, cap, ipForL1);
         if (it == IT_NONE)
             return 0;
 
-        it = intersectLineLine(l2, cap, ipForL2, tip);
+        it = intersectLineLine(l2, cap, ipForL2);
         if (it == IT_NONE)
             return 0;
 

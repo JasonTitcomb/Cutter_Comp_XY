@@ -236,12 +236,6 @@
 <polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="2" stroke-dasharray="8,8" points="-0.1707,2.04 -0.1707,2.04 " />
 <circle cx="-0.1707" cy="2.04" r="0.00518782" fill="#1f77b4" />
 <circle cx="-0.1707" cy="2.04" r="0.00518782" fill="#1f77b4" />
-<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="2" stroke-dasharray="8,8" points="-0.1707,2.04 0,2.04 " />
-<circle cx="-0.1707" cy="2.04" r="0.00518782" fill="#1f77b4" />
-<circle cx="0" cy="2.04" r="0.00518782" fill="#1f77b4" />
-<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="2" stroke-dasharray="8,8" points="0,2.04 0,2.3851 " />
-<circle cx="0" cy="2.04" r="0.00518782" fill="#1f77b4" />
-<circle cx="0" cy="2.3851" r="0.00518782" fill="#1f77b4" />
 <g opacity="0.5">
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.062" stroke-linecap="round" stroke-linejoin="round" points="-0.1707,2.5143 -0.1707,2.5143 " />
 <polyline fill="none" stroke="#bbbbbb" stroke-width="0.062" stroke-linecap="round" stroke-linejoin="round" points="-0.1707,2.5143 -0.0512203,2.35098 " />
@@ -362,8 +356,6 @@
 <polyline fill="none" stroke="#999999" stroke-width="0.062" stroke-linecap="round" stroke-linejoin="round" points="0,2.3851 -0.1707,2.5143 " />
 <polyline fill="none" stroke="#999999" stroke-width="0.062" stroke-linecap="round" stroke-linejoin="round" points="-0.1707,2.5143 -0.1707,2.5143 " />
 <polyline fill="none" stroke="#999999" stroke-width="0.062" stroke-linecap="round" stroke-linejoin="round" points="-0.1707,2.04 -0.1707,2.04 " />
-<polyline fill="none" stroke="#999999" stroke-width="0.062" stroke-linecap="round" stroke-linejoin="round" points="-0.1707,2.04 0,2.04 " />
-<polyline fill="none" stroke="#999999" stroke-width="0.062" stroke-linecap="round" stroke-linejoin="round" points="0,2.04 0,2.3851 " />
 </g>
 <polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="2" stroke-dasharray="8,8" points="0,2.3851 -0.1707,2.5143 " />
 <circle cx="0" cy="2.3851" r="0.00518782" fill="#d62728" />
@@ -716,12 +708,6 @@
 <polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="2" stroke-dasharray="8,8" points="-0.1707,2.04 -0.1707,2.04 " />
 <circle cx="-0.1707" cy="2.04" r="0.00518782" fill="#d62728" />
 <circle cx="-0.1707" cy="2.04" r="0.00518782" fill="#d62728" />
-<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="2" stroke-dasharray="8,8" points="-0.1707,2.04 0,2.04 " />
-<circle cx="-0.1707" cy="2.04" r="0.00518782" fill="#d62728" />
-<circle cx="0" cy="2.04" r="0.00518782" fill="#d62728" />
-<polyline fill="none" vector-effect="non-scaling-stroke" stroke="#888888" stroke-width="2" stroke-dasharray="8,8" points="0,2.04 0,2.3851 " />
-<circle cx="0" cy="2.04" r="0.00518782" fill="#d62728" />
-<circle cx="0" cy="2.3851" r="0.00518782" fill="#d62728" />
 <g stroke="#008000" stroke-width="1">
 <line vector-effect="non-scaling-stroke" x1="-0.0518782" y1="2.3851" x2="0.0518782" y2="2.3851" />
 <line vector-effect="non-scaling-stroke" x1="0" y1="2.33322" x2="0" y2="2.43698" />

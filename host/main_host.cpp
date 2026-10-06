@@ -8,6 +8,13 @@
 #include <iostream>
 #include <iomanip>
 #include <iterator>
+#if defined(__has_include)
+#if __has_include(<filesystem>)
+#include <filesystem>
+#endif
+#else
+#include <filesystem>
+#endif
 
 #define DBG_PRINTLN(x)             \
   do                               \
@@ -36,7 +43,7 @@
 
 // Tool radius for cutter compensation override.
 // If TOOL_RADIUS is set to 0.0f, the cutter compensation will use the tool radius in the file itself.
-static constexpr float TOOL_RADIUS = 0.0f;
+static constexpr float TOOL_RADIUS = 0;
 static constexpr CornerType CORNER_TREATMENT = CORNER_ROLL; // CORNER_ROLL or CORNER_CHAMFER
 static constexpr bool GLOBAL_TRIM_CROSSING = true;          // if true, will trim crossing elements down to the intersection point.
                                                             // If false, will emit the full compensated move even if it crosses.
@@ -54,6 +61,16 @@ struct HostRunnerContext
 static HostRunnerContext *g_hostRunnerContext = nullptr;
 static std::string g_currentInputFile;
 
+struct SweepDiagnostic
+{
+  bool sawError = false;
+  unsigned code = 0;
+  uint32_t line = 0;
+  std::string message;
+};
+
+static SweepDiagnostic *g_sweepDiagnostic = nullptr;
+
 static void host_output_cb(const char *text, size_t len)
 {
   if (!g_hostRunnerContext || !g_hostRunnerContext->out || !text || len == 0)
@@ -63,6 +80,17 @@ static void host_output_cb(const char *text, size_t len)
 
 static void host_error_cb(const char *message, CompError err, uint32_t lineNum)
 {
+  if (g_sweepDiagnostic)
+  {
+    if (!g_sweepDiagnostic->sawError)
+    {
+      g_sweepDiagnostic->code = (unsigned)err;
+      g_sweepDiagnostic->line = lineNum;
+      g_sweepDiagnostic->message = message ? message : "Host compensation error";
+    }
+    g_sweepDiagnostic->sawError = true;
+    return;
+  }
   if (message)
     std::fprintf(stderr, "%s: %s\n", g_currentInputFile.c_str(), message);
   if (err != CE_ERROR)
@@ -71,6 +99,20 @@ static void host_error_cb(const char *message, CompError err, uint32_t lineNum)
 
 static void host_xy_error_cb(cc_status_code_t err, msg_type_t severity, uint32_t lineNum)
 {
+  if (g_sweepDiagnostic)
+  {
+    if (severity == CC_MSG_ERROR && err != cc_status_OK)
+    {
+      if (!g_sweepDiagnostic->sawError)
+      {
+        g_sweepDiagnostic->code = (unsigned)err;
+        g_sweepDiagnostic->line = lineNum;
+        g_sweepDiagnostic->message = cc_status_description(err);
+      }
+      g_sweepDiagnostic->sawError = true;
+    }
+    return;
+  }
   (void)severity;
   if (err != cc_status_OK)
     std::fprintf(stderr, "%s: [mcu] CompMsg code=%u Ln%u\n", g_currentInputFile.c_str(), (unsigned)err, (unsigned)lineNum);
@@ -163,6 +205,8 @@ extern "C"
 
   void debug_printf(const char *fmt, ...)
   {
+    if (g_sweepDiagnostic)
+      return;
     char debug_out[100];
 
     va_list args;
@@ -174,6 +218,8 @@ extern "C"
 
   void report_message(const char *msg, message_type_t type)
   {
+    if (g_sweepDiagnostic)
+      return;
     (void)type;
     if (msg)
       std::printf("(%s)\n", msg);
@@ -318,7 +364,8 @@ static ScanLine scan_in_mm(const ScanLine &source, bool inchMode)
 static bool run_profile_simple_xy(const std::vector<std::string> &program,
                                   float toolRadius,
                                   CornerType cornerTreatment,
-                                  std::vector<Move2D> &profileOut)
+                                  std::vector<Move2D> &profileOut,
+                                  bool radiusInMillimeters = false)
 {
   ModalState modal{};
   modal.planeXY = true;
@@ -360,7 +407,7 @@ static bool run_profile_simple_xy(const std::vector<std::string> &program,
 
     if (enteringComp)
     {
-      cc_api_init(toolRadius, modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM, host_cc_emit_via_mc, host_xy_error_cb);
+      cc_api_init(toolRadius, !radiusInMillimeters && modal.inchMode ? CC_UNITS_INCH : CC_UNITS_MM, host_cc_emit_via_mc, host_xy_error_cb);
       cc_api_set_lookahead_enabled(GLOBAL_TRIM_CROSSING);
       cc_api_set_corner_treatment_mode(cornerTreatment == CORNER_CHAMFER ? CC_CTM_CHAMFER : CC_CTM_ROLL);
     }
@@ -796,6 +843,8 @@ static bool run_profile_streaming(const char *inputPath,
   return ok && !ctx.sawError;
 }
 
+#include "../test/cc_diameter_sweep.h"
+
 // Command line usage:
 // main_host [inputfile|all] [outputfolder] [toolradius] [cornerTreatment] [svg]
 // Defaults:
@@ -808,7 +857,6 @@ int main(int argc, char *argv[])
 {
   const char *default_files[] = {
       "../../data/RapidComp.nc",
-      "../../data/SubCall.nc",
       "../../data/G41_1.nc",
       "../../data/ThreadMill.nc",
       "../../data/G41_2.nc",
@@ -832,6 +880,11 @@ int main(int argc, char *argv[])
       "../../data/MultipleZmoves.nc",
       "../../data/CompErrorTest.nc",
       "../../data/Comp_Err_out_Test.nc"};
+
+  if (argc > 1 && std::strcmp(argv[1], "--sweep-self-test") == 0)
+    return sweep_self_test();
+  if (argc > 1 && std::strcmp(argv[1], "--sweep") == 0)
+    return sweep_main(argc, argv, default_files, sizeof(default_files) / sizeof(default_files[0]));
 
   std::vector<const char *> inputFiles;
   if (argc > 1 && std::strcmp(argv[1], "all") != 0)

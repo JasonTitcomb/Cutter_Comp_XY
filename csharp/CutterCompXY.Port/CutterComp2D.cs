@@ -683,7 +683,7 @@ public sealed class CutterComp2D
 
         if (IsLineLike(a) && IsLineLike(b))
         {
-            IntersectType it = CcMath.IntersectLineLine(a, b, out p1, out _);
+            IntersectType it = CcMath.IntersectLineLine(a, b, out p1);
             return (it == IntersectType.IT_NONE) ? 0 : 1;
         }
 
@@ -1046,11 +1046,11 @@ public sealed class CutterComp2D
         Vec2 ipForL1 = new Vec2(0, 0);
         Vec2 ipForL2 = new Vec2(0, 0);
 
-        IntersectType it = CcMath.IntersectLineLine(l1, cap, out ipForL1, out _);
+        IntersectType it = CcMath.IntersectLineLine(l1, cap, out ipForL1);
         if (it == IntersectType.IT_NONE)
             return 0;
 
-        it = CcMath.IntersectLineLine(l2, cap, out ipForL2, out _);
+        it = CcMath.IntersectLineLine(l2, cap, out ipForL2);
         if (it == IntersectType.IT_NONE)
             return 0;
 

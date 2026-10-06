@@ -74,6 +74,56 @@ static Move2D line_move(Vec2 start, Vec2 end)
     return move;
 }
 
+static bool check_shared_lead_endpoint(float scale)
+{
+    set_physical_units(scale == 1.0f);
+    const float toolRadius = 0.0010225861129f * 0.5f * scale;
+    const Vec2 entry = v2(0.25f * scale - toolRadius, 0.55f * scale);
+    const Vec2 exit = v2(0.25f * scale + 0.21693046f * toolRadius,
+                         0.55f * scale - 0.97618706f * toolRadius);
+    const Vec2 origin = v2(0.0f, 0.0f);
+    for (int reverseFirst = 0; reverseFirst < 2; ++reverseFirst)
+    {
+        for (int reverseSecond = 0; reverseSecond < 2; ++reverseSecond)
+        {
+            Move2D first = line_move(reverseFirst ? entry : origin,
+                                     reverseFirst ? origin : entry);
+            Move2D second = line_move(reverseSecond ? origin : exit,
+                                      reverseSecond ? exit : origin);
+            first.type = MOT_RAPID;
+            second.type = MOT_RAPID;
+            Vec2 tip;
+            if (intersectLineLine(first, second, tip) != IT_INTERSECT ||
+                !same_point(tip, origin) ||
+                intersectLineLine(second, first, tip) != IT_INTERSECT ||
+                !same_point(tip, origin))
+                return false;
+        }
+    }
+
+    Move2D first = line_move(origin, entry);
+    Move2D crossing = line_move(v2(0.0f, 0.275f * scale),
+                                v2(0.5f * scale, 0.275f * scale));
+    Vec2 tip;
+    if (intersectLineLine(first, crossing, tip) != IT_INTERSECT ||
+        !is_near(tip, entry * 0.5f))
+        return false;
+
+    Move2D parallel = line_move(entry, entry * 2.0f);
+    if (intersectLineLine(first, parallel, tip) != IT_NONE)
+        return false;
+
+    Move2D collapsed = line_move(entry, entry);
+    if (intersectLineLine(first, collapsed, tip) != IT_NONE)
+        return false;
+
+    collapsed.junctionOnly = true;
+    collapsed.startDir = v2(1.0f, 0.0f);
+    collapsed.endDir = collapsed.startDir;
+    return intersectLineLine(first, collapsed, tip) == IT_INTERSECT &&
+           same_point(tip, entry);
+}
+
 static bool check_early_inversion(float scale, bool reversePrevious, bool trimCrossings)
 {
     CutterComp2D processor;
@@ -319,6 +369,13 @@ static bool check_runner_unresolved_gap(bool trimCrossings)
 
 int main(void)
 {
+    if (!check_shared_lead_endpoint(1.0f) || !check_shared_lead_endpoint(25.4f))
+    {
+        puts("shared lead endpoint drifted or crossing/parallel behavior changed");
+        return 1;
+    }
+    set_physical_units(false);
+
     if (!pointOnSegment(v2(0.0f, 0.0f), v2(0.007627f, 0.0f), v2(0.003f, 0.0f)) ||
         pointOnSegment(v2(0.0f, 0.0f), v2(0.007627f, 0.0f), v2(0.003f, 0.001f)))
     {

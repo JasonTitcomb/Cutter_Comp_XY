@@ -228,6 +228,11 @@ static inline bool cc_is_near(vec2 a, vec2 b, float tol)
     return tol >= 0.0f && cc_dot(d, d) <= tol * tol;
 }
 
+static inline bool cc_same_point(vec2 a, vec2 b)
+{
+    return a.x == b.x && a.y == b.y;
+}
+
 static inline bool cc_is_line_like(const move2d *m)
 {
     return m->type == CC_MOT_LINE || m->type == CC_MOT_RAPID;
@@ -392,7 +397,7 @@ static inline bool cc_point_on_arc_cached(const move2d *a, vec2 p, const arc_ang
     return cc_angle_on_sweep_cw(aa->a0, aa->a1, ap);
 }
 
-static inline intersect_type cc_intersect_line_line(const move2d *ln1, const move2d *ln2, vec2 *ip, bool *tip)
+static inline intersect_type cc_intersect_line_line(const move2d *ln1, const move2d *ln2, vec2 *ip)
 {
     vec2 p = ln1->p_0;
     vec2 q = ln2->p_0;
@@ -405,14 +410,10 @@ static inline intersect_type cc_intersect_line_line(const move2d *ln1, const mov
     float den;
     float denTol;
     float t;
-    float u;
 
     *ip = cc_v2(0.0f, 0.0f);
     if ((lr < CC_TOL && !ln1->junctionOnly) || (ls < CC_TOL && !ln2->junctionOnly))
-    {
-        *tip = false;
         return CC_IT_NONE;
-    }
 
     // Compute direction vectors for the line segments
     r = (lr >= CC_TOL) ? cc_scale(cc_sub(ln1->p_1, ln1->p_0), 1.0f / lr) : ln1->startDir;
@@ -421,23 +422,28 @@ static inline intersect_type cc_intersect_line_line(const move2d *ln1, const mov
     rLenSq = cc_dot(r, r);
     sLenSq = cc_dot(s, s);
     if (rLenSq < CC_TOL_SQ || sLenSq < CC_TOL_SQ)
-    {
-        *tip = false;
         return CC_IT_NONE;
-    }
 
     den = cc_cross(r, s);
-    denTol = CC_PARALLEL_TOL * sqrtf(rLenSq) * sqrtf(sLenSq);
+    denTol = CC_PARALLEL_TOL * sqrtf(rLenSq * sLenSq);
     if (fabsf(den) <= denTol)
-    {
-        *tip = false;
         return CC_IT_NONE;
+
+    // Must stay after the parallel test: collinear neighbours share an endpoint
+    // but must not report it as an intersection.
+    if (cc_same_point(ln1->p_0, ln2->p_0) || cc_same_point(ln1->p_0, ln2->p_1))
+    {
+        *ip = ln1->p_0;
+        return CC_IT_INTERSECT;
+    }
+    if (cc_same_point(ln1->p_1, ln2->p_0) || cc_same_point(ln1->p_1, ln2->p_1))
+    {
+        *ip = ln1->p_1;
+        return CC_IT_INTERSECT;
     }
 
     t = cc_cross(cc_sub(q, p), s) / den;
-    u = cc_cross(cc_sub(q, p), r) / den;
     *ip = cc_add(p, cc_scale(r, t));
-    *tip = (t >= -CC_TOL && t <= lr + CC_TOL && u >= -CC_TOL && u <= ls + CC_TOL);
     return CC_IT_INTERSECT;
 }
 
@@ -744,8 +750,7 @@ static inline int cc_intersect_carrier(const move2d *a, const move2d *b, vec2 pt
 {
     if (cc_is_line_like(a) && cc_is_line_like(b))
     {
-        bool tip = false;
-        intersect_type it = cc_intersect_line_line(a, b, &pts[0], &tip);
+        intersect_type it = cc_intersect_line_line(a, b, &pts[0]);
         return (it == CC_IT_NONE) ? 0 : 1;
     }
 
@@ -1929,7 +1934,6 @@ static inline int cc_make_corner_treatment(cc_context *ctx, move2d *a, move2d *b
     move2d cap = {0};
     vec2 ipForL1;
     vec2 ipForL2;
-    bool tip;
     intersect_type it;
 
     aLineLike = (a->type == CC_MOT_LINE || a->type == CC_MOT_RAPID);
@@ -1995,12 +1999,11 @@ static inline int cc_make_corner_treatment(cc_context *ctx, move2d *a, move2d *b
 
     ipForL1 = cc_v2(0.0f, 0.0f);
     ipForL2 = cc_v2(0.0f, 0.0f);
-    tip = false;
-    it = cc_intersect_line_line(&l1, &cap, &ipForL1, &tip);
+    it = cc_intersect_line_line(&l1, &cap, &ipForL1);
     if (it == CC_IT_NONE)
         return 0;
 
-    it = cc_intersect_line_line(&l2, &cap, &ipForL2, &tip);
+    it = cc_intersect_line_line(&l2, &cap, &ipForL2);
     if (it == CC_IT_NONE)
         return 0;
 

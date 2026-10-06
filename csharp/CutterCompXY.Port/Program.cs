@@ -77,6 +77,9 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "--geometry-self-test")
+            return CrossingSelfTest.Run();
+
         string repoRoot = FindRepoRoot();
         string defaultInput = Path.Combine(repoRoot, "data", "TortureTestG90.nc");
         string inputPath = args.Length > 0 ? args[0] : defaultInput;

@@ -447,6 +447,8 @@ public static class CcMath
         return Dot(d, d) <= CcConst.TOL_SQ;
     }
 
+    public static bool SamePoint(in Vec2 a, in Vec2 b) => a.x == b.x && a.y == b.y;
+
     public static bool IsMotionValid(in Move2D m) => m.valid && m.type != MotionType.MOT_EMPTY && m.hasXY;
 
     // Angular travel of one turn of an arc as executed by grblHAL/LinuxCNC: an end point
@@ -613,37 +615,44 @@ public static class CcMath
         return aa.dir == ArcDir.ARC_CCW ? AngleOnSweepCCW(aa.a0, aa.a1, ap) : AngleOnSweepCW(aa.a0, aa.a1, ap);
     }
 
-    public static IntersectType IntersectLineLine(in Move2D ln1, in Move2D ln2, out Vec2 ip, out bool tip)
+    public static IntersectType IntersectLineLine(in Move2D ln1, in Move2D ln2, out Vec2 ip)
     {
         Vec2 p = ln1.p_0;
         Vec2 q = ln2.p_0;
-        Vec2 r = ln1.startDir;
-        Vec2 s = ln2.startDir;
         float lr = Len(ln1.p_1 - ln1.p_0);
         float ls = Len(ln2.p_1 - ln2.p_0);
-        float rLenSq = Dot(r, r);
-        float sLenSq = Dot(s, s);
 
         ip = new Vec2(0, 0);
-        if (lr < CcConst.TOL || ls < CcConst.TOL ||
-            rLenSq < CcConst.TOL_SQ || sLenSq < CcConst.TOL_SQ)
-        {
-            tip = false;
-        }
+        if ((lr < CcConst.TOL && !ln1.junctionOnly) || (ls < CcConst.TOL && !ln2.junctionOnly))
+            return IntersectType.IT_NONE;
+
+        Vec2 r = lr >= CcConst.TOL ? (ln1.p_1 - ln1.p_0) * (1.0f / lr) : ln1.startDir;
+        Vec2 s = ls >= CcConst.TOL ? (ln2.p_1 - ln2.p_0) * (1.0f / ls) : ln2.startDir;
+        float rLenSq = Dot(r, r);
+        float sLenSq = Dot(s, s);
+        if (rLenSq < CcConst.TOL_SQ || sLenSq < CcConst.TOL_SQ)
+            return IntersectType.IT_NONE;
 
         float den = Cross(r, s);
-        float denTol = CcConst.PARALLEL_TOL * MathF.Sqrt(rLenSq) * MathF.Sqrt(sLenSq);
+        float denTol = CcConst.PARALLEL_TOL * MathF.Sqrt(rLenSq * sLenSq);
         if (MathF.Abs(den) <= denTol)
-        {
-            tip = false;
             return IntersectType.IT_NONE;
+
+        // Must stay after the parallel test: collinear neighbours share an endpoint
+        // but must not report it as an intersection.
+        if (SamePoint(ln1.p_0, ln2.p_0) || SamePoint(ln1.p_0, ln2.p_1))
+        {
+            ip = ln1.p_0;
+            return IntersectType.IT_INTERSECT;
+        }
+        if (SamePoint(ln1.p_1, ln2.p_0) || SamePoint(ln1.p_1, ln2.p_1))
+        {
+            ip = ln1.p_1;
+            return IntersectType.IT_INTERSECT;
         }
 
         float t = Cross(q - p, s) / den;
-        float u = Cross(q - p, r) / den;
         ip = p + r * t;
-
-        tip = (t >= -CcConst.TOL && t <= lr + CcConst.TOL && u >= -CcConst.TOL && u <= ls + CcConst.TOL);
         return IntersectType.IT_INTERSECT;
     }
 
