@@ -401,10 +401,10 @@ static inline intersect_type cc_intersect_line_line(const move2d *ln1, const mov
 {
     vec2 p = ln1->p_0;
     vec2 q = ln2->p_0;
-    float lr = cc_dist(ln1->p_0, ln1->p_1);
-    float ls = cc_dist(ln2->p_0, ln2->p_1);
-    vec2 r;
-    vec2 s;
+    float len1 = cc_dist(ln1->p_0, ln1->p_1);
+    float len2 = cc_dist(ln2->p_0, ln2->p_1);
+    vec2 direction1;
+    vec2 direction2;
     float rLenSq;
     float sLenSq;
     float den;
@@ -412,19 +412,22 @@ static inline intersect_type cc_intersect_line_line(const move2d *ln1, const mov
     float t;
 
     *ip = cc_v2(0.0f, 0.0f);
-    if ((lr < CC_TOL && !ln1->junctionOnly) || (ls < CC_TOL && !ln2->junctionOnly))
+    // Early exit for degenerate line segments
+    if ((len1 < CC_TOL && !ln1->junctionOnly) || (len2 < CC_TOL && !ln2->junctionOnly))
         return CC_IT_NONE;
 
     // Compute direction vectors for the line segments
-    r = (lr >= CC_TOL) ? cc_scale(cc_sub(ln1->p_1, ln1->p_0), 1.0f / lr) : ln1->startDir;
-    s = (ls >= CC_TOL) ? cc_scale(cc_sub(ln2->p_1, ln2->p_0), 1.0f / ls) : ln2->startDir;
+    direction1 = (len1 >= CC_TOL) ? cc_scale(cc_sub(ln1->p_1, ln1->p_0), 1.0f / len1) : ln1->startDir;
+    direction2 = (len2 >= CC_TOL) ? cc_scale(cc_sub(ln2->p_1, ln2->p_0), 1.0f / len2) : ln2->startDir;
 
-    rLenSq = cc_dot(r, r);
-    sLenSq = cc_dot(s, s);
+    // Check for degenerate direction vectors (0 length)
+    rLenSq = cc_dot(direction1, direction1);
+    sLenSq = cc_dot(direction2, direction2);
     if (rLenSq < CC_TOL_SQ || sLenSq < CC_TOL_SQ)
         return CC_IT_NONE;
 
-    den = cc_cross(r, s);
+    // Check for parallel lines because they will not intersect in a single point
+    den = cc_cross(direction1, direction2);
     denTol = CC_PARALLEL_TOL * sqrtf(rLenSq * sLenSq);
     if (fabsf(den) <= denTol)
         return CC_IT_NONE;
@@ -442,8 +445,8 @@ static inline intersect_type cc_intersect_line_line(const move2d *ln1, const mov
         return CC_IT_INTERSECT;
     }
 
-    t = cc_cross(cc_sub(q, p), s) / den;
-    *ip = cc_add(p, cc_scale(r, t));
+    t = cc_cross(cc_sub(q, p), direction2) / den;
+    *ip = cc_add(p, cc_scale(direction1, t));
     return CC_IT_INTERSECT;
 }
 
@@ -492,8 +495,7 @@ static inline intersect_type cc_intersect_circle_circle(
 
     // Distance from c0 to the common chord along the center line.
     // Factoring the radius difference avoids subtracting squares.
-    const float a =
-        0.5f * (distc + (r0 - r1) * (sum / distc));
+    const float a = 0.5f * (distc + (r0 - r1) * (sum / distc));
 
     const float invDist = 1.0f / distc;
     const float ux = dx * invDist;
@@ -503,8 +505,7 @@ static inline intersect_type cc_intersect_circle_circle(
     const float midy = c0.y + uy * a;
 
     // Geometric tangency is classified in linear units.
-    if (fabsf(distc - sum) <= distanceTol ||
-        fabsf(distc - diff) <= distanceTol)
+    if (fabsf(distc - sum) <= distanceTol || fabsf(distc - diff) <= distanceTol)
     {
         p1->x = midx;
         p1->y = midy;
@@ -583,20 +584,33 @@ static inline intersect_type cc_intersect_line_circle(vec2 l1, vec2 l2, vec2 ctr
 
     // Starting heuristic for floating-point roundoff.
     // This is a squared-distance tolerance.
+
+    // This estimates how much floating-point rounding error might affect h2:
+    // FLT_EPSILON is the precision limit for a float (about 1.19e-7).
+    // fmaxf(r2, dist2) scales the allowance to the size of the values being compared.
+    // 8.0f is a safety factor—a heuristic allowance of several units of rounding error.
+    // The result is a squared-distance tolerance, so it has the same units as h2.
+    // The code later uses this tolerance to avoid treating a tiny rounding difference as a real miss or a clear intersection. 
+    // It takes the larger of this roundoff allowance and a separate geometry tolerance.
+    // So larger r2 or dist2 get a larger absolute allowance for floating-point error; smaller values get a smaller one. 
+    // That helps the tangent/miss decision work across different geometry scales.
     float roundTol = 8.0f * FLT_EPSILON * fmaxf(r2, dist2);
 
     // Optional physical tolerance in your coordinate units.
     // Example: 0.0001 mm if your internal coordinates are millimeters.
-    const float geomTol = 1e-4f;
+    const float geomTol = 0.0001f;
 
     // Convert radial distance tolerance to squared-distance tolerance.
     float geomTol2 = geomTol * (2.0f * fabsf(r) + geomTol);
 
+    // The final squared-distance tolerance by taking the maximum of the roundoff and geometry tolerances.
     float h2Tol = fmaxf(roundTol, geomTol2);
 
+    // Compare the squared distance to the tolerance to decide if there is an intersection.
     if (h2 < -h2Tol)
         return CC_IT_NONE;
 
+    // If the squared distance is within the negative tolerance, treat it as no intersection.
     if (fabsf(h2) <= h2Tol)
     {
         *p1 = q;

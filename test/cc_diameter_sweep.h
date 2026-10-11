@@ -160,6 +160,52 @@ static double sweep_final_diameter(const std::vector<SweepAttempt> &attempts)
   return diameter;
 }
 
+static bool sweep_write_svg(const std::filesystem::path &output,
+                            const std::string &input,
+                            const std::vector<std::string> &program,
+                            double diameterIn, bool mcu)
+{
+  const float diameterMm = (float)(diameterIn * 25.4);
+  const float radiusMm = diameterMm * 0.5f;
+  std::vector<Move2D> moves;
+  const SweepAttempt attempt = sweep_attempt(program, diameterIn, mcu, &moves);
+  if (!attempt.success)
+  {
+    std::fprintf(stderr, "%s: cannot render successful sweep diameter %.9f in: %s\n",
+                 input.c_str(), diameterIn, attempt.diagnostic.message.c_str());
+    return false;
+  }
+
+  const std::vector<Move2D> originalMm = build_original_moves(program, true);
+  const std::vector<Move2D> visibleMoves = filter_valid_moves(moves);
+  const std::filesystem::path inputPath(input);
+  const std::string inputBaseName = inputPath.stem().string();
+  const std::string engine = mcu ? "mcu" : "host";
+  const std::filesystem::path svgPath =
+      output / (inputBaseName + "." + engine + ".sweep.svg");
+  std::error_code error;
+  std::filesystem::remove(svgPath, error);
+  if (error)
+  {
+    std::fprintf(stderr, "Cannot replace sweep SVG %s: %s\n",
+                 svgPath.string().c_str(), error.message().c_str());
+    return false;
+  }
+
+  write_svg(svgPath.string().c_str(), visibleMoves, &originalMm, false, true,
+            diameterMm, false, true, false, inputBaseName.c_str(), radiusMm,
+            false, mcu ? "MCU" : "Host", mcu, UNITS_MM);
+  const uintmax_t svgSize = std::filesystem::file_size(svgPath, error);
+  if (error || svgSize == 0)
+  {
+    std::fprintf(stderr, "Failed writing sweep SVG %s%s%s\n",
+                 svgPath.string().c_str(), error ? ": " : "",
+                 error ? error.message().c_str() : "");
+    return false;
+  }
+  return true;
+}
+
 static size_t sweep_increment_count(const std::vector<SweepAttempt> &attempts)
 {
   return attempts.empty() ? 0 : attempts.size() - 1;
@@ -276,6 +322,8 @@ static int sweep_main(int argc, char *argv[], const char *const *defaultFiles, s
     files.push_back({input, comp_starts_in_inches(program), attempts});
     const double finalDiameter = attempts.back().success ? attempts.back().diameterIn :
                                  (attempts.size() > 1 ? attempts[attempts.size() - 2].diameterIn : 0.0);
+    if (finalDiameter > 0.0 && !sweep_write_svg(output, input, program, finalDiameter, mcu))
+      result = 1;
     std::printf("%s %s: final diameter %.9f in (%.9f mm), %zu attempts, %s\n",
                 mcu ? "MCU" : "Host", input.c_str(), finalDiameter, finalDiameter * 25.4,
                 attempts.size(), attempts.back().success ? "maximum reached" : "first error");

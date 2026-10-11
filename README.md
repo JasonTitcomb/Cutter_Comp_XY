@@ -111,6 +111,9 @@ attempts equal increments plus one (a complete sweep is 825 increments and
 826 attempts). A failure on the initial diameter
 reports **None**, not a successful zero diameter. The reported value is the last
 successful sampled diameter, not a binary-searched geometric limit.
+Each engine sweep also writes one `<input>.<engine>.sweep.svg` alongside its
+report, showing the input path and the compensated path at that file's last
+successful sampled diameter.
 
 Host and MCU lead-in crossing checks allow the entry and exit moves to share
 their exact return endpoint. The host, MCU and C# engines' nonparallel line intersections

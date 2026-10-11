@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CutterCompXY.Port")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9937d501b8f56c5e1640251535bf92f4dae5fec7")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+beaa3c51cd55d19afd06196600fa16940a869a92")]
 [assembly: System.Reflection.AssemblyProductAttribute("CutterCompXY.Port")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CutterCompXY.Port")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

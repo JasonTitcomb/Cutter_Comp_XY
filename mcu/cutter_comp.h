@@ -69,12 +69,12 @@ extern "C" {
 #define CC_LOOKAHEAD_CAP 8
 #endif
 
-#ifndef CC_PENDING_EVENT_CAP
-#define CC_PENDING_EVENT_CAP 3
-#endif
-
 #ifndef CC_LOOKAHEAD_STEPS
 #define CC_LOOKAHEAD_STEPS 4
+#endif
+
+#ifndef CC_PENDING_EVENT_CAP
+#define CC_PENDING_EVENT_CAP 3
 #endif
 
 #ifndef CC_LA_TARGET_BATCH_EMIT
